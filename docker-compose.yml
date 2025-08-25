@@ -1,0 +1,40 @@
+# Docker Compose para PostgreSQL
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: nota_fiscais_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nota_fiscais
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - nota_fiscais_network
+
+  # Opcional: pgAdmin para gerenciar o banco
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nota_fiscais_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@empresa.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - nota_fiscais_network
+
+volumes:
+  postgres_data:
+
+networks:
+  nota_fiscais_network:
+    driver: bridge

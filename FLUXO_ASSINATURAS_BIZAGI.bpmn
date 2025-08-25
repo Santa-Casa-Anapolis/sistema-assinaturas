@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Bizagi Studio" exporterVersion="4.0.0">
+  <bpmn:process id="Process_1" isExecutable="true" name="Fluxo de Assinaturas - Notas Fiscais">
+    <bpmn:startEvent id="StartEvent_1" name="Fornecedor Envia Nota Fiscal">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    
+    <bpmn:userTask id="UserTask_1" name="Upload do Documento">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:documentation>Fornecedor faz upload da nota fiscal com assinatura GOV.BR</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:exclusiveGateway id="Gateway_1" name="Documento Válido?">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Rejeitar</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:userTask id="UserTask_2" name="Supervisor Analisa e Assina">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+      <bpmn:documentation>Supervisor do setor responsável analisa e assina via GOV.BR</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:exclusiveGateway id="Gateway_2" name="Supervisor Aprovou?">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+      <bpmn:outgoing>Flow_RejeitarSupervisor</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:userTask id="UserTask_3" name="Contabilidade Analisa e Assina">
+      <bpmn:incoming>Flow_5</bpmn:incoming>
+      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+      <bpmn:documentation>Departamento de contabilidade analisa e assina</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:exclusiveGateway id="Gateway_3" name="Contabilidade Aprovou?">
+      <bpmn:incoming>Flow_6</bpmn:incoming>
+      <bpmn:outgoing>Flow_7</bpmn:outgoing>
+      <bpmn:outgoing>Flow_RejeitarContabilidade</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:userTask id="UserTask_4" name="Financeiro Analisa e Assina">
+      <bpmn:incoming>Flow_7</bpmn:incoming>
+      <bpmn:outgoing>Flow_8</bpmn:outgoing>
+      <bpmn:documentation>Departamento financeiro analisa e assina</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:exclusiveGateway id="Gateway_4" name="Financeiro Aprovou?">
+      <bpmn:incoming>Flow_8</bpmn:incoming>
+      <bpmn:outgoing>Flow_9</bpmn:outgoing>
+      <bpmn:outgoing>Flow_RejeitarFinanceiro</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:userTask id="UserTask_5" name="Diretoria Assina Final">
+      <bpmn:incoming>Flow_9</bpmn:incoming>
+      <bpmn:outgoing>Flow_10</bpmn:outgoing>
+      <bpmn:documentation>Diretoria faz assinatura final via GOV.BR</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:exclusiveGateway id="Gateway_5" name="Diretoria Aprovou?">
+      <bpmn:incoming>Flow_10</bpmn:incoming>
+      <bpmn:outgoing>Flow_11</bpmn:outgoing>
+      <bpmn:outgoing>Flow_RejeitarDiretoria</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    
+    <bpmn:serviceTask id="ServiceTask_1" name="Mover para Pasta de Rede">
+      <bpmn:incoming>Flow_11</bpmn:incoming>
+      <bpmn:outgoing>Flow_12</bpmn:outgoing>
+      <bpmn:documentation>Sistema move documento para pasta organizada por setor/ano/mês</bpmn:documentation>
+    </bpmn:serviceTask>
+    
+    <bpmn:serviceTask id="ServiceTask_2" name="Registrar Auditoria">
+      <bpmn:incoming>Flow_12</bpmn:incoming>
+      <bpmn:outgoing>Flow_13</bpmn:outgoing>
+      <bpmn:documentation>Sistema registra todas as ações no log de auditoria</bpmn:documentation>
+    </bpmn:serviceTask>
+    
+    <bpmn:endEvent id="EndEvent_1" name="Processo Concluído">
+      <bpmn:incoming>Flow_13</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <!-- Fluxos de Rejeição -->
+    <bpmn:userTask id="UserTask_Rejeitar" name="Notificar Rejeição">
+      <bpmn:incoming>Flow_Rejeitar</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndRejeitar</bpmn:outgoing>
+      <bpmn:documentation>Notificar fornecedor sobre rejeição do documento</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:endEvent id="EndEvent_Rejeitar" name="Processo Rejeitado">
+      <bpmn:incoming>Flow_EndRejeitar</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <!-- Fluxos de Rejeição por Setor -->
+    <bpmn:userTask id="UserTask_RejeitarSupervisor" name="Supervisor Rejeita">
+      <bpmn:incoming>Flow_RejeitarSupervisor</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndRejeitarSupervisor</bpmn:outgoing>
+      <bpmn:documentation>Supervisor rejeita documento com justificativa</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:endEvent id="EndEvent_RejeitarSupervisor" name="Rejeitado pelo Supervisor">
+      <bpmn:incoming>Flow_EndRejeitarSupervisor</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <bpmn:userTask id="UserTask_RejeitarContabilidade" name="Contabilidade Rejeita">
+      <bpmn:incoming>Flow_RejeitarContabilidade</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndRejeitarContabilidade</bpmn:outgoing>
+      <bpmn:documentation>Contabilidade rejeita documento com justificativa</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:endEvent id="EndEvent_RejeitarContabilidade" name="Rejeitado pela Contabilidade">
+      <bpmn:incoming>Flow_EndRejeitarContabilidade</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <bpmn:userTask id="UserTask_RejeitarFinanceiro" name="Financeiro Rejeita">
+      <bpmn:incoming>Flow_RejeitarFinanceiro</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndRejeitarFinanceiro</bpmn:outgoing>
+      <bpmn:documentation>Financeiro rejeita documento com justificativa</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:endEvent id="EndEvent_RejeitarFinanceiro" name="Rejeitado pelo Financeiro">
+      <bpmn:incoming>Flow_EndRejeitarFinanceiro</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <bpmn:userTask id="UserTask_RejeitarDiretoria" name="Diretoria Rejeita">
+      <bpmn:incoming>Flow_RejeitarDiretoria</bpmn:incoming>
+      <bpmn:outgoing>Flow_EndRejeitarDiretoria</bpmn:outgoing>
+      <bpmn:documentation>Diretoria rejeita documento com justificativa</bpmn:documentation>
+    </bpmn:userTask>
+    
+    <bpmn:endEvent id="EndEvent_RejeitarDiretoria" name="Rejeitado pela Diretoria">
+      <bpmn:incoming>Flow_EndRejeitarDiretoria</bpmn:incoming>
+    </bpmn:endEvent>
+    
+    <!-- Fluxos de Conexão -->
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="UserTask_1" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="UserTask_1" targetRef="Gateway_1" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_1" targetRef="UserTask_2" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="UserTask_2" targetRef="Gateway_2" />
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Gateway_2" targetRef="UserTask_3" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="UserTask_3" targetRef="Gateway_3" />
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Gateway_3" targetRef="UserTask_4" />
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="UserTask_4" targetRef="Gateway_4" />
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="Gateway_4" targetRef="UserTask_5" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="UserTask_5" targetRef="Gateway_5" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="Gateway_5" targetRef="ServiceTask_1" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="ServiceTask_1" targetRef="ServiceTask_2" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="ServiceTask_2" targetRef="EndEvent_1" />
+    
+    <!-- Fluxos de Rejeição -->
+    <bpmn:sequenceFlow id="Flow_Rejeitar" sourceRef="Gateway_1" targetRef="UserTask_Rejeitar" />
+    <bpmn:sequenceFlow id="Flow_EndRejeitar" sourceRef="UserTask_Rejeitar" targetRef="EndEvent_Rejeitar" />
+    <bpmn:sequenceFlow id="Flow_RejeitarSupervisor" sourceRef="Gateway_2" targetRef="UserTask_RejeitarSupervisor" />
+    <bpmn:sequenceFlow id="Flow_EndRejeitarSupervisor" sourceRef="UserTask_RejeitarSupervisor" targetRef="EndEvent_RejeitarSupervisor" />
+    <bpmn:sequenceFlow id="Flow_RejeitarContabilidade" sourceRef="Gateway_3" targetRef="UserTask_RejeitarContabilidade" />
+    <bpmn:sequenceFlow id="Flow_EndRejeitarContabilidade" sourceRef="UserTask_RejeitarContabilidade" targetRef="EndEvent_RejeitarContabilidade" />
+    <bpmn:sequenceFlow id="Flow_RejeitarFinanceiro" sourceRef="Gateway_4" targetRef="UserTask_RejeitarFinanceiro" />
+    <bpmn:sequenceFlow id="Flow_EndRejeitarFinanceiro" sourceRef="UserTask_RejeitarFinanceiro" targetRef="EndEvent_RejeitarFinanceiro" />
+    <bpmn:sequenceFlow id="Flow_RejeitarDiretoria" sourceRef="Gateway_5" targetRef="UserTask_RejeitarDiretoria" />
+    <bpmn:sequenceFlow id="Flow_EndRejeitarDiretoria" sourceRef="UserTask_RejeitarDiretoria" targetRef="EndEvent_RejeitarDiretoria" />
+  </bpmn:process>
+  
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <!-- Start Event -->
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="152" y="232" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="148" y="275" width="44" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Upload Task -->
+      <bpmndi:BPMNShape id="UserTask_1_di" bpmnElement="UserTask_1">
+        <dc:Bounds x="240" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="245" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Gateway 1 -->
+      <bpmndi:BPMNShape id="Gateway_1_di" bpmnElement="Gateway_1">
+        <dc:Bounds x="385" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="380" y="285" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Supervisor Task -->
+      <bpmndi:BPMNShape id="UserTask_2_di" bpmnElement="UserTask_2">
+        <dc:Bounds x="490" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="495" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Gateway 2 -->
+      <bpmndi:BPMNShape id="Gateway_2_di" bpmnElement="Gateway_2">
+        <dc:Bounds x="635" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="630" y="285" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Contabilidade Task -->
+      <bpmndi:BPMNShape id="UserTask_3_di" bpmnElement="UserTask_3">
+        <dc:Bounds x="740" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="745" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Gateway 3 -->
+      <bpmndi:BPMNShape id="Gateway_3_di" bpmnElement="Gateway_3">
+        <dc:Bounds x="885" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="880" y="285" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Financeiro Task -->
+      <bpmndi:BPMNShape id="UserTask_4_di" bpmnElement="UserTask_4">
+        <dc:Bounds x="990" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="995" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Gateway 4 -->
+      <bpmndi:BPMNShape id="Gateway_4_di" bpmnElement="Gateway_4">
+        <dc:Bounds x="1135" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1130" y="285" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Diretoria Task -->
+      <bpmndi:BPMNShape id="UserTask_5_di" bpmnElement="UserTask_5">
+        <dc:Bounds x="1240" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1245" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Gateway 5 -->
+      <bpmndi:BPMNShape id="Gateway_5_di" bpmnElement="Gateway_5">
+        <dc:Bounds x="1385" y="225" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1380" y="285" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Service Task 1 -->
+      <bpmndi:BPMNShape id="ServiceTask_1_di" bpmnElement="ServiceTask_1">
+        <dc:Bounds x="1490" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1495" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Service Task 2 -->
+      <bpmndi:BPMNShape id="ServiceTask_2_di" bpmnElement="ServiceTask_2">
+        <dc:Bounds x="1640" y="210" width="100" height="80" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1645" y="295" width="90" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- End Event -->
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
+        <dc:Bounds x="1792" y="232" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1788" y="275" width="44" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      
+      <!-- Sequence Flows -->
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="188" y="250" />
+        <di:waypoint x="240" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="340" y="250" />
+        <di:waypoint x="385" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="410" y="250" />
+        <di:waypoint x="490" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="590" y="250" />
+        <di:waypoint x="635" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="660" y="250" />
+        <di:waypoint x="740" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
+        <di:waypoint x="840" y="250" />
+        <di:waypoint x="885" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7">
+        <di:waypoint x="910" y="250" />
+        <di:waypoint x="990" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8">
+        <di:waypoint x="1090" y="250" />
+        <di:waypoint x="1135" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_9_di" bpmnElement="Flow_9">
+        <di:waypoint x="1160" y="250" />
+        <di:waypoint x="1240" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10">
+        <di:waypoint x="1340" y="250" />
+        <di:waypoint x="1385" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11">
+        <di:waypoint x="1410" y="250" />
+        <di:waypoint x="1490" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12">
+        <di:waypoint x="1590" y="250" />
+        <di:waypoint x="1640" y="250" />
+      </bpmndi:BPMNEdge>
+      
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13">
+        <di:waypoint x="1740" y="250" />
+        <di:waypoint x="1792" y="250" />
+      </bpmndi:BPMNEdge>
+      
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
