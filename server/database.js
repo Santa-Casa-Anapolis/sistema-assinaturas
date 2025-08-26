@@ -31,12 +31,14 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255),
         username VARCHAR(255) UNIQUE NOT NULL,
         role VARCHAR(100) NOT NULL,
         password VARCHAR(255) NOT NULL,
         gov_id VARCHAR(255),
         sector VARCHAR(100),
+        group_name VARCHAR(100),
+        function_type VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -49,6 +51,36 @@ async function initDatabase() {
       console.log('✅ Coluna username adicionada/verificada');
     } catch (error) {
       console.log('ℹ️ Coluna username já existe ou erro:', error.message);
+    }
+
+    // Remover constraint NOT NULL da coluna email se existir
+    try {
+      await pool.query(`
+        ALTER TABLE users ALTER COLUMN email DROP NOT NULL
+      `);
+      console.log('✅ Constraint NOT NULL removida da coluna email');
+    } catch (error) {
+      console.log('ℹ️ Constraint NOT NULL já removida ou erro:', error.message);
+    }
+
+    // Adicionar coluna group_name se não existir
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS group_name VARCHAR(100)
+      `);
+      console.log('✅ Coluna group_name adicionada/verificada');
+    } catch (error) {
+      console.log('ℹ️ Coluna group_name já existe ou erro:', error.message);
+    }
+
+    // Adicionar coluna function_type se não existir
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS function_type VARCHAR(100)
+      `);
+      console.log('✅ Coluna function_type adicionada/verificada');
+    } catch (error) {
+      console.log('ℹ️ Coluna function_type já existe ou erro:', error.message);
     }
 
     await pool.query(`
@@ -93,31 +125,55 @@ async function initDatabase() {
 
     // Inserir usuários padrão
     const defaultUsers = [
-      { name: 'Karla Souza', email: 'karla.souza@empresa.com', username: 'karla.souza', role: 'admin', password: '123456', sector: null },
-      { name: 'Fornecedor', email: 'fornecedor@empresa.com', username: 'fornecedor', role: 'fornecedor', password: '123456', sector: null },
-      { name: 'Supervisor TI', email: 'supervisor.ti@empresa.com', username: 'supervisor.ti', role: 'supervisor', password: '123456', sector: 'SETOR TECNOLOGIA DA INFORMAÇÃO' },
-      { name: 'Supervisor Contabilidade', email: 'supervisor.contabilidade@empresa.com', username: 'supervisor.contabilidade', role: 'supervisor', password: '123456', sector: 'SETOR CONTABILIDADE' },
-      { name: 'Supervisor Centro de Imagem', email: 'supervisor.imagem@empresa.com', username: 'supervisor.imagem', role: 'supervisor', password: '123456', sector: 'SETOR CENTRO DE IMAGEM' },
-      { name: 'Supervisor Centro Médico', email: 'supervisor.medico@empresa.com', username: 'supervisor.medico', role: 'supervisor', password: '123456', sector: 'SETOR CENTRO MEDICO' },
-      { name: 'Contabilidade', email: 'contabilidade@empresa.com', username: 'contabilidade', role: 'contabilidade', password: '123456', sector: null },
-      { name: 'Financeiro', email: 'financeiro@empresa.com', username: 'financeiro', role: 'financeiro', password: '123456', sector: null },
-      { name: 'Diretoria', email: 'diretoria@empresa.com', username: 'diretoria', role: 'diretoria', password: '123456', sector: null }
+      { name: 'Karla Souza', username: 'karla.souza', role: 'admin', password: '123456', sector: null, group: null, function_type: 'admin' },
+      { name: 'Fornecedor', username: 'fornecedor', role: 'fornecedor', password: '123456', sector: null, group: null, function_type: 'fornecedor' },
+      
+      // Usuários do ciclo de aprovação (apenas aprovam e assinam)
+      { name: 'Analista Contabilidade', username: 'analista.contabilidade', role: 'contabilidade', password: '123456', sector: null, group: 'GRUPO CONTABILIDADE', function_type: 'contabilidade' },
+      { name: 'Analista Financeiro', username: 'analista.financeiro', role: 'financeiro', password: '123456', sector: null, group: 'GRUPO FINANCEIRO', function_type: 'financeiro' },
+      { name: 'Diretor Executivo', username: 'diretor.executivo', role: 'diretoria', password: '123456', sector: null, group: 'GRUPO DIRETORIA', function_type: 'diretoria' },
+      
+      // Usuários antigos (mantidos para compatibilidade)
+      { name: 'Contabilidade', username: 'contabilidade', role: 'contabilidade', password: '123456', sector: null, group: 'GRUPO CONTABILIDADE', function_type: 'contabilidade' },
+      { name: 'Financeiro', username: 'financeiro', role: 'financeiro', password: '123456', sector: null, group: 'GRUPO FINANCEIRO', function_type: 'financeiro' },
+      { name: 'Diretoria', username: 'diretoria', role: 'diretoria', password: '123456', sector: null, group: 'GRUPO DIRETORIA', function_type: 'diretoria' }
     ];
 
+    // Criar tabela para controlar usuários excluídos
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deleted_users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     for (const user of defaultUsers) {
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash(user.password, 10);
+      // Verificar se o usuário foi excluído manualmente
+      const deletedUser = await pool.query('SELECT id FROM deleted_users WHERE username = $1', [user.username]);
       
-      await pool.query(`
-        INSERT INTO users (name, email, username, role, password, sector) 
-        VALUES ($1, $2, $3, $4, $5, $6) 
-        ON CONFLICT (email) DO UPDATE SET 
-          name = EXCLUDED.name,
-          username = EXCLUDED.username,
-          role = EXCLUDED.role,
-          password = EXCLUDED.password,
-          sector = EXCLUDED.sector
-      `, [user.name, user.email, user.username, user.role, hashedPassword, user.sector]);
+      if (deletedUser.rows.length > 0) {
+        console.log(`ℹ️ Usuário excluído manualmente, não recriando: ${user.username}`);
+        continue;
+      }
+
+      // Verificar se o usuário já existe
+      const existingUser = await pool.query('SELECT id FROM users WHERE username = $1', [user.username]);
+      
+      if (existingUser.rows.length === 0) {
+        // Usuário não existe, criar novo
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(user.password, 10);
+        
+        await pool.query(`
+          INSERT INTO users (name, username, role, password, sector, group_name, function_type) 
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `, [user.name, user.username, user.role, hashedPassword, user.sector, user.group, user.function_type]);
+        
+        console.log(`✅ Usuário criado: ${user.username}`);
+      } else {
+        console.log(`ℹ️ Usuário já existe: ${user.username}`);
+      }
     }
 
     console.log('✅ Usuários padrão criados/verificados');

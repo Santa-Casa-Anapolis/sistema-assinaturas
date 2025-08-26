@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    const result = await login(email, password); // email aqui é o username
+    const result = await login(username, password);
     
     if (result.success) {
       toast.success('Login realizado com sucesso!');
@@ -46,7 +46,7 @@ const Login = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
                 Usuário
               </label>
               <div className="mt-1 relative">
@@ -54,13 +54,13 @@ const Login = () => {
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  id="email"
-                  name="email"
+                  id="username"
+                  name="username"
                   type="text"
                   autoComplete="username"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="appearance-none relative block w-full pl-10 pr-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="usuario.nome.sobrenome"
                 />

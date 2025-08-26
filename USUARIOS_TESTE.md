@@ -1,92 +1,153 @@
-# 👥 Usuários para Teste do Sistema
+# 👥 Usuários de Teste - Sistema de Assinaturas
 
-## 🔐 Credenciais de Acesso
+## 🔐 **Login: Usuário + Senha**
 
-### **Administrador**
+O sistema agora usa apenas **username** e **senha** para login, sem necessidade de email.
+
+---
+
+## 📋 **Usuários Padrão do Sistema:**
+
+### **👨‍💼 Administrador:**
 - **Usuário**: `karla.souza`
 - **Senha**: `123456`
-- **Email**: `karla.souza@empresa.com`
-- **Função**: Administrador do sistema
+- **Nome**: Karla Souza
+- **Função**: Administrador
+- **Tipo de Função**: admin
+- **Setor/Grupo**: N/A
 
-### **Fornecedor**
+### **📤 Fornecedor:**
 - **Usuário**: `fornecedor`
 - **Senha**: `123456`
-- **Email**: `fornecedor@empresa.com`
-- **Função**: Pode enviar documentos para assinatura
+- **Nome**: Fornecedor
+- **Função**: Fornecedor
+- **Tipo de Função**: fornecedor
+- **Setor/Grupo**: N/A
 
-### **Supervisores (por Setor)**
+### **📊 Usuários do Ciclo de Aprovação:**
 
-#### **Tecnologia da Informação**
-- **Usuário**: `supervisor.ti`
+#### **Contabilidade:**
+- **Usuário**: `analista.contabilidade`
 - **Senha**: `123456`
-- **Email**: `supervisor.ti@empresa.com`
-- **Setor**: SETOR TECNOLOGIA DA INFORMAÇÃO
+- **Nome**: Analista Contabilidade
+- **Função**: Contabilidade
+- **Tipo de Função**: contabilidade
+- **Setor**: N/A
+- **Grupo**: GRUPO CONTABILIDADE
 
-#### **Contabilidade**
-- **Usuário**: `supervisor.contabilidade`
+#### **Financeiro:**
+- **Usuário**: `analista.financeiro`
 - **Senha**: `123456`
-- **Email**: `supervisor.contabilidade@empresa.com`
-- **Setor**: SETOR CONTABILIDADE
+- **Nome**: Analista Financeiro
+- **Função**: Financeiro
+- **Tipo de Função**: financeiro
+- **Setor**: N/A
+- **Grupo**: GRUPO FINANCEIRO
 
-#### **Centro de Imagem**
-- **Usuário**: `supervisor.imagem`
+#### **Diretoria:**
+- **Usuário**: `diretor.executivo`
 - **Senha**: `123456`
-- **Email**: `supervisor.imagem@empresa.com`
-- **Setor**: SETOR CENTRO DE IMAGEM
+- **Nome**: Diretor Executivo
+- **Função**: Diretoria
+- **Tipo de Função**: diretoria
+- **Setor**: N/A
+- **Grupo**: GRUPO DIRETORIA
 
-#### **Centro Médico**
-- **Usuário**: `supervisor.medico`
-- **Senha**: `123456`
-- **Email**: `supervisor.medico@empresa.com`
-- **Setor**: SETOR CENTRO MEDICO
+### **🔄 Usuários Antigos (Compatibilidade):**
 
-### **Departamentos**
-
-#### **Contabilidade**
+#### **Contabilidade:**
 - **Usuário**: `contabilidade`
 - **Senha**: `123456`
-- **Email**: `contabilidade@empresa.com`
-- **Função**: Assina documentos após supervisores
+- **Nome**: Contabilidade
+- **Função**: Contabilidade
+- **Tipo de Função**: contabilidade
+- **Setor**: N/A
+- **Grupo**: GRUPO CONTABILIDADE
 
-#### **Financeiro**
+#### **Financeiro:**
 - **Usuário**: `financeiro`
 - **Senha**: `123456`
-- **Email**: `financeiro@empresa.com`
-- **Função**: Assina documentos após contabilidade
+- **Nome**: Financeiro
+- **Função**: Financeiro
+- **Tipo de Função**: financeiro
+- **Setor**: N/A
+- **Grupo**: GRUPO FINANCEIRO
 
-#### **Diretoria**
+#### **Diretoria:**
 - **Usuário**: `diretoria`
 - **Senha**: `123456`
-- **Email**: `diretoria@empresa.com`
-- **Função**: Assinatura final dos documentos
+- **Nome**: Diretoria
+- **Função**: Diretoria
+- **Tipo de Função**: diretoria
+- **Setor**: N/A
+- **Grupo**: GRUPO DIRETORIA
 
-## 🔄 Fluxo de Assinatura
+---
+
+## 🎯 **Como Usar:**
+
+1. **Acesse**: http://localhost:3001
+2. **Digite** o **usuário** (ex: `karla.souza`)
+3. **Digite** a **senha** (ex: `123456`)
+4. **Clique** em "Entrar"
+
+---
+
+## 📝 **Observações:**
+
+- ✅ **Login simplificado**: Apenas username e senha
+- ✅ **Sem email**: Não é necessário usar email para login
+- ✅ **Nome completo**: Mantido separado para exibição
+- ✅ **Tipo de Função**: Define a etapa do fluxo (supervisor, contabilidade, financeiro, diretoria)
+- ✅ **Setor**: Define pasta de destino (apenas para supervisores)
+- ✅ **Grupos**: Organizam departamentos do processo de assinatura
+
+---
+
+## 🔧 **Para Administradores:**
+
+- **Adicionar usuários**: Use o painel administrativo
+- **Definir username**: Formato sugerido: `nome.sobrenome`
+- **Definir tipo de função**: supervisor, contabilidade, financeiro, diretoria
+- **Definir setor**: Para supervisores (define pasta de destino)
+- **Definir grupo**: Para departamentos (contabilidade, financeiro, diretoria)
+
+---
+
+## 📁 **Estrutura de Pastas:**
+
+### **Setores (Supervisores):**
+- `SETOR TECNOLOGIA DA INFORMAÇÃO/`
+- `SETOR CONTABILIDADE/`
+- `SETOR CENTRO DE IMAGEM/`
+- `SETOR CENTRO MEDICO/`
+- `SETOR FATURAMENTO/`
+- `SETOR RH/`
+- `SETOR COMPRAS/`
+
+### **Grupos (Departamentos):**
+- `GRUPO CONTABILIDADE/`
+- `GRUPO FINANCEIRO/`
+- `GRUPO DIRETORIA/`
+
+---
+
+## 🔄 **Fluxo de Aprovação:**
 
 1. **Fornecedor** → Envia documento
-2. **Supervisor** → Assina primeiro
-3. **Contabilidade** → Assina segundo
-4. **Financeiro** → Assina terceiro
-5. **Diretoria** → Assinatura final
+2. **Supervisor** → Aprova e define setor de destino
+3. **Contabilidade** → Analisa e assina
+4. **Financeiro** → Analisa e assina
+5. **Diretoria** → Aprovação final
+6. **Arquivo** → Movido para pasta do setor do supervisor
 
-## 📝 Como Testar
+---
 
-1. Acesse: `http://localhost:3001`
-2. Use qualquer usuário da lista acima
-3. Faça login com **usuário** (nome.sobrenome) e senha
-4. Teste o fluxo completo de assinaturas
+## 🏷️ **Tipos de Função:**
 
-## ⚠️ Observações
-
-- Todos os usuários usam senha padrão: `123456`
-- **Login**: Use o campo `usuário` (formato: `nome.sobrenome`)
-- **Email**: Mantido no banco para notificações e identificação
-- Documentos são movidos automaticamente para pasta de rede após conclusão
-- Sistema funciona em modo sem email (notificações no console)
-
-## 🆕 Novos Supervisores
-
-Quando criar novos supervisores via admin:
-- **Nome**: Nome completo (ex: "João Silva")
-- **Email**: Email real (ex: "joao.silva@empresa.com")
-- **Username**: Gerado automaticamente (ex: "joão.silva")
-- **Setor**: Selecionado no dropdown
+- **supervisor**: Inicia processo e define pasta de destino
+- **contabilidade**: Analisa e assina documentos
+- **financeiro**: Analisa e assina documentos
+- **diretoria**: Aprovação final
+- **admin**: Administração do sistema
+- **fornecedor**: Envia documentos

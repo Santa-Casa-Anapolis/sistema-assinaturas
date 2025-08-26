@@ -133,15 +133,15 @@ const { connectToAD, authenticateUser, disconnectFromAD } = require('./ad-config
           const adUser = await authenticateUser(username, password);
           
           // Verificar se o usuário já existe no banco local
-          const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [adUser.email]);
+          const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [adUser.username]);
           
           if (existingUser.rows.length > 0) {
             // Atualizar apenas nome do usuário (role e setor ficam como estão)
             await pool.query(`
               UPDATE users 
               SET name = $1 
-              WHERE email = $2
-            `, [adUser.name, adUser.email]);
+              WHERE username = $2
+            `, [adUser.name, adUser.username]);
             
             user = { ...existingUser.rows[0], name: adUser.name };
           } else {
@@ -158,7 +158,7 @@ const { connectToAD, authenticateUser, disconnectFromAD } = require('./ad-config
           return res.status(401).json({ error: 'Falha na autenticação com o Active Directory' });
         }
       } else {
-        // Autenticação local (padrão)
+        // Autenticação local (padrão) - apenas username e senha
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
         user = result.rows[0];
 
@@ -177,7 +177,7 @@ const { connectToAD, authenticateUser, disconnectFromAD } = require('./ad-config
 
     // Gerar token JWT
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '24h' }
     );
@@ -190,7 +190,7 @@ const { connectToAD, authenticateUser, disconnectFromAD } = require('./ad-config
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
+        username: user.username,
         role: user.role,
         sector: user.sector
       }
@@ -604,17 +604,34 @@ app.delete('/api/admin/supervisors/:id', authenticateToken, async (req, res) => 
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-         const result = await pool.query(`
-       DELETE FROM users 
-       WHERE id = $1 AND role = 'supervisor' 
-       RETURNING id, name, email, username, sector
-     `, [id]);
+    // Primeiro, buscar o usuário para obter o username
+    const userResult = await pool.query(`
+      SELECT id, name, email, username, sector 
+      FROM users 
+      WHERE id = $1 AND role = 'supervisor'
+    `, [id]);
 
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'Supervisor não encontrado' });
     }
 
-    await logAudit(req.user.id, 'SUPERVISOR_DELETED', null, `Supervisor removido: ${result.rows[0].name}`, req.ip);
+    const user = userResult.rows[0];
+
+    // Registrar na tabela de usuários excluídos
+    await pool.query(`
+      INSERT INTO deleted_users (username) 
+      VALUES ($1) 
+      ON CONFLICT (username) DO NOTHING
+    `, [user.username]);
+
+    // Excluir o usuário
+    const result = await pool.query(`
+      DELETE FROM users 
+      WHERE id = $1 AND role = 'supervisor' 
+      RETURNING id, name, email, username, sector
+    `, [id]);
+
+    await logAudit(req.user.id, 'SUPERVISOR_DELETED', null, `Supervisor removido: ${user.name} (${user.username})`, req.ip);
 
     res.json({ message: 'Supervisor removido com sucesso' });
   } catch (error) {
