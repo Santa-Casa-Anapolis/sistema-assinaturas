@@ -132,7 +132,14 @@ const AuditLog = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Título
             </label>
-            <p className="text-sm text-gray-900">{document.title}</p>
+            <p className="text-sm text-gray-900">
+              {document.title}
+              {document.supplier_name && (
+                <span className="block text-xs text-gray-500 mt-1">
+                  Fornecedor: {document.supplier_name}
+                </span>
+              )}
+            </p>
           </div>
           
           <div>

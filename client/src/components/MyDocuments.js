@@ -136,6 +136,11 @@ const MyDocuments = () => {
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900 mb-1">
                         {doc.title}
+                        {doc.supplier_name && (
+                          <span className="block text-xs text-gray-500 mt-1">
+                            Fornecedor: {doc.supplier_name}
+                          </span>
+                        )}
                       </h3>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <span>Arquivo: {doc.original_filename}</span>

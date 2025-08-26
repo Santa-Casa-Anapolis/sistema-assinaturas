@@ -26,16 +26,8 @@ const DocumentSign = () => {
 
   const fetchDocument = async () => {
     try {
-      const response = await axios.get(`/api/documents/pending`);
-      const doc = response.data.find(d => d.id == id);
-      
-      if (!doc) {
-        toast.error('Documento não encontrado ou não autorizado para assinatura');
-        navigate('/pending');
-        return;
-      }
-      
-      setDocument(doc);
+      const response = await axios.get(`/api/documents/${id}`);
+      setDocument(response.data);
     } catch (error) {
       toast.error('Erro ao carregar documento');
       navigate('/pending');
@@ -148,7 +140,14 @@ const DocumentSign = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Título
                 </label>
-                <p className="text-sm text-gray-900">{document.title}</p>
+                <p className="text-sm text-gray-900">
+                  {document.title}
+                  {document.supplier_name && (
+                    <span className="block text-xs text-gray-500 mt-1">
+                      Fornecedor: {document.supplier_name}
+                    </span>
+                  )}
+                </p>
               </div>
               
               <div>

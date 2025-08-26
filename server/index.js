@@ -267,9 +267,11 @@ app.post('/api/documents/upload', authenticateToken, upload.single('document'), 
 app.get('/api/documents/pending', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT d.*, sf.order_index, sf.status as signature_status
+      SELECT d.*, sf.order_index, sf.status as signature_status,
+             u.name as supplier_name
       FROM documents d
       JOIN signature_flow sf ON d.id = sf.document_id
+      JOIN users u ON d.created_by = u.id
       WHERE sf.user_id = $1 AND sf.status = 'pending'
       ORDER BY sf.order_index ASC
     `, [req.user.id]);
@@ -288,11 +290,13 @@ app.get('/api/documents/my-documents', authenticateToken, async (req, res) => {
     const result = await pool.query(`
       SELECT d.*, 
              COUNT(sf.id) as total_signers,
-             COUNT(CASE WHEN sf.status = 'signed' THEN 1 END) as signed_count
+             COUNT(CASE WHEN sf.status = 'signed' THEN 1 END) as signed_count,
+             u.name as supplier_name
       FROM documents d
       LEFT JOIN signature_flow sf ON d.id = sf.document_id
+      JOIN users u ON d.created_by = u.id
       WHERE d.created_by = $1
-      GROUP BY d.id
+      GROUP BY d.id, u.name
       ORDER BY d.created_at DESC
     `, [req.user.id]);
     const documents = result.rows;
@@ -312,9 +316,10 @@ app.post('/api/documents/:id/sign', authenticateToken, async (req, res) => {
 
     // Verificar se é a vez do usuário assinar
     const signatureFlowResult = await pool.query(`
-      SELECT sf.*, d.title 
+      SELECT sf.*, d.title, u.name as supplier_name
       FROM signature_flow sf
       JOIN documents d ON sf.document_id = d.id
+      JOIN users u ON d.created_by = u.id
       WHERE sf.document_id = $1 AND sf.user_id = $2 AND sf.status = 'pending'
       ORDER BY sf.order_index ASC
       LIMIT 1
@@ -366,6 +371,30 @@ app.post('/api/documents/:id/sign', authenticateToken, async (req, res) => {
     res.json({ message: 'Documento assinado com sucesso' });
   } catch (error) {
     console.error('Erro ao assinar documento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Buscar informações de um documento específico
+app.get('/api/documents/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(`
+      SELECT d.*, u.name as supplier_name
+      FROM documents d
+      JOIN users u ON d.created_by = u.id
+      WHERE d.id = $1
+    `, [id]);
+    const document = result.rows[0];
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    res.json(document);
+  } catch (error) {
+    console.error('Erro ao buscar documento:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
