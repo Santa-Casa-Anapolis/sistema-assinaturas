@@ -37,7 +37,7 @@ async function startServer() {
     // Iniciar servidor após inicializar o banco
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`📱 Frontend: http://localhost:3001`);
+      console.log(`📱 Frontend: http://localhost:3000`);
       console.log(`🔧 Backend: http://localhost:${PORT}`);
     });
   } catch (error) {
@@ -714,6 +714,429 @@ app.get('/api/admin/ad-users', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
+
+// ==================== ROTAS DE ADMINISTRAÇÃO ====================
+
+// Middleware para verificar se é admin
+const requireAdmin = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const result = await pool.query('SELECT is_admin FROM users WHERE id = ?', [userId]);
+    
+    if (result.rows.length === 0 || !result.rows[0].is_admin) {
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Erro ao verificar permissões de admin:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+// Buscar todos os usuários (apenas admin)
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.*, g.name as group_name, g.id as group_id
+      FROM users u
+      LEFT JOIN user_groups ug ON u.id = ug.user_id
+      LEFT JOIN access_groups g ON ug.group_id = g.id
+      ORDER BY u.created_at DESC
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao buscar usuários:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Criar novo usuário (apenas admin)
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { name, email, username, role, password, sector, group_name } = req.body;
+    
+    // Verificar se usuário já existe
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Usuário já existe' });
+    }
+    
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Criar usuário
+    const result = await pool.query(`
+      INSERT INTO users (name, email, username, role, password, sector, group_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [name, email, username, role, hashedPassword, sector, group_name]);
+    
+    res.json({ 
+      message: 'Usuário criado com sucesso',
+      userId: result.lastID 
+    });
+  } catch (error) {
+    console.error('Erro ao criar usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Buscar todos os grupos (apenas admin)
+app.get('/api/admin/groups', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM access_groups ORDER BY name');
+    
+    // Parse das permissões JSON
+    const groups = result.rows.map(group => ({
+      ...group,
+      permissions: JSON.parse(group.permissions || '[]')
+    }));
+    
+    res.json(groups);
+  } catch (error) {
+    console.error('Erro ao buscar grupos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Criar novo grupo (apenas admin)
+app.post('/api/admin/groups', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { name, description, permissions } = req.body;
+    
+    // Verificar se grupo já existe
+    const existingGroup = await pool.query('SELECT id FROM access_groups WHERE name = ?', [name]);
+    if (existingGroup.rows.length > 0) {
+      return res.status(400).json({ error: 'Grupo já existe' });
+    }
+    
+    // Criar grupo
+    const result = await pool.query(`
+      INSERT INTO access_groups (name, description, permissions)
+      VALUES (?, ?, ?)
+    `, [name, description, JSON.stringify(permissions)]);
+    
+    res.json({ 
+      message: 'Grupo criado com sucesso',
+      groupId: result.lastID 
+    });
+  } catch (error) {
+    console.error('Erro ao criar grupo:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Atribuir usuário a grupo (apenas admin)
+app.post('/api/admin/assign-group', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId, groupId } = req.body;
+    const assignedBy = req.user.id;
+    
+    // Remover associações anteriores do usuário
+    await pool.query('DELETE FROM user_groups WHERE user_id = ?', [userId]);
+    
+    // Adicionar nova associação
+    await pool.query(`
+      INSERT INTO user_groups (user_id, group_id, assigned_by)
+      VALUES (?, ?, ?)
+    `, [userId, groupId, assignedBy]);
+    
+    res.json({ message: 'Usuário atribuído ao grupo com sucesso' });
+  } catch (error) {
+    console.error('Erro ao atribuir usuário ao grupo:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// ==================== ROTAS DE DOCUMENTOS ====================
+
+// Buscar documentos do usuário
+app.get('/api/documents', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const userSector = req.user.sector;
+
+    let query = `
+      SELECT d.*, u.name as created_by_name, s.name as supervisor_name
+      FROM documents d
+      LEFT JOIN users u ON d.created_by = u.id
+      LEFT JOIN users s ON d.supervisor_id = s.id
+    `;
+    
+    let params = [];
+
+    // Filtrar por permissões do usuário
+    if (userRole === 'supervisor') {
+      query += ' WHERE d.sector = ?';
+      params.push(userSector);
+    } else if (['contabilidade', 'financeiro', 'diretoria'].includes(userRole)) {
+      // Esses roles podem ver todos os documentos
+      query += ' WHERE 1=1';
+    } else {
+      query += ' WHERE d.created_by = ?';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY d.created_at DESC';
+
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao buscar documentos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Criar novo documento
+app.post('/api/documents', authenticateToken, upload.single('document'), async (req, res) => {
+  try {
+    const { title, description, amount, sector } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Arquivo é obrigatório' });
+    }
+
+    // Apenas supervisores podem criar documentos
+    if (userRole !== 'supervisor') {
+      return res.status(403).json({ error: 'Apenas supervisores podem criar documentos' });
+    }
+
+    const result = await pool.query(`
+      INSERT INTO documents (title, description, file_path, original_filename, file_size, mime_type, created_by, supervisor_id, sector, amount, current_stage)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'contabilidade')
+    `, [
+      title,
+      description,
+      req.file.path,
+      req.file.originalname,
+      req.file.size,
+      req.file.mimetype,
+      userId,
+      userId,
+      sector || req.user.sector,
+      amount || 0
+    ]);
+
+    res.json({ 
+      message: 'Documento criado com sucesso',
+      documentId: result.lastID 
+    });
+  } catch (error) {
+    console.error('Erro ao criar documento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Aprovar/Reprovar documento
+app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
+  try {
+    const documentId = req.params.id;
+    const { action, comments, govSignatureId } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Buscar documento
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = ?', [documentId]);
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    const document = docResult.rows[0];
+
+    // Verificar se o usuário pode aprovar neste estágio
+    const canApprove = (
+      (document.current_stage === 'contabilidade' && userRole === 'contabilidade') ||
+      (document.current_stage === 'financeiro' && userRole === 'financeiro') ||
+      (document.current_stage === 'diretoria' && userRole === 'diretoria')
+    );
+
+    if (!canApprove) {
+      return res.status(403).json({ error: 'Usuário não pode aprovar neste estágio' });
+    }
+
+    // Registrar aprovação
+    await pool.query(`
+      INSERT INTO document_approvals (document_id, user_id, stage, action, comments, gov_signature_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [documentId, userId, document.current_stage, action, comments, govSignatureId]);
+
+    if (action === 'reject') {
+      // Se rejeitado, volta para o supervisor
+      await pool.query(`
+        UPDATE documents 
+        SET current_stage = 'rejected', status = 'rejected', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [documentId]);
+    } else {
+      // Se aprovado, avança para o próximo estágio
+      let nextStage = '';
+      if (document.current_stage === 'contabilidade') {
+        nextStage = 'financeiro';
+      } else if (document.current_stage === 'financeiro') {
+        nextStage = 'diretoria';
+      } else if (document.current_stage === 'diretoria') {
+        nextStage = 'payment';
+        await pool.query(`
+          UPDATE documents 
+          SET current_stage = ?, status = 'approved', final_approval_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `, [nextStage, documentId]);
+      } else {
+        await pool.query(`
+          UPDATE documents 
+          SET current_stage = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `, [nextStage, documentId]);
+      }
+    }
+
+    res.json({ message: 'Documento processado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao processar documento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Processar pagamento
+app.post('/api/documents/:id/payment', authenticateToken, upload.single('paymentProof'), async (req, res) => {
+  try {
+    const documentId = req.params.id;
+    const { paymentDate } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (userRole !== 'financeiro') {
+      return res.status(403).json({ error: 'Apenas usuários do financeiro podem processar pagamentos' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'Comprovante de pagamento é obrigatório' });
+    }
+
+    // Buscar documento
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = ?', [documentId]);
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    const document = docResult.rows[0];
+
+    if (document.current_stage !== 'payment') {
+      return res.status(400).json({ error: 'Documento não está aguardando pagamento' });
+    }
+
+    // Atualizar documento com pagamento
+    await pool.query(`
+      UPDATE documents 
+      SET payment_proof_path = ?, payment_date = ?, payment_status = 'completed', current_stage = 'completed', status = 'completed', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [req.file.path, paymentDate, documentId]);
+
+    // Registrar pagamento
+    await pool.query(`
+      INSERT INTO document_approvals (document_id, user_id, stage, action, comments)
+      VALUES (?, ?, 'payment', 'completed', 'Pagamento processado com sucesso')
+    `, [documentId, userId]);
+
+    // Mover arquivos para pasta de rede
+    await moveDocumentToNetworkFolder(document);
+
+    res.json({ message: 'Pagamento processado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao processar pagamento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Download de documento
+app.get('/api/documents/:id/download', authenticateToken, async (req, res) => {
+  try {
+    const documentId = req.params.id;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const userSector = req.user.sector;
+
+    // Buscar documento
+    const result = await pool.query('SELECT * FROM documents WHERE id = ?', [documentId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    const document = result.rows[0];
+
+    // Verificar permissões
+    const canView = (
+      document.created_by === userId || // Criador do documento
+      (userRole === 'supervisor' && document.sector === userSector) || // Supervisor do setor
+      ['contabilidade', 'financeiro', 'diretoria'].includes(userRole) // Outros roles com permissão
+    );
+
+    if (!canView) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Verificar se arquivo existe
+    const fs = require('fs');
+    if (!fs.existsSync(document.file_path)) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+
+    // Enviar arquivo
+    res.download(document.file_path, document.original_filename);
+  } catch (error) {
+    console.error('Erro ao baixar documento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Função para mover documento para pasta de rede
+async function moveDocumentToNetworkFolder(document) {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const currentYear = new Date().getFullYear();
+    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+    
+    // Caminho da pasta do setor
+    const sectorFolder = `Y:\\${document.sector}\\3. Sistemas\\Karla\\Contabilidade`;
+    const yearFolder = path.join(sectorFolder, currentYear.toString());
+    const monthFolder = path.join(yearFolder, currentMonth);
+    
+    // Criar pastas se não existirem
+    if (!fs.existsSync(sectorFolder)) {
+      fs.mkdirSync(sectorFolder, { recursive: true });
+    }
+    if (!fs.existsSync(yearFolder)) {
+      fs.mkdirSync(yearFolder, { recursive: true });
+    }
+    if (!fs.existsSync(monthFolder)) {
+      fs.mkdirSync(monthFolder, { recursive: true });
+    }
+    
+    // Nome do arquivo final
+    const finalFileName = `${document.id}_${document.original_filename}`;
+    const finalPath = path.join(monthFolder, finalFileName);
+    
+    // Copiar arquivo
+    fs.copyFileSync(document.file_path, finalPath);
+    
+    // Se há comprovante de pagamento, copiar também
+    if (document.payment_proof_path) {
+      const paymentFileName = `${document.id}_comprovante_${path.basename(document.payment_proof_path)}`;
+      const paymentFinalPath = path.join(monthFolder, paymentFileName);
+      fs.copyFileSync(document.payment_proof_path, paymentFinalPath);
+    }
+    
+    console.log(`✅ Documento ${document.id} movido para pasta de rede: ${monthFolder}`);
+  } catch (error) {
+    console.error('Erro ao mover documento para pasta de rede:', error);
+  }
+}
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

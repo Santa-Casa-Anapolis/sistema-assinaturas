@@ -5,8 +5,8 @@ require('dotenv').config();
 const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'nota_fiscais',
-  password: process.env.DB_PASSWORD || 'postgres',
+  database: process.env.DB_NAME || 'notasfiscais_db',
+  password: process.env.DB_PASSWORD || '2025SantaCasaFD',
   port: process.env.DB_PORT || 5432,
   // Configurações de pool
   max: 20, // máximo de conexões no pool
@@ -39,6 +39,7 @@ async function initDatabase() {
         sector VARCHAR(100),
         group_name VARCHAR(100),
         function_type VARCHAR(100),
+        is_admin INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -48,174 +49,248 @@ async function initDatabase() {
       await pool.query(`
         ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE
       `);
-      console.log('✅ Coluna username adicionada/verificada');
-    } catch (error) {
-      console.log('ℹ️ Coluna username já existe ou erro:', error.message);
+    } catch (err) {
+      // Coluna já existe, ignorar erro
     }
 
-    // Remover constraint NOT NULL da coluna email se existir
+    // Adicionar coluna is_admin se não existir
     try {
       await pool.query(`
-        ALTER TABLE users ALTER COLUMN email DROP NOT NULL
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin INTEGER DEFAULT 0
       `);
-      console.log('✅ Constraint NOT NULL removida da coluna email');
-    } catch (error) {
-      console.log('ℹ️ Constraint NOT NULL já removida ou erro:', error.message);
+    } catch (err) {
+      // Coluna já existe, ignorar erro
     }
 
-    // Adicionar coluna group_name se não existir
-    try {
-      await pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS group_name VARCHAR(100)
-      `);
-      console.log('✅ Coluna group_name adicionada/verificada');
-    } catch (error) {
-      console.log('ℹ️ Coluna group_name já existe ou erro:', error.message);
-    }
+    // Criar tabela de grupos de acesso
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS access_groups (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        permissions TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // Adicionar coluna function_type se não existir
-    try {
-      await pool.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS function_type VARCHAR(100)
-      `);
-      console.log('✅ Coluna function_type adicionada/verificada');
-    } catch (error) {
-      console.log('ℹ️ Coluna function_type já existe ou erro:', error.message);
-    }
+    // Criar tabela de associação usuário-grupo
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_groups (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        group_id INTEGER,
+        assigned_by INTEGER,
+        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (group_id) REFERENCES access_groups (id),
+        FOREIGN KEY (assigned_by) REFERENCES users (id)
+      )
+    `);
 
+    // Criar tabela de documentos
     await pool.query(`
       CREATE TABLE IF NOT EXISTS documents (
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
-        filename VARCHAR(255) NOT NULL,
+        description TEXT,
+        file_path VARCHAR(500) NOT NULL,
         original_filename VARCHAR(255) NOT NULL,
+        file_size INTEGER,
+        mime_type VARCHAR(100),
         status VARCHAR(50) DEFAULT 'pending',
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        current_stage VARCHAR(50) DEFAULT 'contabilidade',
+        created_by INTEGER NOT NULL,
+        supervisor_id INTEGER,
+        sector VARCHAR(100),
+        amount DECIMAL(10,2),
+        payment_proof_path VARCHAR(500),
+        payment_date TIMESTAMP,
+        payment_status VARCHAR(50) DEFAULT 'pending',
+        final_approval_date TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users (id),
+        FOREIGN KEY (supervisor_id) REFERENCES users (id)
       )
     `);
 
+    // Criar tabela de histórico de aprovações
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS signature_flow (
+      CREATE TABLE IF NOT EXISTS document_approvals (
         id SERIAL PRIMARY KEY,
-        document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(id),
-        order_index INTEGER NOT NULL,
-        status VARCHAR(50) DEFAULT 'pending',
-        signed_at TIMESTAMP,
-        signature_data TEXT,
-        ip_address VARCHAR(45),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        document_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        stage VARCHAR(50) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        comments TEXT,
+        gov_signature_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (document_id) REFERENCES documents (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);
 
+    // Criar tabela de setores
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS audit_log (
+      CREATE TABLE IF NOT EXISTS sectors (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        action VARCHAR(100) NOT NULL,
-        document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
-        details TEXT,
-        ip_address VARCHAR(45),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        name VARCHAR(255) NOT NULL UNIQUE,
+        folder_path VARCHAR(500) NOT NULL,
+        supervisor_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (supervisor_id) REFERENCES users (id)
       )
     `);
 
-    console.log('✅ Tabelas criadas/verificadas com sucesso');
-
-    // Inserir usuários padrão
-    const defaultUsers = [
-      { name: 'Karla Souza', username: 'karla.souza', role: 'admin', password: '123456', sector: null, group: null, function_type: 'admin' },
-      { name: 'Fornecedor', username: 'fornecedor', role: 'fornecedor', password: '123456', sector: null, group: null, function_type: 'fornecedor' },
+    // Verificar se já existem usuários
+    const userCount = await pool.query('SELECT COUNT(*) FROM users');
+    
+    if (userCount.rows[0].count === '0') {
+      console.log('✅ Criando usuários e grupos padrão...');
       
-      // Usuários do ciclo de aprovação (apenas aprovam e assinam)
-      { name: 'Analista Contabilidade', username: 'analista.contabilidade', role: 'contabilidade', password: '123456', sector: null, group: 'GRUPO CONTABILIDADE', function_type: 'contabilidade' },
-      { name: 'Analista Financeiro', username: 'analista.financeiro', role: 'financeiro', password: '123456', sector: null, group: 'GRUPO FINANCEIRO', function_type: 'financeiro' },
-      { name: 'Diretor Executivo', username: 'diretor.executivo', role: 'diretoria', password: '123456', sector: null, group: 'GRUPO DIRETORIA', function_type: 'diretoria' },
-      
-      // Usuários antigos (mantidos para compatibilidade)
-      { name: 'Contabilidade', username: 'contabilidade', role: 'contabilidade', password: '123456', sector: null, group: 'GRUPO CONTABILIDADE', function_type: 'contabilidade' },
-      { name: 'Financeiro', username: 'financeiro', role: 'financeiro', password: '123456', sector: null, group: 'GRUPO FINANCEIRO', function_type: 'financeiro' },
-      { name: 'Diretoria', username: 'diretoria', role: 'diretoria', password: '123456', sector: null, group: 'GRUPO DIRETORIA', function_type: 'diretoria' }
-    ];
+      // Criar usuários de teste
+      const bcrypt = require('bcryptjs');
+      const users = [
+        {
+          name: 'Administrador Sistema',
+          email: 'admin@empresa.com',
+          username: 'admin@empresa.com',
+          role: 'admin',
+          password: await bcrypt.hash('admin123', 10),
+          sector: 'Administração',
+          is_admin: 1
+        },
+        {
+          name: 'Supervisor Setor A',
+          email: 'supervisor.setora@empresa.com',
+          username: 'supervisor.setora@empresa.com',
+          role: 'supervisor',
+          password: await bcrypt.hash('123456', 10),
+          sector: 'TECNOLOGIA DA INFORMAÇÃO'
+        },
+        {
+          name: 'Contabilidade',
+          email: 'contabilidade@empresa.com',
+          username: 'contabilidade@empresa.com',
+          role: 'contabilidade',
+          password: await bcrypt.hash('123456', 10),
+          sector: 'Financeiro'
+        },
+        {
+          name: 'Financeiro',
+          email: 'financeiro@empresa.com',
+          username: 'financeiro@empresa.com',
+          role: 'financeiro',
+          password: await bcrypt.hash('123456', 10),
+          sector: 'Financeiro'
+        },
+        {
+          name: 'Diretoria',
+          email: 'diretoria@empresa.com',
+          username: 'diretoria@empresa.com',
+          role: 'diretoria',
+          password: await bcrypt.hash('123456', 10),
+          sector: 'Diretoria'
+        }
+      ];
 
-    // Criar tabela para controlar usuários excluídos
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS deleted_users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    for (const user of defaultUsers) {
-      // Verificar se o usuário foi excluído manualmente
-      const deletedUser = await pool.query('SELECT id FROM deleted_users WHERE username = $1', [user.username]);
-      
-      if (deletedUser.rows.length > 0) {
-        console.log(`ℹ️ Usuário excluído manualmente, não recriando: ${user.username}`);
-        continue;
+      // Inserir usuários de teste
+      for (const user of users) {
+        try {
+          await pool.query(`
+            INSERT INTO users (name, email, username, role, password, sector, is_admin)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `, [user.name, user.email, user.username, user.role, user.password, user.sector, user.is_admin || 0]);
+        } catch (err) {
+          console.log(`Usuário ${user.email} já existe ou erro:`, err.message);
+        }
       }
 
-      // Verificar se o usuário já existe
-      const existingUser = await pool.query('SELECT id FROM users WHERE username = $1', [user.username]);
-      
-      if (existingUser.rows.length === 0) {
-        // Usuário não existe, criar novo
-        const bcrypt = require('bcryptjs');
-        const hashedPassword = await bcrypt.hash(user.password, 10);
-        
-        await pool.query(`
-          INSERT INTO users (name, username, role, password, sector, group_name, function_type) 
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `, [user.name, user.username, user.role, hashedPassword, user.sector, user.group, user.function_type]);
-        
-        console.log(`✅ Usuário criado: ${user.username}`);
-      } else {
-        console.log(`ℹ️ Usuário já existe: ${user.username}`);
+      // Criar grupos de acesso padrão (apenas usuários internos)
+      const defaultGroups = [
+        {
+          name: 'Operacional',
+          description: 'Grupo para funcionários operacionais',
+          permissions: JSON.stringify(['upload_document', 'view_own_documents', 'view_sector_documents'])
+        },
+        {
+          name: 'Supervisores',
+          description: 'Grupo para supervisores de setor',
+          permissions: JSON.stringify(['review_documents', 'approve_documents', 'view_sector_documents', 'manage_sector_users'])
+        },
+        {
+          name: 'Contabilidade',
+          description: 'Grupo para área contábil',
+          permissions: JSON.stringify(['review_documents', 'approve_documents', 'view_all_documents', 'financial_approval', 'audit_documents'])
+        },
+        {
+          name: 'Financeiro',
+          description: 'Grupo para área financeira',
+          permissions: JSON.stringify(['review_documents', 'approve_documents', 'view_all_documents', 'payment_approval', 'budget_approval'])
+        },
+        {
+          name: 'Diretoria',
+          description: 'Grupo para diretoria executiva',
+          permissions: JSON.stringify(['review_documents', 'approve_documents', 'view_all_documents', 'final_approval', 'admin_access', 'strategic_approval'])
+        }
+      ];
+
+      for (const group of defaultGroups) {
+        try {
+          await pool.query(`
+            INSERT INTO access_groups (name, description, permissions)
+            VALUES ($1, $2, $3)
+          `, [group.name, group.description, group.permissions]);
+        } catch (err) {
+          console.log(`Grupo ${group.name} já existe ou erro:`, err.message);
+        }
       }
+
+      // Criar setores padrão
+      const defaultSectors = [
+        {
+          name: 'TECNOLOGIA DA INFORMAÇÃO',
+          folder_path: 'Y:\\TECNOLOGIA DA INFORMAÇÃO\\3. Sistemas\\Karla\\Contabilidade'
+        },
+        {
+          name: 'RECURSOS HUMANOS',
+          folder_path: 'Y:\\RECURSOS HUMANOS\\3. Sistemas\\Karla\\Contabilidade'
+        },
+        {
+          name: 'FINANCEIRO',
+          folder_path: 'Y:\\FINANCEIRO\\3. Sistemas\\Karla\\Contabilidade'
+        },
+        {
+          name: 'COMERCIAL',
+          folder_path: 'Y:\\COMERCIAL\\3. Sistemas\\Karla\\Contabilidade'
+        },
+        {
+          name: 'OPERACIONAL',
+          folder_path: 'Y:\\OPERACIONAL\\3. Sistemas\\Karla\\Contabilidade'
+        }
+      ];
+
+      for (const sector of defaultSectors) {
+        try {
+          await pool.query(`
+            INSERT INTO sectors (name, folder_path)
+            VALUES ($1, $2)
+          `, [sector.name, sector.folder_path]);
+        } catch (err) {
+          console.log(`Setor ${sector.name} já existe ou erro:`, err.message);
+        }
+      }
+
+      console.log('✅ Usuários, grupos e setores criados com sucesso!');
+    } else {
+      console.log('✅ Banco de dados já inicializado com dados.');
     }
 
-    console.log('✅ Usuários padrão criados/verificados');
-
+    return pool;
   } catch (error) {
     console.error('❌ Erro ao inicializar banco:', error);
     throw error;
   }
 }
 
-// Funções auxiliares para queries
-const db = {
-  // Query simples
-  query: (text, params) => pool.query(text, params),
-  
-  // Query com retorno de uma linha
-  get: async (text, params) => {
-    const result = await pool.query(text, params);
-    return result.rows[0];
-  },
-  
-  // Query com retorno de múltiplas linhas
-  all: async (text, params) => {
-    const result = await pool.query(text, params);
-    return result.rows;
-  },
-  
-  // Query com callback (para compatibilidade)
-  run: async (text, params, callback) => {
-    try {
-      const result = await pool.query(text, params);
-      if (callback) {
-        callback(null, result);
-      }
-      return result;
-    } catch (error) {
-      if (callback) {
-        callback(error);
-      }
-      throw error;
-    }
-  }
-};
-
-module.exports = { pool, db, initDatabase };
+module.exports = { pool, initDatabase };

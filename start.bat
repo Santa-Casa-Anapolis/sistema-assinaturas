@@ -1,4 +1,4 @@
-@echo off
+ESSE@echo off
 echo ========================================
 echo Sistema de Assinaturas - Nota Fiscais
 echo ========================================
@@ -47,7 +47,7 @@ echo Frontend: http://localhost:3000
 echo Backend: http://localhost:5000
 echo.
 echo Usuários de teste:
-echo - Fornecedor: fornecedor@empresa.com / 123456
+echo - Admin: admin@empresa.com / admin123
 echo - Supervisor: supervisor.setora@empresa.com / 123456
 echo - Contabilidade: contabilidade@empresa.com / 123456
 echo - Financeiro: financeiro@empresa.com / 123456

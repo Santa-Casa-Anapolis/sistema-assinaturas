@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -18,11 +19,17 @@ client/dist/
 # Database
 *.sqlite
 *.sqlite3
+database.sqlite
+temp-database.sqlite
+server/temp-database.sqlite
 
 # Docker
 .dockerignore
 docker-compose.override.yml
-database.sqlite
+
+# Arquivos temporários do sistema
+temp-database.sqlite
+server/temp-database.sqlite
 
 # Uploads
 server/uploads/

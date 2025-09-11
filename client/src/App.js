@@ -16,12 +16,22 @@ import DocumentSign from './components/DocumentSign';
 import MyDocuments from './components/MyDocuments';
 import AuditLog from './components/AuditLog';
 import AdminConfig from './components/AdminConfig';
+import AdminPanel from './components/AdminPanel';
+import DocumentFlow from './components/DocumentFlow';
 import Header from './components/Header';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
+};
+
+// Admin Protected Route Component
+const AdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  if (!user.is_admin) return <Navigate to="/" />;
+  return children;
 };
 
 function App() {
@@ -66,6 +76,16 @@ function App() {
               <Route path="/admin" element={
                 <ProtectedRoute>
                   <AdminConfig />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin-panel" element={
+                <AdminRoute>
+                  <AdminPanel />
+                </AdminRoute>
+              } />
+              <Route path="/flow" element={
+                <ProtectedRoute>
+                  <DocumentFlow />
                 </ProtectedRoute>
               } />
             </Routes>

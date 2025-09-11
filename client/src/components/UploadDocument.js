@@ -1,133 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'react-toastify';
-import axios from 'axios';
 import { 
   Upload, 
   FileText, 
-  Users, 
-  ArrowRight, 
+  DollarSign,
   X,
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const UploadDocument = () => {
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [signers, setSigners] = useState([]);
-  const [availableUsers, setAvailableUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
 
-  // Fluxo fixo de assinaturas
-  const fixedFlow = [
-    { role: 'supervisor', name: 'Supervisor' },
-    { role: 'contabilidade', name: 'Contabilidade' },
-    { role: 'financeiro', name: 'Financeiro' },
-    { role: 'diretoria', name: 'Diretoria' }
-  ];
+  const onDrop = (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
 
-  // Buscar usuário atual e criar fluxo baseado no setor
-  useEffect(() => {
-    const fetchCurrentUserAndCreateFlow = async () => {
-      try {
-        // Buscar usuário atual do localStorage
-        const token = localStorage.getItem('token');
-        if (!token) {
-          toast.error('Usuário não autenticado');
-          return;
-        }
-
-        // Decodificar token para pegar informações do usuário
-        const tokenData = JSON.parse(atob(token.split('.')[1]));
-        const currentUserId = tokenData.id;
-        
-        // Buscar dados completos do usuário atual
-        const userResponse = await axios.get(`/api/users/${currentUserId}`);
-        const currentUserData = userResponse.data;
-        setCurrentUser(currentUserData);
-
-        // Verificar se o usuário atual é supervisor
-        if (currentUserData.role !== 'supervisor') {
-          toast.error('Apenas supervisores podem enviar documentos');
-          return;
-        }
-
-        // Buscar usuários para o fluxo (apenas outros papéis)
-        const roles = ['contabilidade', 'financeiro', 'diretoria'];
-        const allUsers = [];
-        const flowUsers = [];
-        
-        // Adicionar o supervisor atual como primeiro no fluxo
-        flowUsers.push(currentUserData);
-        
-        for (const role of roles) {
-          const response = await axios.get(`/api/users/by-role/${role}`);
-          const users = response.data;
-          allUsers.push(...users);
-          
-          // Para outros papéis, pegar o primeiro usuário
-          if (users.length > 0) {
-            flowUsers.push(users[0]);
-          }
-        }
-        
-        setAvailableUsers(allUsers);
-        setSigners(flowUsers);
-      } catch (error) {
-        console.error('Erro ao carregar usuários:', error);
-        toast.error('Erro ao carregar usuários');
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-
-    fetchCurrentUserAndCreateFlow();
-  }, []);
-
-  // Configuração do dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
     accept: {
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
-    maxFiles: 1,
-    onDrop: (acceptedFiles) => {
-      setSelectedFile(acceptedFiles[0]);
-    }
+    multiple: false
   });
 
-  // Fluxo fixo - não permite alterações
-  const addSigner = (user) => {
-    // Função desabilitada - fluxo fixo
-  };
-
-  const removeSigner = (userId) => {
-    // Função desabilitada - fluxo fixo
-  };
-
-  const moveSigner = (index, direction) => {
-    // Função desabilitada - fluxo fixo
-  };
-
-  // Enviar documento
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!title.trim()) {
-      toast.error('Digite um título para o documento');
-      return;
-    }
-
     if (!selectedFile) {
       toast.error('Selecione um arquivo');
       return;
     }
 
-    if (signers.length === 0) {
-      toast.error('Erro: Fluxo de assinaturas não configurado');
+    if (!title.trim()) {
+      toast.error('Digite um título para o documento');
+      return;
+    }
+
+    // Verificar se é supervisor
+    if (user.role !== 'supervisor') {
+      toast.error('Apenas supervisores podem enviar documentos');
       return;
     }
 
@@ -135,184 +58,233 @@ const UploadDocument = () => {
 
     try {
       const formData = new FormData();
-      formData.append('document', selectedFile);
       formData.append('title', title);
-      formData.append('signers', JSON.stringify(signers));
+      formData.append('description', description);
+      formData.append('amount', amount);
+      formData.append('sector', user.sector);
+      formData.append('document', selectedFile);
 
-      const response = await axios.post('/api/documents/upload', formData, {
+      const response = await fetch('/api/documents', {
+        method: 'POST',
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
+        body: formData
       });
 
-      toast.success('Documento enviado com sucesso!');
-      
-      // Limpar formulário
-      setTitle('');
-      setSelectedFile(null);
-      setSigners([]);
-      
+      if (response.ok) {
+        toast.success('Documento enviado com sucesso!');
+        setTitle('');
+        setDescription('');
+        setAmount('');
+        setSelectedFile(null);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Erro ao enviar documento');
+      }
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao enviar documento');
+      console.error('Erro ao enviar documento:', error);
+      toast.error('Erro ao enviar documento');
     } finally {
       setLoading(false);
     }
   };
 
-  const getRoleDisplayName = (role, sector) => {
-    const roleNames = {
-      'supervisor': sector ? `Supervisor - ${sector}` : 'Supervisor',
-      'contabilidade': 'Contabilidade',
-      'financeiro': 'Financeiro',
-      'diretoria': 'Diretoria'
-    };
-    return roleNames[role] || role;
+  const removeFile = () => {
+    setSelectedFile(null);
   };
 
-  const getRoleColor = (role) => {
-    const colors = {
-      'supervisor': 'bg-blue-100 text-blue-800',
-      'contabilidade': 'bg-purple-100 text-purple-800',
-      'financeiro': 'bg-yellow-100 text-yellow-800',
-      'diretoria': 'bg-red-100 text-red-800'
-    };
-    return colors[role] || 'bg-gray-100 text-gray-800';
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  if (user.role !== 'supervisor') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Acesso Restrito
+          </h2>
+          <p className="text-gray-600">
+            Apenas supervisores podem enviar documentos para o fluxo de aprovação.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Enviar Documento para Assinatura
-        </h1>
-        <p className="text-gray-600">
-          Faça upload do documento para o fluxo padrão de assinaturas
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Título do documento */}
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-            Título do Documento
-          </label>
-          <input
-            type="text"
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Ex: Nota Fiscal 001/2024"
-            required
-          />
-        </div>
-
-        {/* Upload do arquivo */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Arquivo do Documento
-          </label>
-          <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              isDragActive
-                ? 'border-blue-400 bg-blue-50'
-                : 'border-gray-300 hover:border-gray-400'
-            }`}
-          >
-            <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            {selectedFile ? (
-              <div className="space-y-2">
-                <FileText className="mx-auto h-8 w-8 text-green-500" />
-                <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
-                <p className="text-xs text-gray-500">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm text-gray-600">
-                  {isDragActive
-                    ? 'Solte o arquivo aqui...'
-                    : 'Arraste e solte um arquivo aqui, ou clique para selecionar'}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  Apenas arquivos PDF e DOCX são aceitos (máx. 10MB)
-                </p>
-              </div>
-            )}
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-lg shadow-md p-8">
+          <div className="flex items-center space-x-3 mb-6">
+            <Upload className="h-8 w-8 text-blue-600" />
+            <h1 className="text-2xl font-bold text-gray-900">Enviar Documento</h1>
           </div>
-        </div>
 
-        {/* Fluxo fixo de assinaturas */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-4">
-            Fluxo de Assinaturas (Ordem Fixa)
-          </label>
-          {loadingUsers ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-sm text-gray-500 mt-2">Carregando fluxo...</p>
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+            <h3 className="font-semibold text-blue-900 mb-2">Fluxo de Aprovação</h3>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-blue-700">📊 Contabilidade</span>
+              <span className="text-blue-500">→</span>
+              <span className="text-blue-700">💰 Financeiro</span>
+              <span className="text-blue-500">→</span>
+              <span className="text-blue-700">👔 Diretoria</span>
+              <span className="text-blue-500">→</span>
+              <span className="text-blue-700">💳 Pagamento</span>
             </div>
-          ) : (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="text-sm text-blue-800 mb-4">
-                <CheckCircle className="inline h-4 w-4 mr-2" />
-                Fluxo padrão configurado automaticamente
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Título do Documento *
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Ex: Nota fiscal de equipamentos"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Descrição
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="3"
+                placeholder="Descreva o documento e seu propósito..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Valor (R$)
+              </label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0,00"
+                />
               </div>
-              <div className="space-y-3">
-                {signers.map((signer, index) => (
-                  <div
-                    key={signer.id}
-                    className="flex items-center justify-between p-3 border border-blue-200 rounded-lg bg-white"
-                  >
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Arquivo do Documento *
+              </label>
+              
+              {!selectedFile ? (
+                <div
+                  {...getRootProps()}
+                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                    isDragActive 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <input {...getInputProps()} />
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  {isDragActive ? (
+                    <p className="text-blue-600">Solte o arquivo aqui...</p>
+                  ) : (
+                    <div>
+                      <p className="text-gray-600 mb-2">
+                        Arraste e solte um arquivo aqui, ou clique para selecionar
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Formatos aceitos: PDF, DOCX (máx. 10MB)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600">{index + 1}</span>
-                      </div>
+                      <FileText className="h-8 w-8 text-blue-600" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{signer.name}</p>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(signer.role)}`}>
-                          {getRoleDisplayName(signer.role, signer.sector)}
-                        </span>
+                        <p className="font-medium text-gray-900">{selectedFile.name}</p>
+                        <p className="text-sm text-gray-500">{formatFileSize(selectedFile.size)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {index < signers.length - 1 && (
-                        <ArrowRight className="h-4 w-4 text-blue-400" />
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
                   </div>
-                ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 mb-2">Informações do Setor</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Setor:</span>
+                  <span className="ml-2 font-medium">{user.sector}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Supervisor:</span>
+                  <span className="ml-2 font-medium">{user.name}</span>
+                </div>
               </div>
             </div>
-          )}
+
+            <div className="flex space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setTitle('');
+                  setDescription('');
+                  setAmount('');
+                  setSelectedFile(null);
+                }}
+                className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors"
+              >
+                Limpar
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !selectedFile || !title.trim()}
+                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Enviando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Enviar Documento</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
-
-
-
-        {/* Botão de envio */}
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={loading || !title || !selectedFile}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Enviando...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle className="h-4 w-4" />
-                <span>Enviar Documento</span>
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   );
 };

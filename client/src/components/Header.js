@@ -21,6 +21,7 @@ const Header = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Enviar Documento', href: '/upload', icon: Upload },
+    { name: 'Fluxo de Documentos', href: '/flow', icon: FileText },
     { name: 'Pendentes', href: '/pending', icon: Clock },
     { name: 'Meus Documentos', href: '/my-documents', icon: FileText },
   ];
@@ -30,10 +31,15 @@ const Header = () => {
     navigation.push({ name: 'Administração', href: '/admin', icon: Settings });
   }
 
+  // Adicionar link do painel de administração apenas para admins
+  if (user.is_admin) {
+    navigation.push({ name: 'Painel Admin', href: '/admin-panel', icon: Shield });
+  }
+
   const getRoleDisplayName = (role) => {
     const roleNames = {
       'admin': 'Administrador',
-      'fornecedor': 'Fornecedor',
+      'operacional': 'Operacional',
       'supervisor': 'Supervisor',
       'contabilidade': 'Contabilidade',
       'financeiro': 'Financeiro',
@@ -45,7 +51,7 @@ const Header = () => {
   const getRoleColor = (role) => {
     const colors = {
       'admin': 'bg-indigo-100 text-indigo-800',
-      'fornecedor': 'bg-green-100 text-green-800',
+      'operacional': 'bg-green-100 text-green-800',
       'supervisor': 'bg-blue-100 text-blue-800',
       'contabilidade': 'bg-purple-100 text-purple-800',
       'financeiro': 'bg-yellow-100 text-yellow-800',
