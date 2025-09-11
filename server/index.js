@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { pool, initDatabase } = require('./database');
+const { pool, initDatabase } = require('./database-temp');
 require('dotenv').config();
 
 const app = express();
@@ -426,6 +426,62 @@ app.get('/api/documents/:id/download', authenticateToken, async (req, res) => {
   }
 });
 
+// Visualização do documento (abre no navegador)
+app.get('/api/documents/:id/view', async (req, res) => {
+  // Verificar autenticação via query parameter ou header
+  const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Token de acesso necessário' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sua-chave-secreta-muito-segura-aqui');
+    req.user = decoded;
+    
+    const { id } = req.params;
+
+    const result = await pool.query('SELECT * FROM documents WHERE id = $1', [id]);
+    const document = result.rows[0];
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    const filePath = path.join(__dirname, 'uploads', document.file_path || document.filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+
+    // Determinar o tipo de conteúdo
+    const ext = path.extname(document.original_filename || document.filename).toLowerCase();
+    let contentType = 'application/octet-stream';
+    
+    if (ext === '.pdf') {
+      contentType = 'application/pdf';
+    } else if (ext === '.docx') {
+      contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } else if (ext === '.doc') {
+      contentType = 'application/msword';
+    } else if (ext === '.jpg' || ext === '.jpeg') {
+      contentType = 'image/jpeg';
+    } else if (ext === '.png') {
+      contentType = 'image/png';
+    }
+
+    // Configurar headers para visualização inline
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${document.original_filename || document.filename}"`);
+    
+    // Enviar arquivo
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error('Erro na visualização:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Obter histórico de auditoria
 app.get('/api/audit/:documentId', authenticateToken, async (req, res) => {
   try {
@@ -782,6 +838,64 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
+// Atualizar usuário (apenas admin)
+app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { name, email, username, role, sector, group_name } = req.body;
+    
+    // Verificar se usuário existe
+    const existingUser = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    
+    // Verificar se email/username já existe em outro usuário
+    const duplicateUser = await pool.query('SELECT id FROM users WHERE (email = ? OR username = ?) AND id != ?', [email, username, userId]);
+    if (duplicateUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Email ou username já existe em outro usuário' });
+    }
+    
+    // Atualizar usuário
+    await pool.query(`
+      UPDATE users 
+      SET name = ?, email = ?, username = ?, role = ?, sector = ?, group_name = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [name, email, username, role, sector, group_name, userId]);
+    
+    res.json({ message: 'Usuário atualizado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao atualizar usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Excluir usuário (apenas admin)
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Verificar se usuário existe
+    const existingUser = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    if (existingUser.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    
+    // Não permitir excluir o próprio usuário admin
+    if (req.user.id === parseInt(userId)) {
+      return res.status(400).json({ error: 'Não é possível excluir seu próprio usuário' });
+    }
+    
+    // Excluir usuário
+    await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+    
+    res.json({ message: 'Usuário excluído com sucesso' });
+  } catch (error) {
+    console.error('Erro ao excluir usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Buscar todos os grupos (apenas admin)
 app.get('/api/admin/groups', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -980,17 +1094,25 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
         nextStage = 'diretoria';
       } else if (document.current_stage === 'diretoria') {
         nextStage = 'payment';
-        await pool.query(`
-          UPDATE documents 
-          SET current_stage = ?, status = 'approved', final_approval_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `, [nextStage, documentId]);
-      } else {
-        await pool.query(`
-          UPDATE documents 
-          SET current_stage = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `, [nextStage, documentId]);
+      }
+      
+      // Atualizar o documento com a próxima etapa
+      if (nextStage) {
+        if (nextStage === 'payment') {
+          // Diretoria aprovou - documento vai para pagamento
+          await pool.query(`
+            UPDATE documents 
+            SET current_stage = ?, status = 'approved', final_approval_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `, [nextStage, documentId]);
+        } else {
+          // Outras etapas
+          await pool.query(`
+            UPDATE documents 
+            SET current_stage = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+          `, [nextStage, documentId]);
+        }
       }
     }
 

@@ -11,11 +11,13 @@ const AdminPanel = () => {
     name: '',
     email: '',
     username: '',
-    role: 'fornecedor',
+    role: 'operacional',
     password: '',
     sector: '',
     group_name: ''
   });
+  const [editingUser, setEditingUser] = useState(null);
+  const [editUserData, setEditUserData] = useState({});
   const [newGroup, setNewGroup] = useState({
     name: '',
     description: '',
@@ -134,6 +136,60 @@ const AdminPanel = () => {
     }
   };
 
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
+      try {
+        const response = await fetch(`/api/admin/users/${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          fetchUsers();
+        }
+      } catch (error) {
+        console.error('Erro ao excluir usuário:', error);
+      }
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setEditUserData({
+      name: user.name,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      sector: user.sector,
+      group_name: user.group_name
+    });
+  };
+
+  const handleUpdateUser = async () => {
+    try {
+      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(editUserData)
+      });
+
+      if (response.ok) {
+        setEditingUser(null);
+        setEditUserData({});
+        fetchUsers();
+        alert('Usuário atualizado com sucesso!');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      alert('Erro ao atualizar usuário.');
+    }
+  };
+
   const assignUserToGroup = async (userId, groupId) => {
     try {
       const response = await fetch('/api/admin/assign-group', {
@@ -193,7 +249,7 @@ const AdminPanel = () => {
           <div className="border-b border-gray-200 mb-6">
             <nav className="-mb-px flex space-x-8">
               <button className="border-b-2 border-blue-500 py-2 px-1 text-blue-600 font-medium">
-                Usuários ({users.length})
+                Cadastro ({users.length})
               </button>
               <button className="border-b-2 border-transparent py-2 px-1 text-gray-500 hover:text-gray-700 hover:border-gray-300">
                 Grupos ({groups.length})
@@ -250,7 +306,18 @@ const AdminPanel = () => {
                       </option>
                     ))}
                   </select>
-                  <button className="p-1 text-gray-400 hover:text-red-600">
+                  <button 
+                    onClick={() => handleEditUser(user)}
+                    className="p-1 text-gray-400 hover:text-blue-600"
+                    title="Editar usuário"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteUser(user.id)}
+                    className="p-1 text-gray-400 hover:text-red-600"
+                    title="Excluir usuário"
+                  >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -310,13 +377,29 @@ const AdminPanel = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Setor
                 </label>
-                <input
-                  type="text"
+                <select
                   value={newUser.sector}
                   onChange={(e) => setNewUser({...newUser, sector: e.target.value})}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   required
-                />
+                >
+                  <option value="">Selecione um setor</option>
+                  <option value="TECNOLOGIA DA INFORMAÇÃO">Tecnologia da Informação</option>
+                  <option value="RECURSOS HUMANOS">Recursos Humanos</option>
+                  <option value="FINANCEIRO">Financeiro</option>
+                  <option value="CONTABILIDADE">Contabilidade</option>
+                  <option value="COMERCIAL">Comercial</option>
+                  <option value="OPERACIONAL">Operacional</option>
+                  <option value="DIRETORIA">Diretoria</option>
+                  <option value="JURÍDICO">Jurídico</option>
+                  <option value="MARKETING">Marketing</option>
+                  <option value="VENDAS">Vendas</option>
+                  <option value="PRODUÇÃO">Produção</option>
+                  <option value="QUALIDADE">Qualidade</option>
+                  <option value="COMPRAS">Compras</option>
+                  <option value="ESTOQUE">Estoque</option>
+                  <option value="LOGÍSTICA">Logística</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -410,6 +493,112 @@ const AdminPanel = () => {
                   className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
                 >
                   Criar Grupo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Usuário */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h2 className="text-xl font-bold mb-4">Editar Usuário</h2>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateUser(); }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome Completo
+                </label>
+                <input
+                  type="text"
+                  value={editUserData.name}
+                  onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  E-mail
+                </label>
+                <input
+                  type="email"
+                  value={editUserData.email}
+                  onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={editUserData.username}
+                  onChange={(e) => setEditUserData({...editUserData, username: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Função
+                </label>
+                <select
+                  value={editUserData.role}
+                  onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="operacional">Operacional</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="contabilidade">Contabilidade</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="diretoria">Diretoria</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Setor
+                </label>
+                <select
+                  value={editUserData.sector}
+                  onChange={(e) => setEditUserData({...editUserData, sector: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                >
+                  <option value="">Selecione um setor</option>
+                  <option value="TECNOLOGIA DA INFORMAÇÃO">Tecnologia da Informação</option>
+                  <option value="RECURSOS HUMANOS">Recursos Humanos</option>
+                  <option value="FINANCEIRO">Financeiro</option>
+                  <option value="CONTABILIDADE">Contabilidade</option>
+                  <option value="COMERCIAL">Comercial</option>
+                  <option value="OPERACIONAL">Operacional</option>
+                  <option value="DIRETORIA">Diretoria</option>
+                  <option value="JURÍDICO">Jurídico</option>
+                  <option value="MARKETING">Marketing</option>
+                  <option value="VENDAS">Vendas</option>
+                  <option value="PRODUÇÃO">Produção</option>
+                  <option value="QUALIDADE">Qualidade</option>
+                  <option value="COMPRAS">Compras</option>
+                  <option value="ESTOQUE">Estoque</option>
+                  <option value="LOGÍSTICA">Logística</option>
+                </select>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Atualizar Usuário
                 </button>
               </div>
             </form>

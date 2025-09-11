@@ -11,7 +11,8 @@ import {
   Edit,
   Trash2,
   DollarSign,
-  Calendar
+  Calendar,
+  X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -31,6 +32,7 @@ const DocumentFlow = () => {
     paymentDate: '',
     paymentProof: null
   });
+  const [filterStatus, setFilterStatus] = useState('all'); // Novo estado para filtro
 
   const { user } = useAuth();
 
@@ -96,11 +98,70 @@ const DocumentFlow = () => {
 
       if (response.ok) {
         setShowApprovalModal(false);
+        setShowViewModal(false); // Fechar modal de visualização
+        setSelectedDocument(null); // Limpar documento selecionado
         setApprovalData({ action: 'approve', comments: '', govSignatureId: '' });
-        fetchDocuments();
+        
+        // Atualizar lista de documentos imediatamente
+        await fetchDocuments();
+        
+        // Mostrar mensagem de sucesso
+        alert(action === 'approve' ? 'Documento aprovado e encaminhado com sucesso!' : 'Documento rejeitado.');
+      } else {
+        alert('Erro ao processar aprovação. Tente novamente.');
       }
     } catch (error) {
       console.error('Erro ao aprovar documento:', error);
+      alert('Erro ao processar aprovação. Verifique sua conexão.');
+    }
+  };
+
+  // Função para aprovação rápida direto do botão
+  const handleQuickApprove = async (document) => {
+    try {
+      const response = await fetch(`/api/documents/${document.id}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          action: 'approve',
+          comments: 'Aprovação direta',
+          govSignatureId: ''
+        })
+      });
+
+      if (response.ok) {
+        // Atualizar lista completa do servidor para refletir mudanças
+        await fetchDocuments();
+        
+        // Determinar próxima etapa
+        const currentStage = document.current_stage;
+        let nextStage = '';
+        
+        switch (currentStage) {
+          case 'contabilidade':
+            nextStage = 'financeiro';
+            break;
+          case 'financeiro':
+            nextStage = 'diretoria';
+            break;
+          case 'diretoria':
+            nextStage = 'payment';
+            break;
+          case 'payment':
+            nextStage = 'completed';
+            break;
+        }
+        
+        alert(`Documento aprovado e encaminhado para ${nextStage}!`);
+      } else {
+        alert('Erro ao aprovar documento. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao aprovar documento:', error);
+      alert('Erro ao processar aprovação. Verifique sua conexão.');
     }
   };
 
@@ -122,17 +183,46 @@ const DocumentFlow = () => {
 
       if (response.ok) {
         setShowPaymentModal(false);
+        setShowViewModal(false); // Fechar modal de visualização
+        setSelectedDocument(null); // Limpar documento selecionado
         setPaymentData({ paymentDate: '', paymentProof: null });
-        fetchDocuments();
+        
+        // Atualizar lista de documentos
+        await fetchDocuments();
+        
+        // Mostrar mensagem de sucesso
+        alert('Pagamento processado com sucesso!');
+      } else {
+        alert('Erro ao processar pagamento. Tente novamente.');
       }
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
+      alert('Erro ao processar pagamento. Verifique sua conexão.');
     }
   };
 
   const handleViewDocument = (document) => {
     setSelectedDocument(document);
     setShowViewModal(true);
+  };
+
+  // Função para visualizar documento online em nova aba
+  const handleViewDocumentOnline = async (document) => {
+    try {
+      // Criar URL direta para o documento com token de autenticação
+      const token = localStorage.getItem('token');
+      const documentUrl = `/api/documents/${document.id}/view?token=${token}`;
+      
+      // Abrir em nova aba com configurações de segurança
+      const newWindow = window.open(documentUrl, '_blank', 'noopener,noreferrer');
+      
+      if (!newWindow) {
+        alert('Por favor, permita pop-ups para este site para visualizar documentos.');
+      }
+    } catch (error) {
+      console.error('Erro ao visualizar documento:', error);
+      alert('Erro ao abrir documento. Verifique sua conexão.');
+    }
   };
 
   const handleDownloadDocument = async (document) => {
@@ -198,7 +288,45 @@ const DocumentFlow = () => {
     return false;
   };
 
-  const filteredDocuments = documents.filter(doc => canView(doc));
+  const filteredDocuments = documents.filter(doc => {
+    if (!canView(doc)) return false;
+    
+    const userRole = user?.role;
+    const currentStage = doc.current_stage;
+    
+    // Mostrar documentos baseado no papel do usuário e etapa atual
+    let shouldShow = false;
+    
+    if (userRole === 'contabilidade') {
+      shouldShow = currentStage === 'contabilidade';
+    } else if (userRole === 'financeiro') {
+      shouldShow = ['financeiro', 'payment'].includes(currentStage);
+    } else if (userRole === 'diretoria') {
+      shouldShow = currentStage === 'diretoria';
+    } else if (userRole === 'supervisor') {
+      shouldShow = currentStage === 'contabilidade';
+    } else {
+      shouldShow = true; // Admin vê tudo
+    }
+    
+    if (!shouldShow) return false;
+    
+    // Aplicar filtro de status
+    if (filterStatus === 'pending') {
+      return doc.status === 'pending' && currentStage !== 'completed';
+    }
+    if (filterStatus === 'approved') {
+      return doc.status === 'approved';
+    }
+    if (filterStatus === 'rejected') {
+      return doc.status === 'rejected';
+    }
+    if (filterStatus === 'completed') {
+      return doc.status === 'completed' || currentStage === 'completed';
+    }
+    
+    return true; // 'all'
+  });
 
   if (loading) {
     return (
@@ -259,6 +387,63 @@ const DocumentFlow = () => {
         </div>
       </div>
 
+      {/* Filtros */}
+      <div className="bg-white rounded-lg shadow-md p-4">
+        <h3 className="text-lg font-semibold mb-4">Filtros</h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterStatus('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filterStatus === 'all' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Todos ({filteredDocuments.length})
+          </button>
+          <button
+            onClick={() => setFilterStatus('pending')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filterStatus === 'pending' 
+                ? 'bg-yellow-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Pendentes ({filteredDocuments.filter(doc => doc.status === 'pending' && doc.current_stage !== 'completed').length})
+          </button>
+          <button
+            onClick={() => setFilterStatus('approved')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filterStatus === 'approved' 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Aprovados ({filteredDocuments.filter(doc => doc.status === 'approved').length})
+          </button>
+          <button
+            onClick={() => setFilterStatus('completed')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filterStatus === 'completed' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Finalizados ({filteredDocuments.filter(doc => doc.status === 'completed' || doc.current_stage === 'completed').length})
+          </button>
+          <button
+            onClick={() => setFilterStatus('rejected')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filterStatus === 'rejected' 
+                ? 'bg-red-600 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Rejeitados ({filteredDocuments.filter(doc => doc.status === 'rejected').length})
+          </button>
+        </div>
+      </div>
+
       {/* Lista de Documentos */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredDocuments.map((document) => {
@@ -301,19 +486,16 @@ const DocumentFlow = () => {
 
               <div className="flex space-x-2">
                 <button
-                  onClick={() => handleViewDocument(document)}
+                  onClick={() => handleViewDocumentOnline(document)}
                   className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-1 text-sm"
                 >
                   <Eye className="h-4 w-4" />
-                  <span>Ver</span>
+                  <span>Ver Documento</span>
                 </button>
                 
                 {canUserApprove && document.current_stage !== 'payment' && (
                   <button
-                    onClick={() => {
-                      setSelectedDocument(document);
-                      setShowApprovalModal(true);
-                    }}
+                    onClick={() => handleQuickApprove(document)}
                     className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-1 text-sm"
                   >
                     <CheckCircle className="h-4 w-4" />
@@ -530,6 +712,14 @@ const DocumentFlow = () => {
                   {/* Botões de Ação */}
                   <div className="space-y-3">
                     <button
+                      onClick={() => handleViewDocumentOnline(selectedDocument)}
+                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span>Ver Documento</span>
+                    </button>
+
+                    <button
                       onClick={() => handleDownloadDocument(selectedDocument)}
                       className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2"
                     >
@@ -578,13 +768,22 @@ const DocumentFlow = () => {
                           <p className="text-gray-600 mb-2">Documento PDF</p>
                           <p className="text-sm text-gray-500">{selectedDocument.original_filename}</p>
                         </div>
-                        <button
-                          onClick={() => handleDownloadDocument(selectedDocument)}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 mx-auto"
-                        >
-                          <Download className="h-4 w-4" />
-                          <span>Baixar para Visualizar</span>
-                        </button>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => handleViewDocumentOnline(selectedDocument)}
+                            className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>Ver Documento</span>
+                          </button>
+                          <button
+                            onClick={() => handleDownloadDocument(selectedDocument)}
+                            className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Baixar</span>
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -593,13 +792,22 @@ const DocumentFlow = () => {
                           <p className="text-gray-600 mb-2">Documento DOCX</p>
                           <p className="text-sm text-gray-500">{selectedDocument.original_filename}</p>
                         </div>
-                        <button
-                          onClick={() => handleDownloadDocument(selectedDocument)}
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 mx-auto"
-                        >
-                          <Download className="h-4 w-4" />
-                          <span>Baixar para Visualizar</span>
-                        </button>
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => handleViewDocumentOnline(selectedDocument)}
+                            className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>Ver Documento</span>
+                          </button>
+                          <button
+                            onClick={() => handleDownloadDocument(selectedDocument)}
+                            className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Baixar</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
