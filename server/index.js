@@ -392,6 +392,16 @@ app.get('/api/documents/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
 
+    // Buscar arquivos do documento
+    const filesResult = await pool.query(`
+      SELECT id, original_filename, filename, file_size, mime_type, created_at
+      FROM document_files
+      WHERE document_id = $1
+      ORDER BY created_at ASC
+    `, [id]);
+
+    document.files = filesResult.rows;
+    
     res.json(document);
   } catch (error) {
     console.error('Erro ao buscar documento:', error);
@@ -399,27 +409,64 @@ app.get('/api/documents/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Download do documento
+// Download do documento (primeiro arquivo)
 app.get('/api/documents/:id/download', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query('SELECT * FROM documents WHERE id = $1', [id]);
-    const document = result.rows[0];
+    const result = await pool.query(`
+      SELECT df.*, d.title FROM document_files df
+      JOIN documents d ON df.document_id = d.id
+      WHERE df.document_id = $1
+      ORDER BY df.created_at ASC
+      LIMIT 1
+    `, [id]);
+    const file = result.rows[0];
     
-    if (!document) {
-      return res.status(404).json({ error: 'Documento não encontrado' });
-    }
-
-    const filePath = path.join(__dirname, 'uploads', document.filename);
-    
-    if (!fs.existsSync(filePath)) {
+    if (!file) {
       return res.status(404).json({ error: 'Arquivo não encontrado' });
     }
 
-    await logAudit(req.user.id, 'DOCUMENT_DOWNLOAD', id, `Download do documento "${document.title}"`, req.ip);
+    const filePath = path.join(__dirname, 'uploads', file.filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Arquivo não encontrado no sistema de arquivos' });
+    }
 
-    res.download(filePath, document.original_filename);
+    await logAudit(req.user.id, 'DOCUMENT_DOWNLOAD', id, `Download do documento "${file.title}"`, req.ip);
+
+    res.download(filePath, file.original_filename);
+  } catch (error) {
+    console.error('Erro no download:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Download de arquivo específico
+app.get('/api/documents/:id/files/:fileId/download', authenticateToken, async (req, res) => {
+  try {
+    const { id, fileId } = req.params;
+
+    const result = await pool.query(`
+      SELECT df.*, d.title FROM document_files df
+      JOIN documents d ON df.document_id = d.id
+      WHERE df.document_id = $1 AND df.id = $2
+    `, [id, fileId]);
+    const file = result.rows[0];
+    
+    if (!file) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+
+    const filePath = path.join(__dirname, 'uploads', file.filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Arquivo não encontrado no sistema de arquivos' });
+    }
+
+    await logAudit(req.user.id, 'FILE_DOWNLOAD', id, `Download do arquivo "${file.original_filename}" do documento "${file.title}"`, req.ip);
+
+    res.download(filePath, file.original_filename);
   } catch (error) {
     console.error('Erro no download:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
@@ -973,10 +1020,13 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
     const userSector = req.user.sector;
 
     let query = `
-      SELECT d.*, u.name as created_by_name, s.name as supervisor_name
+      SELECT d.*, u.name as created_by_name, s.name as supervisor_name,
+             COUNT(df.id) as files_count,
+             STRING_AGG(df.original_filename, ', ') as file_names
       FROM documents d
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN users s ON d.supervisor_id = s.id
+      LEFT JOIN document_files df ON d.id = df.document_id
     `;
     
     let params = [];
@@ -993,7 +1043,7 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
       params.push(userId);
     }
 
-    query += ' ORDER BY d.created_at DESC';
+    query += ' GROUP BY d.id, u.name, s.name ORDER BY d.created_at DESC';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -1004,14 +1054,15 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
 });
 
 // Criar novo documento
-app.post('/api/documents', authenticateToken, upload.single('document'), async (req, res) => {
+app.post('/api/documents', authenticateToken, upload.array('documents', 10), async (req, res) => {
   try {
     const { title, description, amount, sector } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
+    const files = req.files;
 
-    if (!req.file) {
-      return res.status(400).json({ error: 'Arquivo é obrigatório' });
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'Pelo menos um arquivo é obrigatório' });
     }
 
     // Apenas supervisores podem criar documentos
@@ -1019,25 +1070,41 @@ app.post('/api/documents', authenticateToken, upload.single('document'), async (
       return res.status(403).json({ error: 'Apenas supervisores podem criar documentos' });
     }
 
+    // Inserir documento principal
     const result = await pool.query(`
-      INSERT INTO documents (title, description, file_path, original_filename, file_size, mime_type, created_by, supervisor_id, sector, amount, current_stage)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'contabilidade')
+      INSERT INTO documents (title, description, created_by, supervisor_id, sector, amount, current_stage, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'contabilidade', 'pending')
+      RETURNING id
     `, [
       title,
       description,
-      req.file.path,
-      req.file.originalname,
-      req.file.size,
-      req.file.mimetype,
       userId,
       userId,
       sector || req.user.sector,
       amount || 0
     ]);
 
+    const documentId = result.rows[0].id;
+
+    // Inserir arquivos associados
+    for (const file of files) {
+      await pool.query(`
+        INSERT INTO document_files (document_id, filename, original_filename, file_path, file_size, mime_type)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `, [
+        documentId,
+        file.filename,
+        file.originalname,
+        file.path,
+        file.size,
+        file.mimetype
+      ]);
+    }
+
     res.json({ 
       message: 'Documento criado com sucesso',
-      documentId: result.lastID 
+      documentId: documentId,
+      filesCount: files.length
     });
   } catch (error) {
     console.error('Erro ao criar documento:', error);

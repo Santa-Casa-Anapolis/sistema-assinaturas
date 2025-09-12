@@ -16,13 +16,12 @@ const UploadDocument = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const onDrop = (acceptedFiles) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      setSelectedFile(file);
+    if (acceptedFiles.length > 0) {
+      setSelectedFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
     }
   };
 
@@ -32,14 +31,14 @@ const UploadDocument = () => {
       'application/pdf': ['.pdf'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
-    multiple: false
+    multiple: true
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!selectedFile) {
-      toast.error('Selecione um arquivo');
+    if (selectedFiles.length === 0) {
+      toast.error('Selecione pelo menos um arquivo');
       return;
     }
 
@@ -62,7 +61,11 @@ const UploadDocument = () => {
       formData.append('description', description);
       formData.append('amount', amount);
       formData.append('sector', user.sector);
-      formData.append('document', selectedFile);
+      
+      // Adicionar todos os arquivos
+      selectedFiles.forEach((file, index) => {
+        formData.append(`documents`, file);
+      });
 
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -77,7 +80,7 @@ const UploadDocument = () => {
         setTitle('');
         setDescription('');
         setAmount('');
-        setSelectedFile(null);
+        setSelectedFiles([]);
       } else {
         const error = await response.json();
         toast.error(error.error || 'Erro ao enviar documento');
@@ -90,8 +93,8 @@ const UploadDocument = () => {
     }
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
+  const removeFile = (indexToRemove) => {
+    setSelectedFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
   };
 
   const formatFileSize = (bytes) => {
@@ -191,7 +194,7 @@ const UploadDocument = () => {
                 Arquivo do Documento *
               </label>
               
-              {!selectedFile ? (
+              {selectedFiles.length === 0 ? (
                 <div
                   {...getRootProps()}
                   className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
@@ -207,31 +210,50 @@ const UploadDocument = () => {
                   ) : (
                     <div>
                       <p className="text-gray-600 mb-2">
-                        Arraste e solte um arquivo aqui, ou clique para selecionar
+                        Arraste e solte arquivos aqui, ou clique para selecionar
                       </p>
                       <p className="text-sm text-gray-500">
-                        Formatos aceitos: PDF, DOCX (máx. 10MB)
+                        Formatos aceitos: PDF, DOCX (máx. 10MB cada)
                       </p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <FileText className="h-8 w-8 text-blue-600" />
-                      <div>
-                        <p className="font-medium text-gray-900">{selectedFile.name}</p>
-                        <p className="text-sm text-gray-500">{formatFileSize(selectedFile.size)}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={removeFile}
-                      className="text-red-500 hover:text-red-700"
+                    <h4 className="font-medium text-gray-900">
+                      Arquivos selecionados ({selectedFiles.length})
+                    </h4>
+                    <div
+                      {...getRootProps()}
+                      className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
                     >
-                      <X className="h-5 w-5" />
-                    </button>
+                      <input {...getInputProps()} />
+                      + Adicionar mais arquivos
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="border border-gray-300 rounded-lg p-3 bg-white">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="h-6 w-6 text-blue-600" />
+                            <div>
+                              <p className="font-medium text-gray-900">{file.name}</p>
+                              <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -258,7 +280,7 @@ const UploadDocument = () => {
                   setTitle('');
                   setDescription('');
                   setAmount('');
-                  setSelectedFile(null);
+                  setSelectedFiles([]);
                 }}
                 className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors"
               >
@@ -266,7 +288,7 @@ const UploadDocument = () => {
               </button>
               <button
                 type="submit"
-                disabled={loading || !selectedFile || !title.trim()}
+                disabled={loading || selectedFiles.length === 0 || !title.trim()}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
               >
                 {loading ? (
@@ -277,7 +299,7 @@ const UploadDocument = () => {
                 ) : (
                   <>
                     <CheckCircle className="h-4 w-4" />
-                    <span>Enviar Documento</span>
+                    <span>Enviar Documentos</span>
                   </>
                 )}
               </button>
