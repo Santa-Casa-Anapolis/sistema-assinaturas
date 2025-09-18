@@ -350,12 +350,25 @@ const AdminPanel = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome de Usuário
+                </label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="nome.usuario"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
                 <input
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value, username: e.target.value})}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   required
                 />

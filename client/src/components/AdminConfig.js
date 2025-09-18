@@ -19,12 +19,14 @@ const AdminConfig = () => {
   const [editingId, setEditingId] = useState(null);
   const [editingUser, setEditingUser] = useState({
     name: '',
+    username: '',
     email: '',
     sector: '',
     profile: 'supervisor'
   });
   const [newSupervisor, setNewSupervisor] = useState({
     name: '',
+    username: '',
     email: '',
     password: '',
     sector: '',
@@ -67,7 +69,7 @@ const AdminConfig = () => {
   const handleAddSupervisor = async (e) => {
     e.preventDefault();
     
-    if (!newSupervisor.name || !newSupervisor.email || !newSupervisor.password || !newSupervisor.sector || !newSupervisor.profile) {
+    if (!newSupervisor.name || !newSupervisor.username || !newSupervisor.email || !newSupervisor.password || !newSupervisor.sector || !newSupervisor.profile) {
       toast.error('Preencha todos os campos');
       return;
     }
@@ -76,7 +78,7 @@ const AdminConfig = () => {
     try {
       await axios.post('/api/admin/supervisors', newSupervisor);
       toast.success('Usuário adicionado com sucesso!');
-      setNewSupervisor({ name: '', email: '', password: '', sector: '', profile: 'supervisor' });
+      setNewSupervisor({ name: '', username: '', email: '', password: '', sector: '', profile: 'supervisor' });
       fetchSupervisors();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erro ao adicionar usuário');
@@ -90,6 +92,7 @@ const AdminConfig = () => {
     setEditingId(supervisor.id);
     setEditingUser({
       name: supervisor.name || '',
+      username: supervisor.username || '',
       email: supervisor.email || '',
       sector: supervisor.sector || '',
       profile: supervisor.profile || 'supervisor'
@@ -103,7 +106,7 @@ const AdminConfig = () => {
       await axios.put(`/api/admin/supervisors/${editingId}`, editingUser);
       toast.success('Usuário atualizado com sucesso!');
       setEditingId(null);
-      setEditingUser({ name: '', email: '', sector: '', profile: 'supervisor' });
+      setEditingUser({ name: '', username: '', email: '', sector: '', profile: 'supervisor' });
       fetchSupervisors();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erro ao atualizar usuário');
@@ -179,6 +182,20 @@ const AdminConfig = () => {
               onChange={(e) => setNewSupervisor({...newSupervisor, name: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Nome completo"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nome de Usuário
+            </label>
+            <input
+              type="text"
+              value={newSupervisor.username}
+              onChange={(e) => setNewSupervisor({...newSupervisor, username: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="nome.usuario"
               required
             />
           </div>
@@ -291,6 +308,9 @@ const AdminConfig = () => {
                     Usuário
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nome de Usuário
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     E-mail
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -318,6 +338,20 @@ const AdminConfig = () => {
                       ) : (
                         <div className="text-sm font-medium text-gray-900">
                           {supervisor.name}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {editingId === supervisor.id ? (
+                        <input
+                          type="text"
+                          value={editingUser.username}
+                          onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+                        />
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          {supervisor.username || 'Não definido'}
                         </div>
                       )}
                     </td>
@@ -397,7 +431,7 @@ const AdminConfig = () => {
                           <button
                             onClick={() => {
                               setEditingId(null);
-                              setEditingUser({ name: '', email: '', sector: '', profile: 'supervisor' });
+                              setEditingUser({ name: '', username: '', email: '', sector: '', profile: 'supervisor' });
                             }}
                             className="text-gray-600 hover:text-gray-900"
                             title="Cancelar"

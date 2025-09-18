@@ -156,8 +156,8 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
           return res.status(401).json({ error: 'Falha na autenticação com o Active Directory' });
         }
       } else {
-        // Autenticação local (padrão) - login por email
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [username]);
+        // Autenticação local (padrão) - login por nome de usuário
+        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
         user = result.rows[0];
 
         if (!user) {
@@ -656,29 +656,26 @@ function sendNotificationEmail(email, documentTitle, documentId) {
 // Rotas de administração de supervisores
  app.post('/api/admin/supervisors', authenticateToken, async (req, res) => {
    try {
-     const { name, email, password, sector, profile } = req.body;
+    const { name, username, email, password, sector, profile } = req.body;
 
-     console.log('➕ Criando supervisor:', { name, email, sector });
+    console.log('➕ Criando supervisor:', { name, username, email, sector });
 
      // Verificar se o usuário é admin ou tem permissão
      if (req.user.role !== 'admin' && req.user.role !== 'diretoria') {
        return res.status(403).json({ error: 'Acesso negado' });
      }
 
-     // Verificar se o email já existe
-     const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-     if (existingUser.rows.length > 0) {
-       return res.status(400).json({ error: 'E-mail já cadastrado' });
-     }
+    // Verificar se o email já existe
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'E-mail já cadastrado' });
+    }
 
-     // Gerar username baseado no nome
-     const username = name.toLowerCase().replace(/\s+/g, '.');
-
-     // Verificar se o username já existe
-     const existingUsername = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
-     if (existingUsername.rows.length > 0) {
-       return res.status(400).json({ error: 'Nome de usuário já existe' });
-     }
+    // Verificar se o username já existe
+    const existingUsername = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existingUsername.rows.length > 0) {
+      return res.status(400).json({ error: 'Nome de usuário já existe' });
+    }
 
      // Criar usuário supervisor
      const bcrypt = require('bcryptjs');
@@ -704,32 +701,64 @@ function sendNotificationEmail(email, documentTitle, documentId) {
 app.put('/api/admin/supervisors/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { sector } = req.body;
+    const { name, username, email, sector, profile } = req.body;
 
-    console.log('🔄 Atualizando supervisor:', { id, sector });
+    console.log('🔄 Atualizando usuário:', { id, name, username, email, sector, profile });
 
     // Verificar se o usuário é admin ou tem permissão
     if (req.user.role !== 'admin' && req.user.role !== 'diretoria') {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-         const result = await pool.query(`
-       UPDATE users SET sector = $1 
-       WHERE id = $2 AND role = 'supervisor' 
-       RETURNING id, name, email, username, role, sector
-     `, [sector, id]);
+    const result = await pool.query(`
+      UPDATE users SET name = $1, email = $2, username = $3, sector = $4, profile = $5 
+      WHERE id = $6 
+      RETURNING id, name, email, username, role, sector, profile
+    `, [name, email, username, sector, profile, id]);
 
     console.log('📊 Resultado da atualização:', result.rows[0]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Supervisor não encontrado' });
+      return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
-    await logAudit(req.user.id, 'SUPERVISOR_UPDATED', null, `Setor atualizado: ${result.rows[0].name} -> ${sector}`, req.ip);
+    await logAudit(req.user.id, 'USER_UPDATED', null, `Usuário atualizado: ${name} (${email})`, req.ip);
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Erro ao atualizar supervisor:', error);
+    console.error('Erro ao atualizar usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para resetar senha
+app.post('/api/admin/reset-password/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar se o usuário é admin ou tem permissão
+    if (req.user.role !== 'admin' && req.user.role !== 'diretoria') {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Hash da nova senha (123456)
+    const newPassword = await bcrypt.hash('123456', 10);
+
+    const result = await pool.query(`
+      UPDATE users SET password = $1 
+      WHERE id = $2 
+      RETURNING id, name, email, username, role, sector, profile
+    `, [newPassword, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    await logAudit(req.user.id, 'PASSWORD_RESET', null, `Senha resetada para: ${result.rows[0].name}`, req.ip);
+
+    res.json({ message: 'Senha resetada com sucesso', user: result.rows[0] });
+  } catch (error) {
+    console.error('Erro ao resetar senha:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
