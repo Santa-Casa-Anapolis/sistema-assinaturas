@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Settings, Shield, Eye, EyeOff, Trash2, Edit } from 'lucide-react';
+import { Users, UserPlus, Settings, Shield, Trash2, Edit } from 'lucide-react';
 
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  // const [selectedUser, setSelectedUser] = useState(null);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -14,6 +14,7 @@ const AdminPanel = () => {
     role: 'operacional',
     password: '',
     sector: '',
+    profile: '',
     group_name: ''
   });
   const [editingUser, setEditingUser] = useState(null);
@@ -82,6 +83,7 @@ const AdminPanel = () => {
 
   const createUser = async (e) => {
     e.preventDefault();
+    console.log('Dados do usuário a ser criado:', newUser);
     try {
       const response = await fetch('/api/admin/users', {
         method: 'POST',
@@ -101,6 +103,7 @@ const AdminPanel = () => {
           role: 'fornecedor',
           password: '',
           sector: '',
+          profile: '',
           group_name: ''
         });
         fetchUsers();
@@ -367,6 +370,26 @@ const AdminPanel = () => {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 >
                   <option value="operacional">Operacional</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="contabilidade">Contabilidade</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="diretoria">Diretoria</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Perfil no Fluxo
+                </label>
+                <select
+                  value={newUser.profile}
+                  onChange={(e) => {
+                    console.log('Perfil selecionado:', e.target.value);
+                    setNewUser({...newUser, profile: e.target.value});
+                  }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                >
+                  <option value="">Selecione um perfil</option>
                   <option value="supervisor">Supervisor</option>
                   <option value="contabilidade">Contabilidade</option>
                   <option value="financeiro">Financeiro</option>

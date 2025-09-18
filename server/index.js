@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { pool, initDatabase } = require('./database-temp');
+const { pool, initDatabase } = require('./database');
 require('dotenv').config();
 
 const app = express();
@@ -116,8 +116,6 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
 }
 
 // Rotas de autenticação
-// Importar configuração AD
-const { connectToAD, authenticateUser, disconnectFromAD } = require('./ad-config');
 
   app.post('/api/auth/login', async (req, res) => {
     try {
@@ -158,8 +156,8 @@ const { connectToAD, authenticateUser, disconnectFromAD } = require('./ad-config
           return res.status(401).json({ error: 'Falha na autenticação com o Active Directory' });
         }
       } else {
-        // Autenticação local (padrão) - apenas username e senha
-        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        // Autenticação local (padrão) - login por email
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [username]);
         user = result.rows[0];
 
         if (!user) {
@@ -206,7 +204,7 @@ app.get('/api/users/by-role/:role', authenticateToken, async (req, res) => {
   try {
     const { role } = req.params;
 
-    const result = await pool.query('SELECT id, name, email, role, sector FROM users WHERE role = $1', [role]);
+    const result = await pool.query('SELECT id, name, email, role, sector, profile FROM users WHERE role = $1', [role]);
     const users = result.rows;
     res.json(users);
   } catch (error) {
@@ -227,23 +225,32 @@ app.post('/api/documents/upload', authenticateToken, upload.single('document'), 
 
     // Inserir documento
     const result = await pool.query(
-      `INSERT INTO documents (title, filename, original_filename, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
+      `INSERT INTO documents (title, file_path, original_filename, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
       [title, file.filename, file.originalname, req.user.id]
     );
 
     const documentId = result.rows[0].id;
 
-    // Criar fluxo de assinaturas
+    // Criar fluxo de assinaturas baseado nos perfis
     const signersArray = JSON.parse(signers);
-    for (const [index, signer] of signersArray.entries()) {
+    const profileOrder = ['supervisor', 'contabilidade', 'financeiro', 'diretoria'];
+    
+    // Ordenar signatários por perfil
+    const orderedSigners = signersArray.sort((a, b) => {
+      const aIndex = profileOrder.indexOf(a.profile);
+      const bIndex = profileOrder.indexOf(b.profile);
+      return aIndex - bIndex;
+    });
+
+    for (const [index, signer] of orderedSigners.entries()) {
       await pool.query(
         `INSERT INTO signature_flow (document_id, user_id, order_index) VALUES ($1, $2, $3)`,
         [documentId, signer.id, index + 1]
       );
     }
 
-    // Enviar notificação para o primeiro signatário
-    const firstSigner = signersArray[0];
+    // Enviar notificação para o primeiro signatário (ordenado por perfil)
+    const firstSigner = orderedSigners[0];
     const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [firstSigner.id]);
     const user = userResult.rows[0];
     if (user) {
@@ -553,7 +560,7 @@ app.get('/api/audit/:documentId', authenticateToken, async (req, res) => {
 // Função para mover documento concluído para pasta de rede por setor, ano e mês
 async function moveCompletedDocument(documentId) {
   try {
-    // Buscar informações do documento e do supervisor que iniciou
+    // Buscar informações do documento e do usuário que criou
     const result = await pool.query(`
       SELECT d.*, u.sector 
       FROM documents d 
@@ -567,11 +574,11 @@ async function moveCompletedDocument(documentId) {
       return;
     }
 
-    // Determinar o setor baseado no supervisor
+    // Usar o setor do usuário que criou o documento
     let sector = document.sector;
     if (!sector) {
       // Se não há setor definido, usar pasta padrão
-      sector = 'SETOR GERAL';
+      sector = 'GERAL';
     }
 
     // Obter ano e mês atual
@@ -649,7 +656,7 @@ function sendNotificationEmail(email, documentTitle, documentId) {
 // Rotas de administração de supervisores
  app.post('/api/admin/supervisors', authenticateToken, async (req, res) => {
    try {
-     const { name, email, password, sector } = req.body;
+     const { name, email, password, sector, profile } = req.body;
 
      console.log('➕ Criando supervisor:', { name, email, sector });
 
@@ -678,10 +685,10 @@ function sendNotificationEmail(email, documentTitle, documentId) {
      const hashedPassword = await bcrypt.hash(password || '123456', 10);
 
      const result = await pool.query(`
-       INSERT INTO users (name, email, username, role, password, sector) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING id, name, email, username, role, sector
-     `, [name, email, username, 'supervisor', hashedPassword, sector]);
+       INSERT INTO users (name, email, username, role, password, sector, profile) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING id, name, email, username, role, sector, profile
+     `, [name, email, username, 'supervisor', hashedPassword, sector, profile || 'supervisor']);
 
      console.log('✅ Supervisor criado:', result.rows[0]);
 
@@ -858,7 +865,7 @@ app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =>
 // Criar novo usuário (apenas admin)
 app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, email, username, role, password, sector, group_name } = req.body;
+    const { name, email, username, role, password, sector, profile, group_name } = req.body;
     
     // Verificar se usuário já existe
     const existingUser = await pool.query('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
@@ -871,9 +878,9 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
     
     // Criar usuário
     const result = await pool.query(`
-      INSERT INTO users (name, email, username, role, password, sector, group_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [name, email, username, role, hashedPassword, sector, group_name]);
+      INSERT INTO users (name, email, username, role, password, sector, profile, group_name)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [name, email, username, role, hashedPassword, sector, profile || 'supervisor', group_name]);
     
     res.json({ 
       message: 'Usuário criado com sucesso',

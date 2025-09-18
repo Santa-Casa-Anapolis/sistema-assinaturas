@@ -21,7 +21,8 @@ const AdminConfig = () => {
     name: '',
     email: '',
     password: '',
-    sector: ''
+    sector: '',
+    profile: 'supervisor'
   });
 
   // Setores disponíveis
@@ -46,7 +47,7 @@ const AdminConfig = () => {
       const response = await axios.get('/api/users/by-role/supervisor');
       setSupervisors(response.data);
     } catch (error) {
-      toast.error('Erro ao carregar supervisores');
+      toast.error('Erro ao carregar usuários');
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ const AdminConfig = () => {
   const handleAddSupervisor = async (e) => {
     e.preventDefault();
     
-    if (!newSupervisor.name || !newSupervisor.email || !newSupervisor.password || !newSupervisor.sector) {
+    if (!newSupervisor.name || !newSupervisor.email || !newSupervisor.password || !newSupervisor.sector || !newSupervisor.profile) {
       toast.error('Preencha todos os campos');
       return;
     }
@@ -64,11 +65,11 @@ const AdminConfig = () => {
     setSaving(true);
     try {
       await axios.post('/api/admin/supervisors', newSupervisor);
-      toast.success('Supervisor adicionado com sucesso!');
-      setNewSupervisor({ name: '', email: '', password: '', sector: '' });
+      toast.success('Usuário adicionado com sucesso!');
+      setNewSupervisor({ name: '', email: '', password: '', sector: '', profile: 'supervisor' });
       fetchSupervisors();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao adicionar supervisor');
+      toast.error(error.response?.data?.error || 'Erro ao adicionar usuário');
     } finally {
       setSaving(false);
     }
@@ -100,10 +101,10 @@ const AdminConfig = () => {
     setSaving(true);
     try {
       await axios.delete(`/api/admin/supervisors/${id}`);
-      toast.success('Supervisor removido com sucesso!');
+      toast.success('Usuário removido com sucesso!');
       fetchSupervisors();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao remover supervisor');
+      toast.error(error.response?.data?.error || 'Erro ao remover usuário');
     } finally {
       setSaving(false);
     }
@@ -115,24 +116,24 @@ const AdminConfig = () => {
     <div className="max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Configuração de Supervisores
+          Configuração de Usuários
         </h1>
         <p className="text-gray-600">
-          Configure os supervisores e seus respectivos setores para organização dos documentos
+          Configure os usuários e seus respectivos setores para organização dos documentos
         </p>
       </div>
 
-      {/* Adicionar novo supervisor */}
+      {/* Adicionar novo usuário */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-8">
         <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
           <Plus className="h-5 w-5 mr-2" />
-          Adicionar Novo Supervisor
+          Adicionar Novo Usuário
         </h2>
         
-                 <form onSubmit={handleAddSupervisor} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <form onSubmit={handleAddSupervisor} className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nome do Supervisor
+              Nome Completo
             </label>
             <input
               type="text"
@@ -144,34 +145,51 @@ const AdminConfig = () => {
             />
           </div>
           
-                     <div>
-             <label className="block text-sm font-medium text-gray-700 mb-2">
-               E-mail
-             </label>
-             <input
-               type="email"
-               value={newSupervisor.email}
-               onChange={(e) => setNewSupervisor({...newSupervisor, email: e.target.value})}
-               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-               placeholder="email@empresa.com"
-               required
-             />
-           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              E-mail
+            </label>
+            <input
+              type="email"
+              value={newSupervisor.email}
+              onChange={(e) => setNewSupervisor({...newSupervisor, email: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="email@empresa.com"
+              required
+            />
+          </div>
            
-           <div>
-             <label className="block text-sm font-medium text-gray-700 mb-2">
-               Senha
-             </label>
-             <input
-               type="password"
-               value={newSupervisor.password}
-               onChange={(e) => setNewSupervisor({...newSupervisor, password: e.target.value})}
-               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-               placeholder="Senha do usuário"
-               required
-             />
-           </div>
-          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Senha
+            </label>
+            <input
+              type="password"
+              value={newSupervisor.password}
+              onChange={(e) => setNewSupervisor({...newSupervisor, password: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Senha do usuário"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Perfil no Fluxo
+            </label>
+            <select
+              value={newSupervisor.profile}
+              onChange={(e) => setNewSupervisor({...newSupervisor, profile: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="supervisor">Supervisor</option>
+              <option value="contabilidade">Contabilidade</option>
+              <option value="financeiro">Financeiro</option>
+              <option value="diretoria">Diretoria</option>
+            </select>
+          </div>
+           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Setor
@@ -203,7 +221,7 @@ const AdminConfig = () => {
               ) : (
                 <>
                   <Save className="h-4 w-4 mr-2" />
-                  Adicionar Supervisor
+                  Adicionar Usuário
                 </>
               )}
             </button>
@@ -211,12 +229,12 @@ const AdminConfig = () => {
         </form>
       </div>
 
-      {/* Lista de supervisores */}
+      {/* Lista de usuários */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center">
             <Users className="h-5 w-5 mr-2" />
-            Supervisores Configurados
+            Usuários Cadastrados
           </h2>
           
         </div>
@@ -232,7 +250,7 @@ const AdminConfig = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Supervisor
+                    Usuário
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     E-mail

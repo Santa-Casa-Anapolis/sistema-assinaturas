@@ -6,7 +6,7 @@ const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'notasfiscais_db',
-  password: process.env.DB_PASSWORD || '2025SantaCasaFD',
+  password: process.env.DB_PASSWORD || '123456',
   port: process.env.DB_PORT || 5432,
   // Configurações de pool
   max: 20, // máximo de conexões no pool
@@ -57,6 +57,15 @@ async function initDatabase() {
     try {
       await pool.query(`
         ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin INTEGER DEFAULT 0
+      `);
+    } catch (err) {
+      // Coluna já existe, ignorar erro
+    }
+
+    // Adicionar coluna profile se não existir
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS profile VARCHAR(50) DEFAULT 'supervisor'
       `);
     } catch (err) {
       // Coluna já existe, ignorar erro
@@ -142,6 +151,56 @@ async function initDatabase() {
       )
     `);
 
+    // Criar tabela de fluxo de assinaturas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS signature_flow (
+        id SERIAL PRIMARY KEY,
+        document_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        order_index INTEGER NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        signed_at TIMESTAMP,
+        signature_data TEXT,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (document_id) REFERENCES documents (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `);
+
+    // Criar tabela de auditoria
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_log (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        action VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(50),
+        resource_id INTEGER,
+        document_id INTEGER,
+        details TEXT,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `);
+
+    // Criar tabela de usuários deletados
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deleted_users (
+        id SERIAL PRIMARY KEY,
+        original_id INTEGER,
+        name VARCHAR(255),
+        email VARCHAR(255),
+        username VARCHAR(255),
+        role VARCHAR(50),
+        sector VARCHAR(100),
+        deleted_by INTEGER,
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        reason TEXT,
+        FOREIGN KEY (deleted_by) REFERENCES users (id)
+      )
+    `);
+
     // Verificar se já existem usuários
     const userCount = await pool.query('SELECT COUNT(*) FROM users');
     
@@ -153,44 +212,49 @@ async function initDatabase() {
       const users = [
         {
           name: 'Administrador Sistema',
-          email: 'admin@empresa.com',
-          username: 'admin@empresa.com',
+          email: 'admin@santacasa.org',
+          username: 'admin@santacasa.org',
           role: 'admin',
-          password: await bcrypt.hash('admin123', 10),
-          sector: 'Administração',
+          password: await bcrypt.hash('123456', 10),
+          sector: 'ADMINISTRAÇÃO',
+          profile: 'admin',
           is_admin: 1
         },
         {
           name: 'Supervisor Setor A',
-          email: 'supervisor.setora@empresa.com',
-          username: 'supervisor.setora@empresa.com',
+          email: 'supervisor@santacasa.org',
+          username: 'supervisor@santacasa.org',
           role: 'supervisor',
           password: await bcrypt.hash('123456', 10),
-          sector: 'TECNOLOGIA DA INFORMAÇÃO'
+          sector: 'TECNOLOGIA DA INFORMAÇÃO',
+          profile: 'supervisor'
         },
         {
           name: 'Contabilidade',
-          email: 'contabilidade@empresa.com',
-          username: 'contabilidade@empresa.com',
+          email: 'contabilidade@santacasa.org',
+          username: 'contabilidade@santacasa.org',
           role: 'contabilidade',
           password: await bcrypt.hash('123456', 10),
-          sector: 'Financeiro'
+          sector: 'CONTABILIDADE',
+          profile: 'contabilidade'
         },
         {
           name: 'Financeiro',
-          email: 'financeiro@empresa.com',
-          username: 'financeiro@empresa.com',
+          email: 'financeiro@santacasa.org',
+          username: 'financeiro@santacasa.org',
           role: 'financeiro',
           password: await bcrypt.hash('123456', 10),
-          sector: 'Financeiro'
+          sector: 'FINANCEIRO',
+          profile: 'financeiro'
         },
         {
           name: 'Diretoria',
-          email: 'diretoria@empresa.com',
-          username: 'diretoria@empresa.com',
+          email: 'diretoria@santacasa.org',
+          username: 'diretoria@santacasa.org',
           role: 'diretoria',
           password: await bcrypt.hash('123456', 10),
-          sector: 'Diretoria'
+          sector: 'DIRETORIA',
+          profile: 'diretoria'
         }
       ];
 
@@ -198,9 +262,9 @@ async function initDatabase() {
       for (const user of users) {
         try {
           await pool.query(`
-            INSERT INTO users (name, email, username, role, password, sector, is_admin)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-          `, [user.name, user.email, user.username, user.role, user.password, user.sector, user.is_admin || 0]);
+            INSERT INTO users (name, email, username, role, password, sector, profile, is_admin)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `, [user.name, user.email, user.username, user.role, user.password, user.sector, user.profile, user.is_admin || 0]);
         } catch (err) {
           console.log(`Usuário ${user.email} já existe ou erro:`, err.message);
         }
