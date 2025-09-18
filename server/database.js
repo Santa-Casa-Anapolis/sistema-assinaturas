@@ -311,28 +311,56 @@ async function initDatabase() {
       }
 
       // Criar setores padrão
-      const defaultSectors = [
-        {
-          name: 'TECNOLOGIA DA INFORMAÇÃO',
-          folder_path: 'Y:\\TECNOLOGIA DA INFORMAÇÃO\\3. Sistemas\\Karla\\Contabilidade'
-        },
-        {
-          name: 'RECURSOS HUMANOS',
-          folder_path: 'Y:\\RECURSOS HUMANOS\\3. Sistemas\\Karla\\Contabilidade'
-        },
-        {
-          name: 'FINANCEIRO',
-          folder_path: 'Y:\\FINANCEIRO\\3. Sistemas\\Karla\\Contabilidade'
-        },
-        {
-          name: 'COMERCIAL',
-          folder_path: 'Y:\\COMERCIAL\\3. Sistemas\\Karla\\Contabilidade'
-        },
-        {
-          name: 'OPERACIONAL',
-          folder_path: 'Y:\\OPERACIONAL\\3. Sistemas\\Karla\\Contabilidade'
-        }
-      ];
+    const defaultSectors = [
+      {
+        name: 'TECNOLOGIA DA INFORMAÇÃO',
+        folder_path: 'Y:\\TECNOLOGIA DA INFORMAÇÃO\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'CONTABILIDADE',
+        folder_path: 'Y:\\CONTABILIDADE\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'FINANCEIRO',
+        folder_path: 'Y:\\FINANCEIRO\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'DIRETORIA',
+        folder_path: 'Y:\\DIRETORIA\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'RECURSOS HUMANOS',
+        folder_path: 'Y:\\RECURSOS HUMANOS\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'DEPARTAMENTO PESSOAL',
+        folder_path: 'Y:\\DEPARTAMENTO PESSOAL\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'FARMÁCIA',
+        folder_path: 'Y:\\FARMÁCIA\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'CENTRAL DE IMAGEM',
+        folder_path: 'Y:\\CENTRAL DE IMAGEM\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'LABORATÓRIO',
+        folder_path: 'Y:\\LABORATÓRIO\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'CENTRO MÉDICO',
+        folder_path: 'Y:\\CENTRO MÉDICO\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'COMPRAS',
+        folder_path: 'Y:\\COMPRAS\\3. Sistemas\\Karla\\Contabilidade'
+      },
+      {
+        name: 'MANUTENÇÃO',
+        folder_path: 'Y:\\MANUTENÇÃO\\3. Sistemas\\Karla\\Contabilidade'
+      }
+    ];
 
       for (const sector of defaultSectors) {
         try {

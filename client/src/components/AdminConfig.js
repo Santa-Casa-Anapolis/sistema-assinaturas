@@ -17,6 +17,12 @@ const AdminConfig = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [editingUser, setEditingUser] = useState({
+    name: '',
+    email: '',
+    sector: '',
+    profile: 'supervisor'
+  });
   const [newSupervisor, setNewSupervisor] = useState({
     name: '',
     email: '',
@@ -27,14 +33,18 @@ const AdminConfig = () => {
 
   // Setores disponíveis
   const availableSectors = [
-    'SETOR TECNOLOGIA DA INFORMAÇÃO',
-    'SETOR CONTABILIDADE',
-    'SETOR CENTRO DE IMAGEM',
-    'SETOR CENTRO MEDICO',
-    'SETOR FINANCEIRO',
-    'SETOR RH',
-    'SETOR COMPRAS',
-    'SETOR MANUTENÇÃO'
+    'TECNOLOGIA DA INFORMAÇÃO',
+    'CONTABILIDADE',
+    'FINANCEIRO',
+    'DIRETORIA',
+    'RECURSOS HUMANOS',
+    'DEPARTAMENTO PESSOAL',
+    'FARMÁCIA',
+    'CENTRAL DE IMAGEM',
+    'LABORATÓRIO',
+    'CENTRO MÉDICO',
+    'COMPRAS',
+    'MANUTENÇÃO'
   ];
 
   // Buscar supervisores
@@ -75,18 +85,46 @@ const AdminConfig = () => {
     }
   };
 
+  // Iniciar edição
+  const startEditing = (supervisor) => {
+    setEditingId(supervisor.id);
+    setEditingUser({
+      name: supervisor.name || '',
+      email: supervisor.email || '',
+      sector: supervisor.sector || '',
+      profile: supervisor.profile || 'supervisor'
+    });
+  };
+
   // Atualizar supervisor
-  const handleUpdateSupervisor = async (supervisor) => {
+  const handleUpdateSupervisor = async () => {
     setSaving(true);
     try {
-      await axios.put(`/api/admin/supervisors/${supervisor.id}`, {
-        sector: supervisor.sector
-      });
-      toast.success('Setor atualizado com sucesso!');
+      await axios.put(`/api/admin/supervisors/${editingId}`, editingUser);
+      toast.success('Usuário atualizado com sucesso!');
       setEditingId(null);
+      setEditingUser({ name: '', email: '', sector: '', profile: 'supervisor' });
       fetchSupervisors();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao atualizar supervisor');
+      toast.error(error.response?.data?.error || 'Erro ao atualizar usuário');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Resetar senha
+  const handleResetPassword = async (id) => {
+    if (!window.confirm('Tem certeza que deseja resetar a senha deste usuário para "123456"?')) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await axios.post(`/api/admin/reset-password/${id}`);
+      toast.success('Senha resetada com sucesso! Nova senha: 123456');
+      fetchSupervisors();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erro ao resetar senha');
     } finally {
       setSaving(false);
     }
@@ -94,7 +132,7 @@ const AdminConfig = () => {
 
   // Remover supervisor
   const handleRemoveSupervisor = async (id) => {
-    if (!window.confirm('Tem certeza que deseja remover este supervisor?')) {
+    if (!window.confirm('Tem certeza que deseja remover este usuário?')) {
       return;
     }
 
@@ -256,6 +294,9 @@ const AdminConfig = () => {
                     E-mail
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Perfil
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Setor
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -267,25 +308,58 @@ const AdminConfig = () => {
                 {supervisors.map((supervisor) => (
                   <tr key={supervisor.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {supervisor.name}
-                      </div>
+                      {editingId === supervisor.id ? (
+                        <input
+                          type="text"
+                          value={editingUser.name}
+                          onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+                        />
+                      ) : (
+                        <div className="text-sm font-medium text-gray-900">
+                          {supervisor.name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {supervisor.email}
-                      </div>
+                      {editingId === supervisor.id ? (
+                        <input
+                          type="email"
+                          value={editingUser.email}
+                          onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                          className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+                        />
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          {supervisor.email}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {editingId === supervisor.id ? (
                         <select
-                          value={supervisor.sector || ''}
-                          onChange={(e) => {
-                            const updated = supervisors.map(s => 
-                              s.id === supervisor.id ? {...s, sector: e.target.value} : s
-                            );
-                            setSupervisors(updated);
-                          }}
+                          value={editingUser.profile}
+                          onChange={(e) => setEditingUser({...editingUser, profile: e.target.value})}
+                          className="text-sm border border-gray-300 rounded px-2 py-1"
+                        >
+                          <option value="supervisor">Supervisor</option>
+                          <option value="contabilidade">Contabilidade</option>
+                          <option value="financeiro">Financeiro</option>
+                          <option value="diretoria">Diretoria</option>
+                        </select>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-sm text-gray-900 capitalize">
+                            {supervisor.profile || 'Não definido'}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {editingId === supervisor.id ? (
+                        <select
+                          value={editingUser.sector}
+                          onChange={(e) => setEditingUser({...editingUser, sector: e.target.value})}
                           className="text-sm border border-gray-300 rounded px-2 py-1"
                         >
                           <option value="">Sem setor</option>
@@ -313,15 +387,20 @@ const AdminConfig = () => {
                       {editingId === supervisor.id ? (
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => handleUpdateSupervisor(supervisor)}
+                            onClick={handleUpdateSupervisor}
                             disabled={saving}
                             className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                            title="Salvar"
                           >
                             <CheckCircle className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => setEditingId(null)}
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditingUser({ name: '', email: '', sector: '', profile: 'supervisor' });
+                            }}
                             className="text-gray-600 hover:text-gray-900"
+                            title="Cancelar"
                           >
                             ✕
                           </button>
@@ -329,14 +408,23 @@ const AdminConfig = () => {
                       ) : (
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => setEditingId(supervisor.id)}
+                            onClick={() => startEditing(supervisor)}
                             className="text-blue-600 hover:text-blue-900"
+                            title="Editar"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => handleResetPassword(supervisor.id)}
+                            className="text-yellow-600 hover:text-yellow-900"
+                            title="Resetar Senha"
+                          >
+                            🔑
+                          </button>
+                          <button
                             onClick={() => handleRemoveSupervisor(supervisor.id)}
                             className="text-red-600 hover:text-red-900"
+                            title="Excluir"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

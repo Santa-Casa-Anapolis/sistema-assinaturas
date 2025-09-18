@@ -408,20 +408,17 @@ const AdminPanel = () => {
                 >
                   <option value="">Selecione um setor</option>
                   <option value="TECNOLOGIA DA INFORMAÇÃO">Tecnologia da Informação</option>
-                  <option value="RECURSOS HUMANOS">Recursos Humanos</option>
-                  <option value="FINANCEIRO">Financeiro</option>
                   <option value="CONTABILIDADE">Contabilidade</option>
-                  <option value="COMERCIAL">Comercial</option>
-                  <option value="OPERACIONAL">Operacional</option>
+                  <option value="FINANCEIRO">Financeiro</option>
                   <option value="DIRETORIA">Diretoria</option>
-                  <option value="JURÍDICO">Jurídico</option>
-                  <option value="MARKETING">Marketing</option>
-                  <option value="VENDAS">Vendas</option>
-                  <option value="PRODUÇÃO">Produção</option>
-                  <option value="QUALIDADE">Qualidade</option>
+                  <option value="RECURSOS HUMANOS">Recursos Humanos</option>
+                  <option value="DEPARTAMENTO PESSOAL">Departamento Pessoal</option>
+                  <option value="FARMÁCIA">Farmácia</option>
+                  <option value="CENTRAL DE IMAGEM">Central de Imagem</option>
+                  <option value="LABORATÓRIO">Laboratório</option>
+                  <option value="CENTRO MÉDICO">Centro Médico</option>
                   <option value="COMPRAS">Compras</option>
-                  <option value="ESTOQUE">Estoque</option>
-                  <option value="LOGÍSTICA">Logística</option>
+                  <option value="MANUTENÇÃO">Manutenção</option>
                 </select>
               </div>
               <div>
@@ -593,20 +590,17 @@ const AdminPanel = () => {
                 >
                   <option value="">Selecione um setor</option>
                   <option value="TECNOLOGIA DA INFORMAÇÃO">Tecnologia da Informação</option>
-                  <option value="RECURSOS HUMANOS">Recursos Humanos</option>
-                  <option value="FINANCEIRO">Financeiro</option>
                   <option value="CONTABILIDADE">Contabilidade</option>
-                  <option value="COMERCIAL">Comercial</option>
-                  <option value="OPERACIONAL">Operacional</option>
+                  <option value="FINANCEIRO">Financeiro</option>
                   <option value="DIRETORIA">Diretoria</option>
-                  <option value="JURÍDICO">Jurídico</option>
-                  <option value="MARKETING">Marketing</option>
-                  <option value="VENDAS">Vendas</option>
-                  <option value="PRODUÇÃO">Produção</option>
-                  <option value="QUALIDADE">Qualidade</option>
+                  <option value="RECURSOS HUMANOS">Recursos Humanos</option>
+                  <option value="DEPARTAMENTO PESSOAL">Departamento Pessoal</option>
+                  <option value="FARMÁCIA">Farmácia</option>
+                  <option value="CENTRAL DE IMAGEM">Central de Imagem</option>
+                  <option value="LABORATÓRIO">Laboratório</option>
+                  <option value="CENTRO MÉDICO">Centro Médico</option>
                   <option value="COMPRAS">Compras</option>
-                  <option value="ESTOQUE">Estoque</option>
-                  <option value="LOGÍSTICA">Logística</option>
+                  <option value="MANUTENÇÃO">Manutenção</option>
                 </select>
               </div>
               <div className="flex space-x-3">
