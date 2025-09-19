@@ -71,6 +71,31 @@ async function initDatabase() {
       // Coluna já existe, ignorar erro
     }
 
+    // Adicionar colunas para informações do Active Directory
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(255)
+      `);
+    } catch (err) {
+      // Coluna já existe, ignorar erro
+    }
+
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS title VARCHAR(255)
+      `);
+    } catch (err) {
+      // Coluna já existe, ignorar erro
+    }
+
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_mode VARCHAR(20) DEFAULT 'local'
+      `);
+    } catch (err) {
+      // Coluna já existe, ignorar erro
+    }
+
     // Criar tabela de grupos de acesso
     await pool.query(`
       CREATE TABLE IF NOT EXISTS access_groups (

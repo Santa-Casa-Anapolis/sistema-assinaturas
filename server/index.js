@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { pool, initDatabase } = require('./database');
+const { authenticateLDAP } = require('./ldap-auth');
 require('dotenv').config();
 
 const app = express();
@@ -34,17 +35,45 @@ app.use(limiter);
 // Inicialização do banco PostgreSQL
 async function startServer() {
   try {
+    console.log('🔧 === INICIANDO SERVIDOR ===');
+    console.log('📅 Timestamp:', new Date().toISOString());
+    console.log('🌐 Porta configurada:', PORT);
+    console.log('🔧 Modo de autenticação:', process.env.AUTH_MODE || 'ad');
+    console.log('📊 Configurações LDAP:', {
+      url: process.env.LDAP_URL || 'ldap://santacasa.org:389',
+      baseDN: process.env.LDAP_BASE_DN || 'DC=santacasa,DC=org',
+      bindDN: process.env.LDAP_BIND_DN || 'CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org'
+    });
+    
+    console.log('📡 Conectando ao banco de dados...');
     await initDatabase();
     console.log('✅ Banco de dados inicializado com sucesso');
     
-    // Iniciar servidor após inicializar o banco
-    app.listen(PORT, () => {
+    console.log('🚀 Iniciando servidor HTTP...');
+    const server = app.listen(PORT, () => {
+      console.log('✅ Servidor HTTP iniciado com sucesso!');
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`📱 Frontend: http://localhost:3000`);
       console.log(`🔧 Backend: http://localhost:${PORT}`);
+      console.log('🔧 === SERVIDOR PRONTO ===');
     });
+
+    // Adicionar tratamento de erros do servidor
+    server.on('error', (error) => {
+      console.error('❌ Erro no servidor HTTP:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error('❌ Porta já está em uso. Tente parar outros serviços na porta', PORT);
+      }
+    });
+
+    // Adicionar tratamento de conexões
+    server.on('connection', (socket) => {
+      console.log('🔌 Nova conexão:', socket.remoteAddress, ':', socket.remotePort);
+    });
+
   } catch (error) {
-    console.error('❌ Erro ao inicializar banco:', error);
+    console.error('❌ Erro ao inicializar servidor:', error);
+    console.error('❌ Stack trace:', error.stack);
     process.exit(1);
   }
 }
@@ -136,61 +165,115 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
 
 // Rotas de autenticação
 
-  app.post('/api/auth/login', async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      const authMode = process.env.AUTH_MODE || 'local';
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const authMode = process.env.AUTH_MODE || 'ad'; // Padrão para AD
 
-      let user = null;
+    console.log('🔍 === INÍCIO DO LOGIN ===');
+    console.log('📝 Dados recebidos:', { username, passwordLength: password ? password.length : 'null', authMode });
+    console.log('🌐 IP do cliente:', req.ip);
+    console.log('📅 Timestamp:', new Date().toISOString());
 
-      if (authMode === 'ad') {
-        // Autenticação via Active Directory
-        try {
-          await connectToAD();
-          const adUser = await authenticateUser(username, password);
+    if (!username || !password) {
+      console.log('❌ Dados incompletos fornecidos');
+      return res.status(400).json({ error: 'Username e senha são obrigatórios' });
+    }
+
+    let user = null;
+
+    if (authMode === 'ad') {
+      // Autenticação via Active Directory
+      try {
+        console.log(`🔐 Tentando autenticação LDAP para: ${username}`);
+        console.log('🔧 Modo de autenticação: Active Directory');
+        
+        // Autenticar no AD
+        const adUser = await authenticateLDAP(username, password);
+        console.log('✅ Usuário autenticado no AD:', adUser.displayName);
+        console.log('📊 Dados do AD recebidos:', {
+          username: adUser.username,
+          dn: adUser.dn,
+          displayName: adUser.displayName,
+          email: adUser.email,
+          department: adUser.department
+        });
+        
+        // Verificar se o usuário já existe no banco local
+        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        
+        if (existingUser.rows.length > 0) {
+          // Usuário existe - atualizar informações do AD
+          await pool.query(`
+            UPDATE users 
+            SET name = $1, email = $2, department = $3, title = $4
+            WHERE username = $5
+          `, [
+            adUser.displayName || adUser.username,
+            adUser.email || '',
+            adUser.department || '',
+            adUser.title || '',
+            username
+          ]);
           
-          // Verificar se o usuário já existe no banco local
-          const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [adUser.username]);
+          user = { 
+            ...existingUser.rows[0], 
+            name: adUser.displayName || adUser.username,
+            email: adUser.email || existingUser.rows[0].email
+          };
           
-          if (existingUser.rows.length > 0) {
-            // Atualizar apenas nome do usuário (role e setor ficam como estão)
-            await pool.query(`
-              UPDATE users 
-              SET name = $1 
-              WHERE username = $2
-            `, [adUser.name, adUser.username]);
-            
-            user = { ...existingUser.rows[0], name: adUser.name };
-          } else {
-            // Usuário não existe - precisa ser criado pelo admin
-            await disconnectFromAD();
-            return res.status(401).json({ 
-              error: 'Usuário não cadastrado no sistema. Entre em contato com o administrador.' 
-            });
-          }
-          
-          await disconnectFromAD();
-        } catch (adError) {
-          console.error('Erro na autenticação AD:', adError);
+          console.log('✅ Usuário existente atualizado:', user.name);
+        } else {
+          // Usuário não existe - precisa ser criado pelo admin
+          console.log('❌ Usuário não cadastrado no sistema:', username);
+          return res.status(401).json({ 
+            error: 'Usuário não cadastrado no sistema. Entre em contato com o administrador para solicitar acesso.',
+            userInfo: {
+              username: adUser.username,
+              displayName: adUser.displayName,
+              email: adUser.email,
+              department: adUser.department
+            }
+          });
+        }
+        
+      } catch (adError) {
+        console.error('❌ Erro na autenticação AD:', adError.message);
+        console.error('❌ Stack trace do erro AD:', adError.stack);
+        console.error('❌ Tipo do erro:', typeof adError);
+        console.error('❌ Propriedades do erro:', Object.keys(adError));
+        
+        // Tratamento específico de erros LDAP
+        if (adError.message.includes('Usuário não encontrado')) {
+          console.log('🔍 Erro: Usuário não encontrado no AD');
+          return res.status(401).json({ error: 'Usuário não encontrado no Active Directory' });
+        } else if (adError.message.includes('Senha inválida') || adError.message.includes('credenciais incorretas')) {
+          console.log('🔍 Erro: Senha incorreta');
+          return res.status(401).json({ error: 'Senha incorreta' });
+        } else if (adError.message.includes('conexão') || adError.message.includes('timeout')) {
+          console.log('🔍 Erro: Problema de conexão');
+          return res.status(503).json({ error: 'Serviço de autenticação temporariamente indisponível' });
+        } else {
+          console.log('🔍 Erro: Falha geral na autenticação AD');
           return res.status(401).json({ error: 'Falha na autenticação com o Active Directory' });
         }
-      } else {
-        // Autenticação local (padrão) - login por nome de usuário
-        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        user = result.rows[0];
-
-        if (!user) {
-          return res.status(401).json({ error: 'Usuário não encontrado' });
-        }
-
-        // Verificar senha
-        const bcrypt = require('bcryptjs');
-        const isValidPassword = await bcrypt.compare(password, user.password);
-
-        if (!isValidPassword) {
-          return res.status(401).json({ error: 'Senha incorreta' });
-        }
       }
+    } else {
+      // Autenticação local (fallback)
+      const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+      user = result.rows[0];
+
+      if (!user) {
+        return res.status(401).json({ error: 'Usuário não encontrado' });
+      }
+
+      // Verificar senha
+      const isValidPassword = await bcrypt.compare(password, user.password);
+
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Senha incorreta' });
+      }
+    }
 
     // Gerar token JWT
     const token = jwt.sign(
@@ -202,18 +285,32 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
     // Log de auditoria
     await logAudit(user.id, 'LOGIN', null, `Login realizado com sucesso (${authMode})`, req.ip);
 
+    console.log('✅ Login bem-sucedido para:', user.name);
+
     res.json({
       token,
       user: {
         id: user.id,
         name: user.name,
         username: user.username,
+        email: user.email,
         role: user.role,
-        sector: user.sector
+        sector: user.sector,
+        department: user.department,
+        title: user.title
       }
     });
   } catch (error) {
-    console.error('Erro no login:', error);
+    console.error('❌ === ERRO NO LOGIN ===');
+    console.error('❌ Timestamp:', new Date().toISOString());
+    console.error('❌ URL:', req.url);
+    console.error('❌ Método:', req.method);
+    console.error('❌ IP:', req.ip);
+    console.error('❌ User-Agent:', req.get('User-Agent'));
+    console.error('❌ Body recebido:', req.body);
+    console.error('❌ Erro:', error.message);
+    console.error('❌ Stack trace:', error.stack);
+    console.error('❌ =====================');
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });

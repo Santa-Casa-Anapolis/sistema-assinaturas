@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -39,7 +39,7 @@ const Login = () => {
             Sistema de Assinaturas
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Faça login para acessar o sistema
+            Faça login com suas credenciais do domínio
           </p>
         </div>
 
@@ -47,7 +47,7 @@ const Login = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Nome de Usuário
+                Login do Domínio (samAccountName)
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -62,7 +62,7 @@ const Login = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="appearance-none relative block w-full pl-10 pr-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="usuario.nome.sobrenome"
+                  placeholder="exemplo: joao.silva"
                 />
               </div>
             </div>
