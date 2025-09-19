@@ -106,10 +106,26 @@ const authenticateToken = (req, res, next) => {
 // Log de auditoria
 async function logAudit(userId, action, documentId, details, ipAddress) {
   try {
-    await pool.query(
-      `INSERT INTO audit_log (user_id, action, document_id, details, ip_address) VALUES ($1, $2, $3, $4, $5)`,
-      [userId, action, documentId, details, ipAddress]
-    );
+    // Verificar se a coluna document_id existe
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'audit_log' AND column_name = 'document_id'
+    `);
+    
+    if (columnCheck.rows.length > 0) {
+      // Coluna document_id existe, usar query completa
+      await pool.query(
+        `INSERT INTO audit_log (user_id, action, document_id, details, ip_address) VALUES ($1, $2, $3, $4, $5)`,
+        [userId, action, documentId, details, ipAddress]
+      );
+    } else {
+      // Coluna document_id não existe, usar query sem ela
+      await pool.query(
+        `INSERT INTO audit_log (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)`,
+        [userId, action, details, ipAddress]
+      );
+    }
   } catch (error) {
     console.error('Erro ao registrar auditoria:', error);
   }
@@ -204,7 +220,7 @@ app.get('/api/users/by-role/:role', authenticateToken, async (req, res) => {
   try {
     const { role } = req.params;
 
-    const result = await pool.query('SELECT id, name, email, role, sector, profile FROM users WHERE role = $1', [role]);
+    const result = await pool.query('SELECT id, name, email, username, role, sector, profile FROM users WHERE role = $1', [role]);
     const users = result.rows;
     res.json(users);
   } catch (error) {

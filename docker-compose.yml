@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: notasfiscais_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 2025SantaCasaFD
+      POSTGRES_PASSWORD: 123456
     ports:
       - "5432:5432"
     volumes:

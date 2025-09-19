@@ -25,3 +25,6 @@ server/temp-database.sqlite
 
 # Docker
 .dockerignore
+
+# Uploads
+server/uploads/
