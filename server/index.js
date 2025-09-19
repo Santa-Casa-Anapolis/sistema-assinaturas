@@ -21,6 +21,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('uploads'));
 
+// Configurar trust proxy para rate limiting
+app.set('trust proxy', 1);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
@@ -1085,13 +1088,13 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
 
     // Filtrar por permissões do usuário
     if (userRole === 'supervisor') {
-      query += ' WHERE d.sector = ?';
+      query += ' WHERE d.sector = $1';
       params.push(userSector);
     } else if (['contabilidade', 'financeiro', 'diretoria'].includes(userRole)) {
       // Esses roles podem ver todos os documentos
       query += ' WHERE 1=1';
     } else {
-      query += ' WHERE d.created_by = ?';
+      query += ' WHERE d.created_by = $1';
       params.push(userId);
     }
 
@@ -1122,14 +1125,16 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
       return res.status(403).json({ error: 'Apenas supervisores podem criar documentos' });
     }
 
-    // Inserir documento principal
+    // Inserir documento principal (usando o primeiro arquivo como file_path principal)
     const result = await pool.query(`
-      INSERT INTO documents (title, description, created_by, supervisor_id, sector, amount, current_stage, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'contabilidade', 'pending')
+      INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, current_stage, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'contabilidade', 'pending')
       RETURNING id
     `, [
       title,
       description,
+      files[0].path,
+      files[0].originalname,
       userId,
       userId,
       sector || req.user.sector,

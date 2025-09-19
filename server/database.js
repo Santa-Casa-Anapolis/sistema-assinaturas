@@ -123,6 +123,21 @@ async function initDatabase() {
       )
     `);
 
+    // Criar tabela de arquivos de documentos
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS document_files (
+        id SERIAL PRIMARY KEY,
+        document_id INTEGER NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        original_filename VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_size INTEGER,
+        mime_type VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (document_id) REFERENCES documents (id)
+      )
+    `);
+
     // Criar tabela de histórico de aprovações
     await pool.query(`
       CREATE TABLE IF NOT EXISTS document_approvals (
