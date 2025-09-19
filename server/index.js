@@ -182,7 +182,34 @@ app.post('/api/auth/login', async (req, res) => {
 
     let user = null;
 
-    if (authMode === 'ad') {
+    // Primeiro, verificar o modo de autenticação do usuário no banco
+    const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    
+    if (userCheck.rows.length === 0) {
+      console.log('❌ Usuário não encontrado no sistema:', username);
+      return res.status(401).json({ error: 'Usuário não encontrado no sistema' });
+    }
+    
+    const userAuthMode = userCheck.rows[0].auth_mode || 'ad';
+    console.log(`🔍 Modo de autenticação do usuário: ${userAuthMode}`);
+    
+    if (userAuthMode === 'local') {
+      // Autenticação local (usuários de teste)
+      console.log(`🔐 Autenticação local para: ${username}`);
+      
+      user = userCheck.rows[0];
+      
+      // Verificar senha local
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      
+      if (!isValidPassword) {
+        console.log('❌ Senha incorreta para usuário local');
+        return res.status(401).json({ error: 'Senha incorreta' });
+      }
+      
+      console.log('✅ Usuário de teste autenticado com sucesso:', user.name);
+      
+    } else if (userAuthMode === 'ad') {
       // Autenticação via Active Directory
       try {
         console.log(`🔐 Tentando autenticação LDAP para: ${username}`);
@@ -199,43 +226,26 @@ app.post('/api/auth/login', async (req, res) => {
           department: adUser.department
         });
         
-        // Verificar se o usuário já existe no banco local
-        const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        // Usuário já existe (verificado acima) - atualizar informações do AD
+        await pool.query(`
+          UPDATE users 
+          SET name = $1, email = $2, department = $3, title = $4
+          WHERE username = $5
+        `, [
+          adUser.displayName || adUser.username,
+          adUser.email || '',
+          adUser.department || '',
+          adUser.title || '',
+          username
+        ]);
         
-        if (existingUser.rows.length > 0) {
-          // Usuário existe - atualizar informações do AD
-          await pool.query(`
-            UPDATE users 
-            SET name = $1, email = $2, department = $3, title = $4
-            WHERE username = $5
-          `, [
-            adUser.displayName || adUser.username,
-            adUser.email || '',
-            adUser.department || '',
-            adUser.title || '',
-            username
-          ]);
-          
-          user = { 
-            ...existingUser.rows[0], 
-            name: adUser.displayName || adUser.username,
-            email: adUser.email || existingUser.rows[0].email
-          };
-          
-          console.log('✅ Usuário existente atualizado:', user.name);
-        } else {
-          // Usuário não existe - precisa ser criado pelo admin
-          console.log('❌ Usuário não cadastrado no sistema:', username);
-          return res.status(401).json({ 
-            error: 'Usuário não cadastrado no sistema. Entre em contato com o administrador para solicitar acesso.',
-            userInfo: {
-              username: adUser.username,
-              displayName: adUser.displayName,
-              email: adUser.email,
-              department: adUser.department
-            }
-          });
-        }
+        user = { 
+          ...userCheck.rows[0], 
+          name: adUser.displayName || adUser.username,
+          email: adUser.email || userCheck.rows[0].email
+        };
+        
+        console.log('✅ Usuário AD atualizado:', user.name);
         
       } catch (adError) {
         console.error('❌ Erro na autenticação AD:', adError.message);
@@ -257,21 +267,6 @@ app.post('/api/auth/login', async (req, res) => {
           console.log('🔍 Erro: Falha geral na autenticação AD');
           return res.status(401).json({ error: 'Falha na autenticação com o Active Directory' });
         }
-      }
-    } else {
-      // Autenticação local (fallback)
-      const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-      user = result.rows[0];
-
-      if (!user) {
-        return res.status(401).json({ error: 'Usuário não encontrado' });
-      }
-
-      // Verificar senha
-      const isValidPassword = await bcrypt.compare(password, user.password);
-
-      if (!isValidPassword) {
-        return res.status(401).json({ error: 'Senha incorreta' });
       }
     }
 
@@ -297,7 +292,8 @@ app.post('/api/auth/login', async (req, res) => {
         role: user.role,
         sector: user.sector,
         department: user.department,
-        title: user.title
+        title: user.title,
+        is_admin: user.role === 'admin'
       }
     });
   } catch (error) {
@@ -976,9 +972,9 @@ app.get('/api/admin/ad-users', authenticateToken, async (req, res) => {
 const requireAdmin = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const result = await pool.query('SELECT is_admin FROM users WHERE id = ?', [userId]);
+    const result = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
     
-    if (result.rows.length === 0 || !result.rows[0].is_admin) {
+    if (result.rows.length === 0 || result.rows[0].role !== 'admin') {
       return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
     }
     
@@ -1174,7 +1170,8 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
     let query = `
       SELECT d.*, u.name as created_by_name, s.name as supervisor_name,
              COUNT(df.id) as files_count,
-             STRING_AGG(df.original_filename, ', ') as file_names
+             STRING_AGG(df.original_filename, ', ') as file_names,
+             COALESCE(d.amount::numeric, 0) as amount
       FROM documents d
       LEFT JOIN users u ON d.created_by = u.id
       LEFT JOIN users s ON d.supervisor_id = s.id

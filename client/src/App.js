@@ -3,9 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
+import './styles/dark-mode.css';
 
 // Context
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Components
 import Login from './components/Login';
@@ -19,6 +21,7 @@ import AdminConfig from './components/AdminConfig';
 import AdminPanel from './components/AdminPanel';
 import DocumentFlow from './components/DocumentFlow';
 import Header from './components/Header';
+import ThemeToggle from './components/ThemeToggle';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -36,64 +39,67 @@ const AdminRoute = ({ children }) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="App">
-          <Header />
-          <main className="container mx-auto px-4 py-8">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/upload" element={
-                <ProtectedRoute>
-                  <UploadDocument />
-                </ProtectedRoute>
-              } />
-              <Route path="/pending" element={
-                <ProtectedRoute>
-                  <PendingSignatures />
-                </ProtectedRoute>
-              } />
-              <Route path="/my-documents" element={
-                <ProtectedRoute>
-                  <MyDocuments />
-                </ProtectedRoute>
-              } />
-              <Route path="/sign/:id" element={
-                <ProtectedRoute>
-                  <DocumentSign />
-                </ProtectedRoute>
-              } />
-              <Route path="/audit/:id" element={
-                <ProtectedRoute>
-                  <AuditLog />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin" element={
-                <ProtectedRoute>
-                  <AdminConfig />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin-panel" element={
-                <AdminRoute>
-                  <AdminPanel />
-                </AdminRoute>
-              } />
-              <Route path="/flow" element={
-                <ProtectedRoute>
-                  <DocumentFlow />
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </main>
-          <ToastContainer position="top-right" autoClose={3000} />
-        </div>
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <div className="App">
+            <ThemeToggle />
+            <Header />
+            <main className="container mx-auto px-4 py-8">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/upload" element={
+                  <ProtectedRoute>
+                    <UploadDocument />
+                  </ProtectedRoute>
+                } />
+                <Route path="/pending" element={
+                  <ProtectedRoute>
+                    <PendingSignatures />
+                  </ProtectedRoute>
+                } />
+                <Route path="/my-documents" element={
+                  <ProtectedRoute>
+                    <MyDocuments />
+                  </ProtectedRoute>
+                } />
+                <Route path="/sign/:id" element={
+                  <ProtectedRoute>
+                    <DocumentSign />
+                  </ProtectedRoute>
+                } />
+                <Route path="/audit/:id" element={
+                  <ProtectedRoute>
+                    <AuditLog />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <AdminConfig />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin-panel" element={
+                  <AdminRoute>
+                    <AdminPanel />
+                  </AdminRoute>
+                } />
+                <Route path="/flow" element={
+                  <ProtectedRoute>
+                    <DocumentFlow />
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </main>
+            <ToastContainer position="top-right" autoClose={3000} />
+          </div>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
