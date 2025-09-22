@@ -127,7 +127,7 @@ const UploadDocument = () => {
         <div className="bg-white rounded-lg shadow-md p-8">
           <div className="flex items-center space-x-3 mb-6">
             <Upload className="h-8 w-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Enviar Documento</h1>
+            <h1 className="text-2xl font-bold" style={{color: 'var(--text-primary)'}}>Enviar Documento</h1>
           </div>
 
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
@@ -145,34 +145,44 @@ const UploadDocument = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
                 Título do Documento *
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-primary)',
+                  color: 'var(--text-primary)'
+                }}
                 placeholder="Ex: Nota fiscal de equipamentos"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
                 Descrição
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--border-primary)',
+                  color: 'var(--text-primary)'
+                }}
                 rows="3"
                 placeholder="Descreva o documento e seu propósito..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
                 Valor (R$)
               </label>
               <div className="relative">
@@ -183,7 +193,12 @@ const UploadDocument = () => {
                   min="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full border rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
                   placeholder="0,00"
                 />
               </div>

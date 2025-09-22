@@ -7,7 +7,8 @@ import {
   FileText, 
   ArrowRight, 
   Download,
-  AlertCircle
+  AlertCircle,
+  Eye
 } from 'lucide-react';
 
 const PendingSignatures = () => {
@@ -50,6 +51,46 @@ const PendingSignatures = () => {
     }
   };
 
+  const handleViewDocument = async (documentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Token de autenticação não encontrado');
+        return;
+      }
+      
+      // Testar se a rota está funcionando
+      const testResponse = await axios.get(`/api/documents/${documentId}/view?token=${token}`, {
+        responseType: 'blob'
+      });
+      
+      if (testResponse.status === 200) {
+        // Criar URL do blob e abrir em nova aba
+        const blob = new Blob([testResponse.data]);
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        
+        // Limpar URL após um tempo
+        setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+      }
+    } catch (error) {
+      console.error('Erro ao visualizar documento:', error);
+      console.error('Status:', error.response?.status);
+      console.error('Data:', error.response?.data);
+      console.error('Headers:', error.response?.headers);
+      
+      if (error.response?.status === 401) {
+        toast.error('Token de autenticação inválido. Faça login novamente.');
+      } else if (error.response?.status === 404) {
+        toast.error('Documento não encontrado.');
+      } else if (error.response?.status === 403) {
+        toast.error('Acesso negado ao documento.');
+      } else {
+        toast.error(`Erro ao abrir documento: ${error.response?.data?.error || error.message}`);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -62,7 +103,7 @@ const PendingSignatures = () => {
     <div className="max-w-6xl mx-auto">
       {/* Cabeçalho */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold mb-2" style={{color: 'var(--text-primary)'}}>
           Documentos Pendentes
         </h1>
         <p className="text-gray-600">
@@ -123,6 +164,15 @@ const PendingSignatures = () => {
                   </div>
                   
                   <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => handleViewDocument(doc.id)}
+                      className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-md"
+                      title="Visualizar documento"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Visualizar
+                    </button>
+                    
                     <button
                       onClick={() => handleDownload(doc.id, doc.original_filename)}
                       className="inline-flex items-center px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"

@@ -95,7 +95,7 @@ const Dashboard = () => {
     <div className="max-w-7xl mx-auto">
       {/* Cabeçalho */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-bold mb-2" style={{color: 'var(--text-primary)'}}>
           Bem-vindo, {user.name}!
         </h1>
         <p className="text-gray-600">

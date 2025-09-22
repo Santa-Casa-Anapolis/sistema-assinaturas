@@ -35,7 +35,7 @@ const Login = () => {
           <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-lg">
             <Shield className="h-8 w-8 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+          <h2 className="mt-6 text-3xl font-bold" style={{color: 'var(--text-primary)'}}>
             Sistema de Assinaturas
           </h2>
           <p className="mt-2 text-sm" style={{color: 'var(--text-secondary)'}}>

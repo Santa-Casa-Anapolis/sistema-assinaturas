@@ -68,7 +68,7 @@ const Header = () => {
           <div className="flex items-center space-x-8">
             <div className="flex items-center space-x-2">
               <Shield className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">
+              <span className="text-xl font-bold" style={{color: 'var(--text-primary)'}}>
                 Sistema de Assinaturas
               </span>
             </div>
@@ -101,7 +101,7 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             <div className="hidden md:flex items-center space-x-3">
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                <p className="text-sm font-medium" style={{color: 'var(--text-primary)'}}>{user.name}</p>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
                   {getRoleDisplayName(user.role)}
                 </span>

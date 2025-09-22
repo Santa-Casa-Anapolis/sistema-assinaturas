@@ -756,7 +756,7 @@ app.get('/api/documents/:id/view', async (req, res) => {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
 
-    const filePath = path.join(__dirname, 'uploads', document.file_path || document.filename);
+    const filePath = path.join(__dirname, 'uploads', document.filename);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Arquivo não encontrado' });
@@ -785,7 +785,10 @@ app.get('/api/documents/:id/view', async (req, res) => {
     // Enviar arquivo
     res.sendFile(filePath);
   } catch (error) {
-    console.error('Erro na visualização:', error);
+    console.error('❌ Erro na visualização do documento:', error);
+    console.error('❌ Document ID:', req.params.id);
+    console.error('❌ Token:', token ? 'Presente' : 'Ausente');
+    console.error('❌ User:', req.user);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });

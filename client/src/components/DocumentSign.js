@@ -219,7 +219,7 @@ const DocumentSign = () => {
               </div>
 
               <div>
-                <label htmlFor="govSignature" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="govSignature" className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
                   Assinatura GOV.BR *
                 </label>
                 <textarea
@@ -227,7 +227,12 @@ const DocumentSign = () => {
                   value={govSignature}
                   onChange={(e) => setGovSignature(e.target.value)}
                   placeholder="Digite sua assinatura digital (ex: CPF, certificado digital, etc.)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--border-primary)',
+                    color: 'var(--text-primary)'
+                  }}
                   rows={4}
                   required
                 />
