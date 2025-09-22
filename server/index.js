@@ -744,7 +744,7 @@ app.get('/api/documents/:id/view', async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sua-chave-secreta-muito-segura-aqui');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     req.user = decoded;
     
     const { id } = req.params;
