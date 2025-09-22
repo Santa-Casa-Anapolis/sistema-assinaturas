@@ -25,12 +25,66 @@ app.use(express.static('uploads'));
 // Configurar trust proxy para rate limiting
 app.set('trust proxy', 1);
 
+// Configuração do multer para upload de documentos
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Permitir apenas imagens para assinaturas
+    if (file.fieldname === 'signature') {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
+      }
+    } else {
+      // Para documentos, permitir PDF e imagens
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Tipo de arquivo não permitido'), false);
+      }
+    }
+  }
+});
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100 // limite de 100 requests por IP
 });
 app.use(limiter);
+
+// Middleware de autenticação JWT
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token de acesso requerido' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido' });
+    }
+    req.user = user;
+    next();
+  });
+};
 
 // Inicialização do banco PostgreSQL
 async function startServer() {
@@ -79,34 +133,6 @@ async function startServer() {
 }
 
 // Configuração do upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = 'uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}-${file.originalname}`;
-    cb(null, uniqueName);
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Tipo de arquivo não suportado. Apenas PDF e DOCX são permitidos.'), false);
-    }
-  },
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
-  }
-});
 
 // Configuração do email (DESABILITADO - Modo sem email)
 // const transporter = nodemailer.createTransporter({
@@ -117,23 +143,6 @@ const upload = multer({
 //   }
 // });
 
-// Middleware de autenticação
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Token não fornecido' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Token inválido' });
-    }
-    req.user = user;
-    next();
-  });
-};
 
 // Log de auditoria
 async function logAudit(userId, action, documentId, details, ipAddress) {
@@ -321,6 +330,139 @@ app.get('/api/users/by-role/:role', authenticateToken, async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Erro ao buscar usuários:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Upload de assinatura do usuário
+app.post('/api/users/:id/signature', authenticateToken, upload.single('signature'), async (req, res) => {
+  try {
+    console.log('🔍 Upload de assinatura iniciado');
+    console.log('📝 Headers recebidos:', req.headers);
+    console.log('📝 Parâmetros recebidos:', req.params);
+    console.log('📝 Body recebido:', req.body);
+    console.log('📝 File recebido:', req.file ? {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      filename: req.file.filename
+    } : 'Nenhum arquivo');
+    console.log('📝 User autenticado:', req.user ? { id: req.user.id, role: req.user.role } : 'Usuário não autenticado');
+
+    const userId = req.params.id;
+    const file = req.file;
+    
+    if (!file) {
+      return res.status(400).json({ error: 'Arquivo de assinatura é obrigatório' });
+    }
+
+    // Verificar se o usuário tem permissão (admin principal ou o próprio usuário)
+    const isAdmin = await isMainAdmin(req.user.id);
+    if (!isAdmin && req.user.id != userId) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Verificar se o usuário existe
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Verificar se já existe assinatura para este usuário
+    const existingSignature = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
+    
+    if (existingSignature.rows.length > 0) {
+      // Atualizar assinatura existente
+      await pool.query(
+        'UPDATE user_signatures SET signature_file = $1, original_filename = $2, updated_at = CURRENT_TIMESTAMP WHERE user_id = $3',
+        [file.filename, file.originalname, userId]
+      );
+    } else {
+      // Criar nova assinatura
+      await pool.query(
+        'INSERT INTO user_signatures (user_id, signature_file, original_filename) VALUES ($1, $2, $3)',
+        [userId, file.filename, file.originalname]
+      );
+    }
+
+    res.json({ 
+      message: 'Assinatura salva com sucesso',
+      signatureFile: file.filename,
+      originalFilename: file.originalname
+    });
+
+  } catch (error) {
+    console.error('Erro ao salvar assinatura:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Obter assinatura do usuário
+app.get('/api/users/:id/signature', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Verificar se o usuário tem permissão (admin principal ou o próprio usuário)
+    const isAdmin = await isMainAdmin(req.user.id);
+    if (!isAdmin && req.user.id != userId) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const result = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Assinatura não encontrada' });
+    }
+
+    const signature = result.rows[0];
+    res.json({
+      id: signature.id,
+      userId: signature.user_id,
+      signatureFile: signature.signature_file,
+      originalFilename: signature.original_filename,
+      createdAt: signature.created_at,
+      updatedAt: signature.updated_at
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar assinatura:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Deletar assinatura do usuário
+app.delete('/api/users/:id/signature', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Verificar se o usuário tem permissão (admin principal ou o próprio usuário)
+    const isAdmin = await isMainAdmin(req.user.id);
+    if (!isAdmin && req.user.id != userId) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Verificar se a assinatura existe
+    const signatureResult = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
+    if (signatureResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Assinatura não encontrada' });
+    }
+
+    const signature = signatureResult.rows[0];
+    
+    // Remover arquivo físico
+    const filePath = path.join(__dirname, 'uploads', signature.signature_file);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Remover do banco de dados
+    await pool.query('DELETE FROM user_signatures WHERE user_id = $1', [userId]);
+
+    res.json({ message: 'Assinatura removida com sucesso' });
+
+  } catch (error) {
+    console.error('Erro ao remover assinatura:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -772,8 +914,9 @@ function sendNotificationEmail(email, documentTitle, documentId) {
 
     console.log('➕ Criando supervisor:', { name, username, email, sector });
 
-     // Verificar se o usuário é admin ou tem permissão
-     if (req.user.role !== 'admin' && req.user.role !== 'diretoria') {
+     // Verificar se o usuário é admin principal ou diretoria
+     const isAdmin = await isMainAdmin(req.user.id);
+     if (!isAdmin && req.user.role !== 'diretoria') {
        return res.status(403).json({ error: 'Acesso negado' });
      }
 
@@ -941,8 +1084,9 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
 // Rota para buscar usuários do AD (apenas admin)
 app.get('/api/admin/ad-users', authenticateToken, async (req, res) => {
   try {
-    // Verificar se o usuário é admin
-    if (req.user.role !== 'admin') {
+    // Verificar se o usuário é admin principal
+    const isAdmin = await isMainAdmin(req.user.id);
+    if (!isAdmin) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
@@ -968,16 +1112,32 @@ app.get('/api/admin/ad-users', authenticateToken, async (req, res) => {
 
 // ==================== ROTAS DE ADMINISTRAÇÃO ====================
 
-// Middleware para verificar se é admin
+// Função auxiliar para verificar se é o admin principal
+const isMainAdmin = async (userId) => {
+  try {
+    const result = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
+    return result.rows.length > 0 && result.rows[0].username === 'admin@santacasa.org';
+  } catch (error) {
+    console.error('Erro ao verificar admin principal:', error);
+    return false;
+  }
+};
+
+// Middleware para verificar se é admin (apenas admin@santacasa.org)
 const requireAdmin = async (req, res, next) => {
   try {
-    const userId = req.user.id;
-    const result = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+    console.log('🔍 Verificando admin - User ID:', req.user.id);
+    console.log('🔍 Verificando admin - User:', req.user);
     
-    if (result.rows.length === 0 || result.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+    const isAdmin = await isMainAdmin(req.user.id);
+    console.log('🔍 É admin principal?', isAdmin);
+    
+    if (!isAdmin) {
+      console.log('❌ Acesso negado - não é admin principal');
+      return res.status(403).json({ error: 'Acesso negado. Apenas o administrador principal pode gerenciar usuários.' });
     }
     
+    console.log('✅ Acesso permitido - é admin principal');
     next();
   } catch (error) {
     console.error('Erro ao verificar permissões de admin:', error);
@@ -989,10 +1149,8 @@ const requireAdmin = async (req, res, next) => {
 app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT u.*, g.name as group_name, g.id as group_id
+      SELECT u.id, u.name, u.email, u.username, u.role, u.sector, u.profile, u.is_admin, u.created_at
       FROM users u
-      LEFT JOIN user_groups ug ON u.id = ug.user_id
-      LEFT JOIN access_groups g ON ug.group_id = g.id
       ORDER BY u.created_at DESC
     `);
     
@@ -1009,7 +1167,7 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
     const { name, email, username, role, password, sector, profile, group_name } = req.body;
     
     // Verificar se usuário já existe
-    const existingUser = await pool.query('SELECT id FROM users WHERE email = ? OR username = ?', [email, username]);
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username]);
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: 'Usuário já existe' });
     }
@@ -1020,7 +1178,7 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
     // Criar usuário
     const result = await pool.query(`
       INSERT INTO users (name, email, username, role, password, sector, profile, group_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `, [name, email, username, role, hashedPassword, sector, profile || 'supervisor', group_name]);
     
     res.json({ 
@@ -1040,13 +1198,13 @@ app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res
     const { name, email, username, role, sector, group_name } = req.body;
     
     // Verificar se usuário existe
-    const existingUser = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    const existingUser = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
     if (existingUser.rows.length === 0) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
     
     // Verificar se email/username já existe em outro usuário
-    const duplicateUser = await pool.query('SELECT id FROM users WHERE (email = ? OR username = ?) AND id != ?', [email, username, userId]);
+    const duplicateUser = await pool.query('SELECT id FROM users WHERE (email = $1 OR username = $2) AND id != $3', [email, username, userId]);
     if (duplicateUser.rows.length > 0) {
       return res.status(400).json({ error: 'Email ou username já existe em outro usuário' });
     }
@@ -1054,8 +1212,8 @@ app.put('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res
     // Atualizar usuário
     await pool.query(`
       UPDATE users 
-      SET name = ?, email = ?, username = ?, role = ?, sector = ?, group_name = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      SET name = $1, email = $2, username = $3, role = $4, sector = $5, group_name = $6, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $7
     `, [name, email, username, role, sector, group_name, userId]);
     
     res.json({ message: 'Usuário atualizado com sucesso' });
@@ -1071,7 +1229,7 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
     const userId = req.params.id;
     
     // Verificar se usuário existe
-    const existingUser = await pool.query('SELECT id FROM users WHERE id = ?', [userId]);
+    const existingUser = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
     if (existingUser.rows.length === 0) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
@@ -1082,7 +1240,7 @@ app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, 
     }
     
     // Excluir usuário
-    await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
     
     res.json({ message: 'Usuário excluído com sucesso' });
   } catch (error) {
@@ -1115,7 +1273,7 @@ app.post('/api/admin/groups', authenticateToken, requireAdmin, async (req, res) 
     const { name, description, permissions } = req.body;
     
     // Verificar se grupo já existe
-    const existingGroup = await pool.query('SELECT id FROM access_groups WHERE name = ?', [name]);
+    const existingGroup = await pool.query('SELECT id FROM access_groups WHERE name = $1', [name]);
     if (existingGroup.rows.length > 0) {
       return res.status(400).json({ error: 'Grupo já existe' });
     }
@@ -1123,7 +1281,7 @@ app.post('/api/admin/groups', authenticateToken, requireAdmin, async (req, res) 
     // Criar grupo
     const result = await pool.query(`
       INSERT INTO access_groups (name, description, permissions)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
     `, [name, description, JSON.stringify(permissions)]);
     
     res.json({ 
@@ -1143,12 +1301,12 @@ app.post('/api/admin/assign-group', authenticateToken, requireAdmin, async (req,
     const assignedBy = req.user.id;
     
     // Remover associações anteriores do usuário
-    await pool.query('DELETE FROM user_groups WHERE user_id = ?', [userId]);
+    await pool.query('DELETE FROM user_groups WHERE user_id = $1', [userId]);
     
     // Adicionar nova associação
     await pool.query(`
       INSERT INTO user_groups (user_id, group_id, assigned_by)
-      VALUES (?, ?, ?)
+      VALUES ($1, $2, $3)
     `, [userId, groupId, assignedBy]);
     
     res.json({ message: 'Usuário atribuído ao grupo com sucesso' });
@@ -1272,7 +1430,7 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
     const userRole = req.user.role;
 
     // Buscar documento
-    const docResult = await pool.query('SELECT * FROM documents WHERE id = ?', [documentId]);
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = $1', [documentId]);
     if (docResult.rows.length === 0) {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
@@ -1293,7 +1451,7 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
     // Registrar aprovação
     await pool.query(`
       INSERT INTO document_approvals (document_id, user_id, stage, action, comments, gov_signature_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `, [documentId, userId, document.current_stage, action, comments, govSignatureId]);
 
     if (action === 'reject') {
@@ -1301,7 +1459,7 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
       await pool.query(`
         UPDATE documents 
         SET current_stage = 'rejected', status = 'rejected', updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        WHERE id = $1
       `, [documentId]);
     } else {
       // Se aprovado, avança para o próximo estágio
@@ -1320,15 +1478,15 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
           // Diretoria aprovou - documento vai para pagamento
           await pool.query(`
             UPDATE documents 
-            SET current_stage = ?, status = 'approved', final_approval_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
+            SET current_stage = $1, status = 'approved', final_approval_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
           `, [nextStage, documentId]);
         } else {
           // Outras etapas
           await pool.query(`
             UPDATE documents 
-            SET current_stage = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
+            SET current_stage = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
           `, [nextStage, documentId]);
         }
       }
@@ -1358,7 +1516,7 @@ app.post('/api/documents/:id/payment', authenticateToken, upload.single('payment
     }
 
     // Buscar documento
-    const docResult = await pool.query('SELECT * FROM documents WHERE id = ?', [documentId]);
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = $1', [documentId]);
     if (docResult.rows.length === 0) {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
@@ -1372,14 +1530,14 @@ app.post('/api/documents/:id/payment', authenticateToken, upload.single('payment
     // Atualizar documento com pagamento
     await pool.query(`
       UPDATE documents 
-      SET payment_proof_path = ?, payment_date = ?, payment_status = 'completed', current_stage = 'completed', status = 'completed', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      SET payment_proof_path = $1, payment_date = $2, payment_status = 'completed', current_stage = 'completed', status = 'completed', updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
     `, [req.file.path, paymentDate, documentId]);
 
     // Registrar pagamento
     await pool.query(`
       INSERT INTO document_approvals (document_id, user_id, stage, action, comments)
-      VALUES (?, ?, 'payment', 'completed', 'Pagamento processado com sucesso')
+      VALUES ($1, $2, 'payment', 'completed', 'Pagamento processado com sucesso')
     `, [documentId, userId]);
 
     // Mover arquivos para pasta de rede
@@ -1401,7 +1559,7 @@ app.get('/api/documents/:id/download', authenticateToken, async (req, res) => {
     const userSector = req.user.sector;
 
     // Buscar documento
-    const result = await pool.query('SELECT * FROM documents WHERE id = ?', [documentId]);
+    const result = await pool.query('SELECT * FROM documents WHERE id = $1', [documentId]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }

@@ -96,6 +96,41 @@ async function initDatabase() {
       // Coluna já existe, ignorar erro
     }
 
+    // Criar tabela para assinaturas dos usuários
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_signatures (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          signature_file VARCHAR(500) NOT NULL,
+          original_filename VARCHAR(255) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+    } catch (err) {
+      console.log('Tabela user_signatures já existe ou erro:', err.message);
+    }
+
+    // Criar tabela para rastrear assinaturas em documentos
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS document_signatures (
+          id SERIAL PRIMARY KEY,
+          document_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          stage VARCHAR(50) NOT NULL,
+          signature_file VARCHAR(500) NOT NULL,
+          signed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+    } catch (err) {
+      console.log('Tabela document_signatures já existe ou erro:', err.message);
+    }
+
     // Criar tabela de grupos de acesso
     await pool.query(`
       CREATE TABLE IF NOT EXISTS access_groups (

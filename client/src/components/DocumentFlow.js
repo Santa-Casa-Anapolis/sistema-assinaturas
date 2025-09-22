@@ -12,9 +12,11 @@ import {
   Trash2,
   DollarSign,
   Calendar,
-  X
+  X,
+  FileSignature
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import DocumentSignature from './DocumentSignature';
 
 const DocumentFlow = () => {
   const [documents, setDocuments] = useState([]);
@@ -33,6 +35,9 @@ const DocumentFlow = () => {
     paymentProof: null
   });
   const [filterStatus, setFilterStatus] = useState('all'); // Novo estado para filtro
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [signatureDocument, setSignatureDocument] = useState(null);
+  const [signatureStage, setSignatureStage] = useState('');
 
   const { user } = useAuth();
 
@@ -204,6 +209,19 @@ const DocumentFlow = () => {
   const handleViewDocument = (document) => {
     setSelectedDocument(document);
     setShowViewModal(true);
+  };
+
+  const handleRequestSignature = (document, stage) => {
+    setSignatureDocument(document);
+    setSignatureStage(stage);
+    setShowSignatureModal(true);
+  };
+
+  const handleSignatureComplete = () => {
+    setShowSignatureModal(false);
+    setSignatureDocument(null);
+    setSignatureStage('');
+    fetchDocuments(); // Recarregar documentos
   };
 
   // Função para visualizar documento online em nova aba
@@ -494,13 +512,22 @@ const DocumentFlow = () => {
                 </button>
                 
                 {canUserApprove && document.current_stage !== 'payment' && (
-                  <button
-                    onClick={() => handleQuickApprove(document)}
-                    className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-1 text-sm"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Aprovar</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleRequestSignature(document, document.current_stage)}
+                      className="flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 flex items-center justify-center space-x-1 text-sm"
+                    >
+                      <FileSignature className="h-4 w-4" />
+                      <span>Assinar</span>
+                    </button>
+                    <button
+                      onClick={() => handleQuickApprove(document)}
+                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-1 text-sm"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Aprovar</span>
+                    </button>
+                  </>
                 )}
 
                 {canUserApprove && document.current_stage === 'payment' && (
@@ -813,6 +840,31 @@ const DocumentFlow = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Assinatura */}
+      {showSignatureModal && signatureDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Assinatura Digital</h3>
+                <button
+                  onClick={() => setShowSignatureModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <DocumentSignature 
+                documentId={signatureDocument.id}
+                stage={signatureStage}
+                onSignatureComplete={handleSignatureComplete}
+              />
             </div>
           </div>
         </div>

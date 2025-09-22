@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, Shield, Clock, Users } from 'lucide-react';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -32,14 +32,14 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center" style={{background: 'var(--bg-primary)'}}>
       <div className="max-w-md w-full space-y-8 p-8 card rounded-xl shadow-lg">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <Lock className="h-8 w-8 text-white" />
+          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-lg">
+            <Shield className="h-8 w-8 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold" style={{color: 'var(--text-primary)'}}>
+          <h2 className="mt-6 text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
             Sistema de Assinaturas
           </h2>
           <p className="mt-2 text-sm" style={{color: 'var(--text-secondary)'}}>
-            Faça login com suas credenciais do domínio
+            Sistema interno - Acesso restrito ao local de trabalho
           </p>
         </div>
 
@@ -47,7 +47,7 @@ const Login = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium" style={{color: 'var(--text-secondary)'}}>
-                Login do Domínio (samAccountName)
+                Usuário
               </label>
               <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -67,7 +67,7 @@ const Login = () => {
                     borderColor: 'var(--border-primary)',
                     color: 'var(--text-primary)'
                   }}
-                  placeholder="exemplo: joao.silva"
+                  placeholder="Digite seu usuário"
                 />
               </div>
             </div>
@@ -94,7 +94,7 @@ const Login = () => {
                     borderColor: 'var(--border-primary)',
                     color: 'var(--text-primary)'
                   }}
-                  placeholder="Sua senha"
+                  placeholder="Digite sua senha"
                 />
                 <button
                   type="button"
@@ -115,24 +115,40 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transition-all duration-200"
             >
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Entrando...
+                </div>
+              ) : (
+                'Entrar no Sistema'
+              )}
             </button>
           </div>
 
-                     <div className="text-center">
-             <p className="text-sm text-gray-600">
-               <strong>Usuários de teste:</strong>
-             </p>
-             <div className="mt-2 text-xs text-gray-500 space-y-1">
-               <p>Fornecedor: fornecedor / 123456</p>
-               <p>Supervisor TI: supervisor.ti / 123456</p>
-               <p>Contabilidade: contabilidade / 123456</p>
-               <p>Financeiro: financeiro / 123456</p>
-               <p>Diretoria: diretoria / 123456</p>
-             </div>
-           </div>
+          <div className="mt-6 pt-6 border-t" style={{borderColor: 'var(--border-primary)'}}>
+            <div className="text-center">
+              <div className="flex items-center justify-center space-x-6 text-xs" style={{color: 'var(--text-secondary)'}}>
+                <div className="flex items-center space-x-1">
+                  <Shield className="h-3 w-3" />
+                  <span>Sistema Interno</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Clock className="h-3 w-3" />
+                  <span>Horário Comercial</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Users className="h-3 w-3" />
+                  <span>Rede Local</span>
+                </div>
+              </div>
+              <p className="mt-3 text-xs" style={{color: 'var(--text-secondary)'}}>
+                Acesso restrito à rede interna da empresa
+              </p>
+            </div>
+          </div>
         </form>
       </div>
     </div>

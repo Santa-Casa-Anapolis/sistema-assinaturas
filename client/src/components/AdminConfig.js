@@ -9,14 +9,17 @@ import {
   Edit,
   Trash2,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  FileSignature
 } from 'lucide-react';
+import UserSignatureManager from './UserSignatureManager';
 
 const AdminConfig = () => {
   const [supervisors, setSupervisors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [signatureUserId, setSignatureUserId] = useState(null);
   const [editingUser, setEditingUser] = useState({
     name: '',
     username: '',
@@ -449,6 +452,13 @@ const AdminConfig = () => {
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => setSignatureUserId(supervisor.id)}
+                            className="text-purple-600 hover:text-purple-900"
+                            title="Gerenciar Assinatura"
+                          >
+                            <FileSignature className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleResetPassword(supervisor.id)}
                             className="text-yellow-600 hover:text-yellow-900"
                             title="Resetar Senha"
@@ -500,6 +510,33 @@ const AdminConfig = () => {
           <code>Y:\TECNOLOGIA DA INFORMAÇÃO\3. Sistemas\Karla\NOTASFISCAIS\SETOR TECNOLOGIA DA INFORMAÇÃO\2025\JANEIRO</code>
         </p>
       </div>
+
+      {/* Modal de Gerenciamento de Assinatura */}
+      {signatureUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Gerenciar Assinatura</h3>
+                <button
+                  onClick={() => setSignatureUserId(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <UserSignatureManager 
+                userId={signatureUserId}
+                userName={supervisors.find(s => s.id === signatureUserId)?.name || 'Usuário'}
+                onSignatureChange={() => {
+                  // Recarregar dados se necessário
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
