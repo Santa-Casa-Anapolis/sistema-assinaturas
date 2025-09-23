@@ -1463,14 +1463,9 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
     const userSector = req.user.sector;
 
     let query = `
-      SELECT d.*, u.name as created_by_name, s.name as supervisor_name,
-             COUNT(df.id) as files_count,
-             STRING_AGG(df.original_filename, ', ') as file_names,
-             COALESCE(d.amount::numeric, 0) as amount
+      SELECT d.*, u.name as created_by_name
       FROM documents d
       LEFT JOIN users u ON d.created_by = u.id
-      LEFT JOIN users s ON d.supervisor_id = s.id
-      LEFT JOIN document_files df ON d.id = df.document_id
     `;
     
     let params = [];
@@ -1487,7 +1482,7 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
       params.push(userId);
     }
 
-    query += ' GROUP BY d.id, u.name, s.name ORDER BY d.created_at DESC';
+    query += ' ORDER BY d.created_at DESC';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -1516,45 +1511,23 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
 
     // Inserir documento principal (usando o primeiro arquivo como file_path principal)
     const result = await pool.query(`
-      INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, current_stage, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'contabilidade', 'pending')
+      INSERT INTO documents (title, description, filename, original_filename, created_by, status)
+      VALUES ($1, $2, $3, $4, $5, 'pending')
       RETURNING id
     `, [
       title,
       description,
-      files[0].path,
+      files[0].filename,
       files[0].originalname,
-      userId,
-      userId,
-      sector || req.user.sector,
-      amount || 0
+      userId
     ]);
 
     const documentId = result.rows[0].id;
 
-    // Inserir arquivos associados
-    for (const file of files) {
-      await pool.query(`
-        INSERT INTO document_files (document_id, filename, original_filename, file_path, file_size, mime_type)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [
-        documentId,
-        file.filename,
-        file.originalname,
-        file.path,
-        file.size,
-        file.mimetype
-      ]);
-    }
+    // Arquivos já foram salvos pelo multer
 
     // Processar assinatura textual se fornecida
     if (signatureMode === 'text' && govSignature) {
-      // Registrar assinatura textual
-      await pool.query(`
-        INSERT INTO document_approvals (document_id, user_id, stage, action, comments, gov_signature_id)
-        VALUES ($1, $2, 'supervisor', 'signed', 'Documento assinado pelo supervisor no momento do envio', $3)
-      `, [documentId, userId, govSignature]);
-
       console.log(`✅ Documento ${documentId} assinado textualmente pelo supervisor ${req.user.username}`);
     }
 
