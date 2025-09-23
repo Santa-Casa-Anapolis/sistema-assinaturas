@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Settings, Shield, Trash2, Edit } from 'lucide-react';
+import UserSignatureManager from './UserSignatureManager';
 
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
@@ -19,6 +20,7 @@ const AdminPanel = () => {
   });
   const [editingUser, setEditingUser] = useState(null);
   const [editUserData, setEditUserData] = useState({});
+  const [managingSignature, setManagingSignature] = useState(null);
   const [newGroup, setNewGroup] = useState({
     name: '',
     description: '',
@@ -309,6 +311,13 @@ const AdminPanel = () => {
                       </option>
                     ))}
                   </select>
+                  <button 
+                    onClick={() => setManagingSignature(user)}
+                    className="p-1 text-gray-400 hover:text-green-600"
+                    title="Gerenciar assinatura"
+                  >
+                    <Shield className="h-4 w-4" />
+                  </button>
                   <button 
                     onClick={() => handleEditUser(user)}
                     className="p-1 text-gray-400 hover:text-blue-600"
@@ -632,6 +641,37 @@ const AdminPanel = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Gerenciar Assinatura */}
+      {managingSignature && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Gerenciar Assinatura - {managingSignature.name}
+              </h3>
+              <button
+                onClick={() => setManagingSignature(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Fechar</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <UserSignatureManager
+                userId={managingSignature.id}
+                userName={managingSignature.name}
+                onSignatureChange={() => {
+                  // Opcional: atualizar lista de usuários se necessário
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

@@ -47,6 +47,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS user_signatures (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    signature_filename VARCHAR(255) NOT NULL,
+    signature_path VARCHAR(500) NOT NULL,
+    signature_type VARCHAR(50) DEFAULT 'png',
+    is_active BOOLEAN DEFAULT true,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Criar índices para melhor performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
@@ -58,6 +70,8 @@ CREATE INDEX IF NOT EXISTS idx_signature_flow_status ON signature_flow(status);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_document_id ON audit_log(document_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_signatures_user_id ON user_signatures(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_signatures_is_active ON user_signatures(is_active);
 
 -- Comentários nas tabelas
 COMMENT ON TABLE users IS 'Tabela de usuários do sistema';

@@ -10,10 +10,18 @@
     "build": "cd client && npm run build",
     "install-all": "npm install && cd server && npm install && cd ../client && npm install"
   },
-  "keywords": ["assinatura", "nota-fiscal", "gov-br", "fluxo"],
+  "keywords": [
+    "assinatura",
+    "nota-fiscal",
+    "gov-br",
+    "fluxo"
+  ],
   "author": "Sistema Nota Fiscais",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }

@@ -467,6 +467,39 @@ app.delete('/api/users/:id/signature', authenticateToken, async (req, res) => {
   }
 });
 
+// Servir arquivo de assinatura do usuário
+app.get('/api/users/:id/signature/file', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Verificar se o usuário tem permissão (admin principal ou o próprio usuário)
+    const isAdmin = await isMainAdmin(req.user.id);
+    if (!isAdmin && req.user.id != userId) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const result = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Assinatura não encontrada' });
+    }
+
+    const signature = result.rows[0];
+    const filePath = path.join(__dirname, 'uploads', signature.signature_file);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Arquivo de assinatura não encontrado' });
+    }
+
+    // Enviar arquivo
+    res.sendFile(filePath);
+
+  } catch (error) {
+    console.error('Erro ao servir arquivo de assinatura:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Upload de documento
 app.post('/api/documents/upload', authenticateToken, upload.single('document'), async (req, res) => {
   try {
@@ -1467,7 +1500,7 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
 // Criar novo documento
 app.post('/api/documents', authenticateToken, upload.array('documents', 10), async (req, res) => {
   try {
-    const { title, description, amount, sector } = req.body;
+    const { title, description, amount, sector, signatureMode, govSignature } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
     const files = req.files;
@@ -1514,10 +1547,22 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
       ]);
     }
 
+    // Processar assinatura textual se fornecida
+    if (signatureMode === 'text' && govSignature) {
+      // Registrar assinatura textual
+      await pool.query(`
+        INSERT INTO document_approvals (document_id, user_id, stage, action, comments, gov_signature_id)
+        VALUES ($1, $2, 'supervisor', 'signed', 'Documento assinado pelo supervisor no momento do envio', $3)
+      `, [documentId, userId, govSignature]);
+
+      console.log(`✅ Documento ${documentId} assinado textualmente pelo supervisor ${req.user.username}`);
+    }
+
     res.json({ 
       message: 'Documento criado com sucesso',
       documentId: documentId,
-      filesCount: files.length
+      filesCount: files.length,
+      signatureMode: signatureMode
     });
   } catch (error) {
     console.error('Erro ao criar documento:', error);
@@ -1739,6 +1784,65 @@ async function moveDocumentToNetworkFolder(document) {
     console.error('Erro ao mover documento para pasta de rede:', error);
   }
 }
+
+// Rota para upload de PDF assinado
+app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('signedPdf'), async (req, res) => {
+  try {
+    const documentId = req.params.id;
+    const userId = req.user.id;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'PDF assinado é obrigatório' });
+    }
+
+    // Buscar documento original
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = $1', [documentId]);
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    const document = docResult.rows[0];
+
+    // Verificar se o usuário pode assinar este documento
+    const canSign = (
+      document.created_by === userId || // Criador do documento
+      ['contabilidade', 'financeiro', 'diretoria'].includes(req.user.role) // Roles com permissão
+    );
+
+    if (!canSign) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Criar nome único para o arquivo assinado
+    const timestamp = Date.now();
+    const signedFilename = `signed_${timestamp}_${req.file.originalname}`;
+    const signedPath = path.join(__dirname, 'uploads', signedFilename);
+
+    // Mover arquivo para o local correto
+    fs.renameSync(req.file.path, signedPath);
+
+    // Atualizar documento com o arquivo assinado
+    await pool.query(`
+      UPDATE documents 
+      SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [signedPath, signedFilename, documentId]);
+
+    // Registrar na auditoria
+    await logAudit(userId, 'DOCUMENT_SIGNED', documentId, `Documento assinado: ${document.title}`, req.ip);
+
+    console.log(`✅ PDF assinado salvo: ${signedFilename}`);
+
+    res.json({ 
+      message: 'PDF assinado salvo com sucesso',
+      signedFilename: signedFilename
+    });
+
+  } catch (error) {
+    console.error('Erro ao salvar PDF assinado:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

@@ -7,9 +7,12 @@ import {
   DollarSign,
   X,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  PenTool,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import DocumentSignaturePositioning from './DocumentSignaturePositioning';
 
 const UploadDocument = () => {
   const { user } = useAuth();
@@ -18,6 +21,10 @@ const UploadDocument = () => {
   const [amount, setAmount] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [signatureMode, setSignatureMode] = useState('none'); // 'none', 'text', 'positioning'
+  const [govSignature, setGovSignature] = useState('');
+  const [showSignaturePositioning, setShowSignaturePositioning] = useState(false);
+  const [tempDocumentId, setTempDocumentId] = useState(null);
 
   const onDrop = (acceptedFiles) => {
     if (acceptedFiles.length > 0) {
@@ -53,6 +60,12 @@ const UploadDocument = () => {
       return;
     }
 
+    // Verificar assinatura se necessário
+    if (signatureMode === 'text' && !govSignature.trim()) {
+      toast.error('Digite sua assinatura GOV.BR');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -61,6 +74,11 @@ const UploadDocument = () => {
       formData.append('description', description);
       formData.append('amount', amount);
       formData.append('sector', user.sector);
+      formData.append('signatureMode', signatureMode);
+      
+      if (signatureMode === 'text') {
+        formData.append('govSignature', govSignature.trim());
+      }
       
       // Adicionar todos os arquivos
       selectedFiles.forEach((file, index) => {
@@ -76,11 +94,18 @@ const UploadDocument = () => {
       });
 
       if (response.ok) {
-        toast.success('Documento enviado com sucesso!');
-        setTitle('');
-        setDescription('');
-        setAmount('');
-        setSelectedFiles([]);
+        const result = await response.json();
+        
+        if (signatureMode === 'positioning') {
+          // Se for posicionamento visual, abrir modal de posicionamento
+          setTempDocumentId(result.documentId);
+          setShowSignaturePositioning(true);
+          toast.info('Documento criado! Agora posicione sua assinatura.');
+        } else {
+          // Assinatura textual ou sem assinatura
+          toast.success('Documento enviado com sucesso!');
+          resetForm();
+        }
       } else {
         const error = await response.json();
         toast.error(error.error || 'Erro ao enviar documento');
@@ -91,6 +116,22 @@ const UploadDocument = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setAmount('');
+    setSelectedFiles([]);
+    setSignatureMode('none');
+    setGovSignature('');
+    setTempDocumentId(null);
+  };
+
+  const handleSignatureComplete = () => {
+    toast.success('Documento assinado e enviado com sucesso!');
+    setShowSignaturePositioning(false);
+    resetForm();
   };
 
   const removeFile = (indexToRemove) => {
@@ -204,6 +245,108 @@ const UploadDocument = () => {
               </div>
             </div>
 
+            {/* Seção de Assinatura */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
+                Assinatura do Supervisor
+              </label>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSignatureMode('none')}
+                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                    signatureMode === 'none'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileText className={`h-6 w-6 ${signatureMode === 'none' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div>
+                      <h3 className="font-medium text-gray-900">Sem Assinatura</h3>
+                      <p className="text-sm text-gray-600">Enviar sem assinar</p>
+                    </div>
+                  </div>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setSignatureMode('text')}
+                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                    signatureMode === 'text'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Shield className={`h-6 w-6 ${signatureMode === 'text' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div>
+                      <h3 className="font-medium text-gray-900">Assinatura Textual</h3>
+                      <p className="text-sm text-gray-600">Assinatura via texto GOV.BR</p>
+                    </div>
+                  </div>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setSignatureMode('positioning')}
+                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                    signatureMode === 'positioning'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <PenTool className={`h-6 w-6 ${signatureMode === 'positioning' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <div>
+                      <h3 className="font-medium text-gray-900">Posicionamento Visual</h3>
+                      <p className="text-sm text-gray-600">Posicionar assinatura no PDF</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Campo de assinatura textual */}
+              {signatureMode === 'text' && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
+                    Assinatura GOV.BR *
+                  </label>
+                  <textarea
+                    value={govSignature}
+                    onChange={(e) => setGovSignature(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{
+                      backgroundColor: 'var(--bg-primary)',
+                      borderColor: 'var(--border-primary)',
+                      color: 'var(--text-primary)'
+                    }}
+                    rows="3"
+                    placeholder="Digite sua assinatura digital (ex: CPF, certificado digital, etc.)"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Informação sobre posicionamento visual */}
+              {signatureMode === 'positioning' && (
+                <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <PenTool className="h-5 w-5 text-purple-600 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-purple-900 mb-1">
+                        Posicionamento Visual
+                      </h4>
+                      <p className="text-sm text-purple-700">
+                        Após enviar o documento, você poderá posicionar sua assinatura visualmente em cada página do PDF.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
                 Arquivo do Documento *
@@ -291,12 +434,7 @@ const UploadDocument = () => {
             <div className="flex space-x-4">
               <button
                 type="button"
-                onClick={() => {
-                  setTitle('');
-                  setDescription('');
-                  setAmount('');
-                  setSelectedFiles([]);
-                }}
+                onClick={resetForm}
                 className="flex-1 py-3 rounded-lg transition-colors"
                 style={{
                   backgroundColor: 'var(--bg-secondary)',
@@ -326,6 +464,37 @@ const UploadDocument = () => {
           </form>
         </div>
       </div>
+
+      {/* Modal de Posicionamento de Assinatura */}
+      {showSignaturePositioning && tempDocumentId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Posicionar Assinatura - {title}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowSignaturePositioning(false);
+                  setTempDocumentId(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Fechar</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <DocumentSignaturePositioning
+                documentId={tempDocumentId}
+                onSignatureComplete={handleSignatureComplete}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

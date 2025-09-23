@@ -9,8 +9,11 @@ import {
   CheckCircle, 
   Clock,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  PenTool,
+  Eye
 } from 'lucide-react';
+import DocumentSignaturePositioning from './DocumentSignaturePositioning';
 
 const DocumentSign = () => {
   const { id } = useParams();
@@ -19,6 +22,8 @@ const DocumentSign = () => {
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
   const [govSignature, setGovSignature] = useState('');
+  const [showPositioning, setShowPositioning] = useState(false);
+  const [signatureMode, setSignatureMode] = useState('text'); // 'text' ou 'positioning'
 
   useEffect(() => {
     fetchDocument();
@@ -58,7 +63,7 @@ const DocumentSign = () => {
   };
 
   const handleSign = async () => {
-    if (!govSignature.trim()) {
+    if (signatureMode === 'text' && !govSignature.trim()) {
       toast.error('Digite sua assinatura GOV.BR');
       return;
     }
@@ -67,7 +72,8 @@ const DocumentSign = () => {
 
     try {
       await axios.post(`/api/documents/${id}/sign`, {
-        govSignature: govSignature.trim()
+        govSignature: govSignature.trim(),
+        signatureMode: signatureMode
       });
 
       toast.success('Documento assinado com sucesso!');
@@ -77,6 +83,12 @@ const DocumentSign = () => {
     } finally {
       setSigning(false);
     }
+  };
+
+  const handleSignatureComplete = () => {
+    toast.success('Assinaturas posicionadas com sucesso!');
+    setShowPositioning(false);
+    setSignatureMode('text');
   };
 
   if (loading) {
@@ -198,10 +210,72 @@ const DocumentSign = () => {
 
         {/* Área de assinatura */}
         <div className="space-y-6">
+          {/* Escolha do modo de assinatura */}
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Assinatura Digital GOV.BR
+              Modo de Assinatura
             </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <button
+                onClick={() => setSignatureMode('text')}
+                className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                  signatureMode === 'text'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Shield className={`h-6 w-6 ${signatureMode === 'text' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <div>
+                    <h3 className="font-medium text-gray-900">Assinatura Textual</h3>
+                    <p className="text-sm text-gray-600">Assinatura via texto GOV.BR</p>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setSignatureMode('positioning')}
+                className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                  signatureMode === 'positioning'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <PenTool className={`h-6 w-6 ${signatureMode === 'positioning' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <div>
+                    <h3 className="font-medium text-gray-900">Posicionamento Visual</h3>
+                    <p className="text-sm text-gray-600">Posicionar assinatura no PDF</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {signatureMode === 'positioning' && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Posicionamento de Assinatura
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Clique no botão abaixo para posicionar sua assinatura visualmente no documento PDF.
+              </p>
+              <button
+                onClick={() => setShowPositioning(true)}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+              >
+                <PenTool className="h-4 w-4" />
+                <span>Posicionar Assinatura no PDF</span>
+              </button>
+            </div>
+          )}
+
+          {signatureMode === 'text' && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Assinatura Digital GOV.BR
+              </h2>
             
             <div className="space-y-4">
               <div className="bg-blue-50 p-4 rounded-lg">
@@ -277,6 +351,7 @@ const DocumentSign = () => {
               </button>
             </div>
           </div>
+          )}
 
           {/* Fluxo de assinaturas */}
           <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -300,6 +375,34 @@ const DocumentSign = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Posicionamento de Assinatura */}
+      {showPositioning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Posicionar Assinatura - {document?.title}
+              </h3>
+              <button
+                onClick={() => setShowPositioning(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <span className="sr-only">Fechar</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <DocumentSignaturePositioning
+                documentId={id}
+                onSignatureComplete={handleSignatureComplete}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
