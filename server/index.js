@@ -419,7 +419,7 @@ app.get('/api/users/:id/signature', authenticateToken, async (req, res) => {
     res.json({
       id: signature.id,
       userId: signature.user_id,
-      signatureFile: signature.signature_file,
+      signatureFile: signature.signature_filename,
       originalFilename: signature.original_filename,
       createdAt: signature.created_at,
       updatedAt: signature.updated_at
@@ -485,7 +485,7 @@ app.get('/api/users/:id/signature/file', authenticateToken, async (req, res) => 
     }
 
     const signature = result.rows[0];
-    const filePath = path.join(__dirname, 'uploads', signature.signature_file);
+    const filePath = path.join(__dirname, 'uploads', signature.signature_filename);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Arquivo de assinatura não encontrado' });

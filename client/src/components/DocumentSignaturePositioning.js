@@ -11,7 +11,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
   const [pdfDocument, setPdfDocument] = useState(null);
-  const [scale, setScale] = useState(1.5);
+  const [scale, setScale] = useState(1.0);
   
   const canvasRef = useRef(null);
 
@@ -34,7 +34,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     if (pdfDocument) {
       renderPage(currentPage);
     }
-  }, [scale]);
+  }, [scale, pdfDocument]);
 
   const loadPdf = async () => {
     try {
@@ -140,7 +140,14 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       
-      const viewport = page.getViewport({ scale });
+      // Calcular scale automático baseado no container
+      const containerWidth = canvas.parentElement.clientWidth - 40; // 40px de padding
+      const pageViewport = page.getViewport({ scale: 1.0 });
+      const autoScale = Math.min(containerWidth / pageViewport.width, 2.0); // Máximo 2x
+      
+      const finalScale = Math.max(autoScale, 0.5); // Mínimo 0.5x
+      const viewport = page.getViewport({ scale: finalScale });
+      
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       
