@@ -1511,15 +1511,18 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
 
     // Inserir documento principal (usando o primeiro arquivo como file_path principal)
     const result = await pool.query(`
-      INSERT INTO documents (title, description, filename, original_filename, created_by, status)
-      VALUES ($1, $2, $3, $4, $5, 'pending')
+      INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
       RETURNING id
     `, [
       title,
       description,
-      files[0].filename,
+      files[0].path,
       files[0].originalname,
-      userId
+      userId,
+      userId, // supervisor_id
+      sector || req.user.sector,
+      amount || 0
     ]);
 
     const documentId = result.rows[0].id;
