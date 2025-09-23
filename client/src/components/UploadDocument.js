@@ -145,7 +145,7 @@ const UploadDocument = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
                 Título do Documento *
               </label>
               <input
@@ -164,7 +164,7 @@ const UploadDocument = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
                 Descrição
               </label>
               <textarea
@@ -182,7 +182,7 @@ const UploadDocument = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
                 Valor (R$)
               </label>
               <div className="relative">
@@ -205,7 +205,7 @@ const UploadDocument = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
                 Arquivo do Documento *
               </label>
               
@@ -297,7 +297,11 @@ const UploadDocument = () => {
                   setAmount('');
                   setSelectedFiles([]);
                 }}
-                className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors"
+                className="flex-1 py-3 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)'
+                }}
               >
                 Limpar
               </button>

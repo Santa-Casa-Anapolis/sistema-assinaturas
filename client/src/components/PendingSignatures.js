@@ -59,34 +59,33 @@ const PendingSignatures = () => {
         return;
       }
       
-      // Testar se a rota está funcionando
-      const testResponse = await axios.get(`/api/documents/${documentId}/view?token=${token}`, {
-        responseType: 'blob'
+      // Primeiro verificar se o documento existe
+      const checkResponse = await axios.get(`/api/documents/${documentId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      if (testResponse.status === 200) {
-        // Criar URL do blob e abrir em nova aba
-        const blob = new Blob([testResponse.data]);
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
+      if (checkResponse.status === 200) {
+        const document = checkResponse.data;
+        console.log('Documento encontrado:', document);
         
-        // Limpar URL após um tempo
-        setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+        // Abrir documento em nova aba (URL absoluta para evitar interceptação do React Router)
+        const viewUrl = `http://localhost:5000/api/documents/${documentId}/view?token=${token}`;
+        const newWindow = window.open(viewUrl, '_blank');
+        
+        // Verificar se a janela foi bloqueada
+        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+          toast.error('Popup bloqueado. Permita popups para este site.');
+        }
       }
+      
     } catch (error) {
       console.error('Erro ao visualizar documento:', error);
-      console.error('Status:', error.response?.status);
-      console.error('Data:', error.response?.data);
-      console.error('Headers:', error.response?.headers);
-      
-      if (error.response?.status === 401) {
-        toast.error('Token de autenticação inválido. Faça login novamente.');
-      } else if (error.response?.status === 404) {
+      if (error.response?.status === 404) {
         toast.error('Documento não encontrado.');
-      } else if (error.response?.status === 403) {
-        toast.error('Acesso negado ao documento.');
+      } else if (error.response?.status === 401) {
+        toast.error('Token de autenticação inválido. Faça login novamente.');
       } else {
-        toast.error(`Erro ao abrir documento: ${error.response?.data?.error || error.message}`);
+        toast.error('Erro ao abrir documento. Tente fazer o download.');
       }
     }
   };

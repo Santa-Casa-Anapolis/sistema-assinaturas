@@ -736,31 +736,119 @@ app.get('/api/documents/:id/files/:fileId/download', authenticateToken, async (r
 
 // Visualização do documento (abre no navegador)
 app.get('/api/documents/:id/view', async (req, res) => {
+  console.log('🔍 === VISUALIZAÇÃO DE DOCUMENTO ===');
+  console.log('📅 Timestamp:', new Date().toISOString());
+  console.log('🆔 Document ID:', req.params.id);
+  
   // Verificar autenticação via query parameter ou header
   const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
+  console.log('🔑 Token presente:', token ? 'Sim' : 'Não');
   
   if (!token) {
+    console.log('❌ Token ausente');
     return res.status(401).json({ error: 'Token de acesso necessário' });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     req.user = decoded;
+    console.log('✅ Token válido para usuário:', decoded.username);
     
     const { id } = req.params;
+    console.log('🔍 Buscando documento ID:', id);
 
     const result = await pool.query('SELECT * FROM documents WHERE id = $1', [id]);
     const document = result.rows[0];
+    console.log('📄 Documento encontrado:', document ? 'Sim' : 'Não');
     
     if (!document) {
+      console.log('❌ Documento não encontrado no banco');
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
 
-    const filePath = path.join(__dirname, 'uploads', document.filename);
+    console.log('📁 Filename do documento:', document.filename);
+    console.log('📁 Original filename:', document.original_filename);
+    
+    // Usar filename ou original_filename como fallback
+    const fileName = document.filename || document.original_filename;
+    
+    if (!fileName) {
+      console.log('❌ Nenhum nome de arquivo encontrado (filename e original_filename estão undefined)');
+      return res.status(500).json({ error: 'Nome do arquivo não encontrado no banco de dados' });
+    }
+    
+    console.log('📁 Usando arquivo:', fileName);
+    const filePath = path.join(__dirname, 'uploads', fileName);
+    console.log('📂 Caminho completo do arquivo:', filePath);
+    
+    // Listar alguns arquivos da pasta uploads para debug
+    const fs = require('fs');
+    const uploadsDir = path.join(__dirname, 'uploads');
+    const files = fs.readdirSync(uploadsDir);
+    console.log('📁 Arquivos na pasta uploads (primeiros 5):', files.slice(0, 5));
     
     if (!fs.existsSync(filePath)) {
+      console.log('❌ Arquivo não encontrado no sistema de arquivos');
+      
+      // Tentar encontrar arquivo por padrão (buscar por ID do documento)
+      const uploadsDir = path.join(__dirname, 'uploads');
+      const allFiles = fs.readdirSync(uploadsDir);
+      console.log('🔍 Buscando arquivo alternativo...');
+      
+      // Buscar arquivo que contenha o ID do documento
+      const documentId = req.params.id;
+      const alternativeFile = allFiles.find(file => 
+        file.includes(documentId.toString()) || 
+        file.includes(document.original_filename?.replace(/\s+/g, '')) ||
+        file.includes(document.filename?.replace(/\s+/g, ''))
+      );
+      
+      if (alternativeFile) {
+        console.log('✅ Arquivo alternativo encontrado:', alternativeFile);
+        const alternativePath = path.join(uploadsDir, alternativeFile);
+        
+        // Determinar o tipo de conteúdo do arquivo alternativo
+        const ext = path.extname(alternativeFile).toLowerCase();
+        let contentType = 'application/octet-stream';
+        
+        if (ext === '.pdf') {
+          contentType = 'application/pdf';
+        } else if (ext === '.docx') {
+          contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        } else if (ext === '.doc') {
+          contentType = 'application/msword';
+        } else if (ext === '.jpg' || ext === '.jpeg') {
+          contentType = 'image/jpeg';
+        } else if (ext === '.png') {
+          contentType = 'image/png';
+        }
+
+        console.log('📄 Content-Type alternativo:', contentType);
+
+        // Configurar headers para visualização inline
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `inline; filename="${alternativeFile}"`);
+        
+        console.log('📤 Enviando arquivo alternativo...');
+        // Enviar arquivo alternativo
+        res.sendFile(alternativePath, (err) => {
+          if (err) {
+            console.error('❌ Erro ao enviar arquivo alternativo:', err);
+            if (!res.headersSent) {
+              res.status(500).json({ error: 'Erro ao enviar arquivo' });
+            }
+          } else {
+            console.log('✅ Arquivo alternativo enviado com sucesso');
+          }
+        });
+        return;
+      }
+      
+      console.log('❌ Nenhum arquivo alternativo encontrado');
       return res.status(404).json({ error: 'Arquivo não encontrado' });
     }
+
+    console.log('✅ Arquivo encontrado no sistema de arquivos');
 
     // Determinar o tipo de conteúdo
     const ext = path.extname(document.original_filename || document.filename).toLowerCase();
@@ -778,12 +866,25 @@ app.get('/api/documents/:id/view', async (req, res) => {
       contentType = 'image/png';
     }
 
+    console.log('📄 Extensão do arquivo:', ext);
+    console.log('📄 Content-Type:', contentType);
+
     // Configurar headers para visualização inline
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${document.original_filename || document.filename}"`);
     
+    console.log('📤 Enviando arquivo...');
     // Enviar arquivo
-    res.sendFile(filePath);
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('❌ Erro ao enviar arquivo:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Erro ao enviar arquivo' });
+        }
+      } else {
+        console.log('✅ Arquivo enviado com sucesso');
+      }
+    });
   } catch (error) {
     console.error('❌ Erro na visualização do documento:', error);
     console.error('❌ Document ID:', req.params.id);
