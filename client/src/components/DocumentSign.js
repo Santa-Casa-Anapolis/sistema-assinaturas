@@ -11,7 +11,8 @@ import {
   AlertCircle,
   ArrowLeft,
   PenTool,
-  Eye
+  Eye,
+  X
 } from 'lucide-react';
 import DocumentSignaturePositioning from './DocumentSignaturePositioning';
 
@@ -85,10 +86,29 @@ const DocumentSign = () => {
     }
   };
 
-  const handleSignatureComplete = () => {
-    toast.success('Assinaturas posicionadas com sucesso!');
-    setShowPositioning(false);
-    setSignatureMode('text');
+  const handleSignatureComplete = (status = 'completed') => {
+    if (status === 'cancelled') {
+      toast.info('Assinatura cancelada');
+      setShowPositioning(false);
+      setSignatureMode('text');
+      navigate('/my-documents');
+    } else {
+      toast.success('Assinaturas posicionadas com sucesso!');
+      setShowPositioning(false);
+      setSignatureMode('text');
+    }
+  };
+
+  const handleCancelSignature = () => {
+    const confirmed = window.confirm(
+      'Tem certeza que deseja cancelar a assinatura?\n\n' +
+      'Esta ação irá cancelar o processo de assinatura e você retornará à lista de documentos.'
+    );
+    
+    if (confirmed) {
+      toast.info('Assinatura cancelada');
+      navigate('/my-documents');
+    }
   };
 
   if (loading) {
@@ -332,23 +352,33 @@ const DocumentSign = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleSign}
-                disabled={signing || !govSignature.trim()}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {signing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Assinando...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Assinar Documento</span>
-                  </>
-                )}
-              </button>
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleCancelSignature}
+                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                  <span>Cancelar</span>
+                </button>
+                
+                <button
+                  onClick={handleSign}
+                  disabled={signing || !govSignature.trim()}
+                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {signing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Assinando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Assinar Documento</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           )}
@@ -385,10 +415,11 @@ const DocumentSign = () => {
                 Posicionar Assinatura - {document?.title}
               </h3>
               <button
-                onClick={() => setShowPositioning(false)}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={handleCancelSignature}
+                className="text-gray-400 hover:text-red-600 transition-colors"
+                title="Cancelar assinatura e fechar"
               >
-                <span className="sr-only">Fechar</span>
+                <span className="sr-only">Cancelar assinatura</span>
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>

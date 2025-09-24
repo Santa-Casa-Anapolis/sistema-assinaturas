@@ -198,6 +198,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       try {
         await task.promise;
+      } catch (error) {
+        // Ignorar erros de cancelamento
+        if (error.name !== 'RenderingCancelledException') {
+          throw error;
+        }
       } finally {
         // apenas zera se esse ainda for o task atual
         if (renderTaskRef.current === task) {
@@ -212,6 +217,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       }, 100);
       
     } catch (error) {
+      // Ignorar erros de cancelamento de renderização
+      if (error.name === 'RenderingCancelledException') {
+        console.log('Renderização cancelada (comportamento normal)');
+        return;
+      }
       console.error('Erro ao renderizar página:', error);
       toast.error('Erro ao renderizar página');
     }
@@ -332,14 +342,36 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const signatureImageBytes = await fetch(signatureImage).then(res => res.arrayBuffer());
       const signaturePngImage = await pdfDoc.embedPng(signatureImageBytes);
       
+      // Obter dimensões do canvas uma vez só
+      let canvasWidth = 800; // Valor padrão
+      let canvasHeight = 600; // Valor padrão
+      
+      if (canvasRef.current) {
+        canvasWidth = canvasRef.current.width;
+        canvasHeight = canvasRef.current.height;
+      } else {
+        console.warn('Canvas não encontrado, usando dimensões padrão');
+      }
+      
       // Aplicar assinaturas em cada página
       Object.entries(signaturePositions).forEach(([pageNum, position]) => {
         const page = pdfDoc.getPage(parseInt(pageNum) - 1); // PDF-lib usa índice baseado em 0
         
         // Calcular posição no PDF (coordenadas PDF são diferentes do canvas)
         const { width: pageWidth, height: pageHeight } = page.getSize();
-        const canvasWidth = canvasRef.current.width;
-        const canvasHeight = canvasRef.current.height;
+        
+        // Usar as dimensões já obtidas anteriormente
+        // Verificar se as dimensões são válidas
+        if (canvasWidth <= 0 || canvasHeight <= 0) {
+          console.warn('Dimensões inválidas do canvas, usando posição padrão');
+          page.drawImage(signaturePngImage, {
+            x: pageWidth - 120,
+            y: 50,
+            width: 100,
+            height: 50,
+          });
+          return;
+        }
         
         // Converter coordenadas do canvas para coordenadas do PDF
         const pdfX = (position.x / canvasWidth) * pageWidth;
@@ -555,6 +587,24 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           </div>
           
           <div className="flex space-x-4">
+            <button
+              onClick={() => {
+                const confirmed = window.confirm(
+                  'Tem certeza que deseja cancelar a assinatura?\n\n' +
+                  'Esta ação irá cancelar o processo de assinatura e você retornará à lista de documentos.'
+                );
+                
+                if (confirmed && onSignatureComplete) {
+                  // Chamar callback de cancelamento se existir
+                  onSignatureComplete('cancelled');
+                }
+              }}
+              disabled={isLoading}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              ✕ Cancelar Assinatura
+            </button>
+            
             <button
               onClick={applySignatures}
               disabled={!signatureImage || Object.keys(signaturePositions).length === 0 || isLoading}
