@@ -419,7 +419,7 @@ app.get('/api/users/:id/signature', authenticateToken, async (req, res) => {
     res.json({
       id: signature.id,
       userId: signature.user_id,
-      signatureFile: signature.signature_filename,
+      signatureFile: signature.signature_file || signature.original_filename,
       originalFilename: signature.original_filename,
       createdAt: signature.created_at,
       updatedAt: signature.updated_at
@@ -485,7 +485,8 @@ app.get('/api/users/:id/signature/file', authenticateToken, async (req, res) => 
     }
 
     const signature = result.rows[0];
-    const filePath = path.join(__dirname, 'uploads', signature.signature_filename);
+    const filename = signature.signature_file || signature.original_filename;
+    const filePath = path.join(__dirname, 'uploads', filename);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Arquivo de assinatura não encontrado' });
@@ -496,6 +497,80 @@ app.get('/api/users/:id/signature/file', authenticateToken, async (req, res) => 
 
   } catch (error) {
     console.error('Erro ao servir arquivo de assinatura:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para excluir documento
+app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
+  try {
+    const documentId = req.params.id;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    
+    console.log(`🗑️ Tentativa de exclusão do documento ${documentId} pelo usuário ${req.user.username}`);
+    
+    // Buscar documento
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = $1', [documentId]);
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+    
+    const document = docResult.rows[0];
+    
+    // Verificar permissões
+    const canDelete = (
+      document.created_by === userId || // Criador do documento
+      userRole === 'admin' || // Admin pode excluir qualquer documento
+      ['contabilidade', 'financeiro', 'diretoria'].includes(userRole) // Roles com permissão
+    );
+    
+    if (!canDelete) {
+      console.log(`❌ Usuário ${req.user.username} não tem permissão para excluir documento ${documentId}`);
+      return res.status(403).json({ error: 'Acesso negado. Você só pode excluir seus próprios documentos.' });
+    }
+    
+    // Excluir arquivo físico se existir
+    if (document.file_path && fs.existsSync(document.file_path)) {
+      try {
+        fs.unlinkSync(document.file_path);
+        console.log(`✅ Arquivo físico excluído: ${document.file_path}`);
+      } catch (fileError) {
+        console.error('⚠️ Erro ao excluir arquivo físico:', fileError);
+        // Continua mesmo se não conseguir excluir o arquivo
+      }
+    }
+    
+    // Excluir arquivo assinado se existir
+    if (document.signed_file_path && fs.existsSync(document.signed_file_path)) {
+      try {
+        fs.unlinkSync(document.signed_file_path);
+        console.log(`✅ Arquivo assinado excluído: ${document.signed_file_path}`);
+      } catch (fileError) {
+        console.error('⚠️ Erro ao excluir arquivo assinado:', fileError);
+        // Continua mesmo se não conseguir excluir o arquivo
+      }
+    }
+    
+    // Excluir do banco de dados
+    await pool.query('DELETE FROM documents WHERE id = $1', [documentId]);
+    
+    // Registrar na auditoria (comentado temporariamente para debug)
+    try {
+      await logAudit(userId, 'DOCUMENT_DELETED', documentId, `Documento excluído: ${document.title}`, req.ip);
+    } catch (auditError) {
+      console.error('⚠️ Erro na auditoria (continuando):', auditError);
+    }
+    
+    console.log(`✅ Documento ${documentId} excluído com sucesso por ${req.user.username}`);
+    
+    res.json({ 
+      message: 'Documento excluído com sucesso',
+      documentId: documentId
+    });
+    
+  } catch (error) {
+    console.error('Erro ao excluir documento:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });

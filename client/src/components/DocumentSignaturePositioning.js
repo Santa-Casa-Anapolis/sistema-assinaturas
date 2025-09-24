@@ -14,6 +14,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [scale, setScale] = useState(1.0);
   
   const canvasRef = useRef(null);
+  const renderTaskRef = useRef(null);
+  const isRenderingRef = useRef(false);
 
   // Configurar PDF.js
   useEffect(() => {
@@ -31,10 +33,20 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
   // Re-renderizar quando o zoom mudar
   useEffect(() => {
-    if (pdfDocument) {
-      renderPage(currentPage);
-    }
-  }, [scale, pdfDocument]);
+    let cancelled = false;
+    (async () => {
+      if (pdfDocument && !cancelled) {
+        await renderPage(currentPage);
+      }
+    })();
+    
+    return () => { 
+      cancelled = true; 
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+      }
+    };
+  }, [scale, pdfDocument, currentPage]);
 
   const loadPdf = async () => {
     try {
@@ -118,17 +130,25 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           console.log('✅ Assinatura carregada:', signatureUrl);
           setSignatureImage(signatureUrl);
           toast.success('Assinatura carregada automaticamente!');
+        } else if (signatureResponse.status === 404) {
+          console.log('⚠️ Arquivo de assinatura não encontrado (404)');
+          setSignatureImage(null);
+          toast.info('Arquivo de assinatura não encontrado. Entre em contato com o administrador.');
         } else {
           console.error('❌ Erro ao carregar arquivo da assinatura:', signatureResponse.status);
+          setSignatureImage(null);
         }
       } else if (response.status === 404) {
         console.log('⚠️ Usuário não possui assinatura cadastrada');
+        setSignatureImage(null);
         toast.info('Nenhuma assinatura cadastrada. Entre em contato com o administrador.');
       } else {
         console.error('❌ Erro ao carregar assinatura:', response.status);
+        setSignatureImage(null);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar assinatura do usuário:', error);
+      setSignatureImage(null);
     }
   };
 
@@ -138,7 +158,20 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     try {
       const page = await pdfDocument.getPage(pageNum);
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+      
+      if (!canvas) return;
+      
+      // Se já existe um render em andamento, cancela
+      if (renderTaskRef.current) {
+        try { 
+          renderTaskRef.current.cancel(); 
+        } catch {}
+        try { 
+          await renderTaskRef.current.promise; 
+        } catch {} // swallow cancel error
+        renderTaskRef.current = null;
+        isRenderingRef.current = false;
+      }
       
       // Calcular scale automático baseado no container
       const containerWidth = canvas.parentElement.clientWidth - 40; // 40px de padding
@@ -148,18 +181,35 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const finalScale = Math.max(autoScale, 0.5); // Mínimo 0.5x
       const viewport = page.getViewport({ scale: finalScale });
       
+      // Redimensionar canvas
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       
+      const context = canvas.getContext('2d');
       const renderContext = {
         canvasContext: context,
         viewport: viewport
       };
       
-      await page.render(renderContext).promise;
+      // Renderizar página e salvar a task
+      isRenderingRef.current = true;
+      const task = page.render(renderContext);
+      renderTaskRef.current = task;
       
-      // Desenhar marcadores de assinatura existentes
-      drawSignatureMarkers();
+      try {
+        await task.promise;
+      } finally {
+        // apenas zera se esse ainda for o task atual
+        if (renderTaskRef.current === task) {
+          renderTaskRef.current = null;
+          isRenderingRef.current = false;
+        }
+      }
+      
+      // Desenhar marcadores após renderização
+      setTimeout(() => {
+        drawSignatureMarkers();
+      }, 100);
       
     } catch (error) {
       console.error('Erro ao renderizar página:', error);
@@ -173,19 +223,50 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     
     const context = canvas.getContext('2d');
     
-    // Desenhar marcadores de assinatura apenas
+    // Desenhar marcadores de assinatura
     Object.entries(signaturePositions).forEach(([page, position]) => {
       if (parseInt(page) === currentPage) {
-        context.fillStyle = 'rgba(34, 197, 94, 0.3)';
-        context.fillRect(position.x - 10, position.y - 10, 20, 20);
+        const { x, y } = position;
         
-        context.strokeStyle = 'rgb(34, 197, 94)';
-        context.lineWidth = 2;
-        context.strokeRect(position.x - 10, position.y - 10, 20, 20);
-        
-        context.fillStyle = 'rgb(34, 197, 94)';
-        context.font = '12px Arial';
-        context.fillText('✓', position.x - 4, position.y + 4);
+        // Se temos uma imagem de assinatura, desenhar ela
+        if (signatureImage) {
+          const img = new Image();
+          img.onload = () => {
+            // Desenhar a assinatura redimensionada
+            const signatureWidth = 120; // Largura fixa
+            const signatureHeight = (img.height * signatureWidth) / img.width; // Proporção mantida
+            
+            // Desenhar fundo semi-transparente
+            context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+            
+            // Desenhar a assinatura
+            context.drawImage(img, x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
+            
+            // Desenhar borda verde ao redor
+            context.strokeStyle = '#10B981';
+            context.lineWidth = 2;
+            context.strokeRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+            
+            // Desenhar texto "Assinatura"
+            context.fillStyle = '#10B981';
+            context.font = 'bold 12px Arial';
+            context.fillText('✓ Assinatura', x - signatureWidth/2, y - signatureHeight/2 - 10);
+          };
+          img.src = signatureImage;
+        } else {
+          // Fallback: desenhar quadrado verde
+          context.fillStyle = 'rgba(34, 197, 94, 0.3)';
+          context.fillRect(x - 10, y - 10, 20, 20);
+          
+          context.strokeStyle = 'rgb(34, 197, 94)';
+          context.lineWidth = 2;
+          context.strokeRect(x - 10, y - 10, 20, 20);
+          
+          context.fillStyle = 'rgb(34, 197, 94)';
+          context.font = '12px Arial';
+          context.fillText('✓', x - 4, y + 4);
+        }
       }
     });
   };
@@ -464,14 +545,43 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex justify-end space-x-4">
-          <button
-            onClick={applySignatures}
-            disabled={!signatureImage || Object.keys(signaturePositions).length === 0 || isLoading}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? 'Aplicando...' : 'Aplicar Assinaturas'}
-          </button>
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {Object.keys(signaturePositions).length > 0 && (
+              <span className="text-green-600 font-medium">
+                ✓ {Object.keys(signaturePositions).length} página(s) com assinatura posicionada
+              </span>
+            )}
+          </div>
+          
+          <div className="flex space-x-4">
+            <button
+              onClick={applySignatures}
+              disabled={!signatureImage || Object.keys(signaturePositions).length === 0 || isLoading}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading ? 'Aplicando...' : 'Aplicar Assinaturas'}
+            </button>
+            
+            <button
+              onClick={() => {
+                const confirmed = window.confirm(
+                  `Tem certeza que deseja finalizar a assinatura?\n\n` +
+                  `Páginas com assinatura: ${Object.keys(signaturePositions).length}\n` +
+                  `Total de páginas: ${totalPages}\n\n` +
+                  `Esta ação irá aplicar as assinaturas e finalizar o processo.`
+                );
+                
+                if (confirmed) {
+                  applySignatures();
+                }
+              }}
+              disabled={!signatureImage || Object.keys(signaturePositions).length === 0 || isLoading}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+            >
+              {isLoading ? 'Finalizando...' : '✓ Finalizar Assinatura'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

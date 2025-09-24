@@ -8,7 +8,8 @@ import {
   Eye, 
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 const MyDocuments = () => {
@@ -86,6 +87,54 @@ const MyDocuments = () => {
         toast.error('Token de autenticação inválido. Faça login novamente.');
       } else {
         toast.error('Erro ao abrir documento. Tente fazer o download.');
+      }
+    }
+  };
+
+  const handleDeleteDocument = async (documentId, documentTitle) => {
+    try {
+      // Confirmar exclusão
+      const confirmed = window.confirm(
+        `Tem certeza que deseja excluir o documento "${documentTitle}"?\n\nEsta ação não pode ser desfeita.`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Token de autenticação não encontrado');
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:5000/api/documents/${documentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        toast.success('Documento excluído com sucesso!');
+        // Atualizar lista de documentos
+        fetchMyDocuments();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+      
+    } catch (error) {
+      console.error('Erro ao excluir documento:', error);
+      
+      if (error.message.includes('403')) {
+        toast.error('Acesso negado. Você só pode excluir seus próprios documentos.');
+      } else if (error.message.includes('404')) {
+        toast.error('Documento não encontrado.');
+      } else {
+        toast.error(`Erro ao excluir documento: ${error.message}`);
       }
     }
   };
@@ -212,6 +261,15 @@ const MyDocuments = () => {
                     >
                       <Download className="h-4 w-4 mr-1" />
                       Download
+                    </button>
+                    
+                    <button
+                      onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                      className="inline-flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md"
+                      title="Excluir documento"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Excluir
                     </button>
                     
                     <Link
