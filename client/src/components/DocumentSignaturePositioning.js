@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import * as pdfjsLib from 'pdfjs-dist';
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 
 const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -9,7 +9,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [signaturePositions, setSignaturePositions] = useState({});
   const [signatureImage, setSignatureImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState('');
+  // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
   const [scale, setScale] = useState(1.0);
   
@@ -29,7 +29,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       loadPdf();
       loadUserSignature();
     }
-  }, [documentId]);
+  }, [documentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-renderizar quando o zoom mudar
   useEffect(() => {
@@ -46,7 +46,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         renderTaskRef.current.cancel();
       }
     };
-  }, [scale, pdfDocument, currentPage]);
+  }, [scale, pdfDocument, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPdf = async () => {
     try {
@@ -293,18 +293,26 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Salvar posição da assinatura para a página atual
-    setSignaturePositions(prev => ({
-      ...prev,
-      [currentPage]: { x, y }
-    }));
+    // Verificar se já existe uma assinatura nesta página
+    const existingPosition = signaturePositions[currentPage];
+    if (existingPosition) {
+      // Se já existe, remover
+      removeSignaturePosition(currentPage);
+      toast.info(`Assinatura removida da página ${currentPage}`);
+    } else {
+      // Se não existe, adicionar
+      setSignaturePositions(prev => ({
+        ...prev,
+        [currentPage]: { x, y }
+      }));
 
-    // Redesenhar marcadores
-    setTimeout(() => {
-      drawSignatureMarkers();
-    }, 100);
+      // Redesenhar marcadores
+      setTimeout(() => {
+        drawSignatureMarkers();
+      }, 100);
 
-    toast.success(`Assinatura marcada na página ${currentPage}`);
+      toast.success(`Assinatura marcada na página ${currentPage}`);
+    }
   };
 
   const removeSignaturePosition = (page) => {
@@ -353,9 +361,12 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         console.warn('Canvas não encontrado, usando dimensões padrão');
       }
       
-      // Aplicar assinaturas em cada página
+      // Aplicar assinaturas apenas nas páginas marcadas
+      // const pagesToSign = Object.keys(signaturePositions).map(p => parseInt(p) - 1); // Removido para evitar warning
+      
       Object.entries(signaturePositions).forEach(([pageNum, position]) => {
-        const page = pdfDoc.getPage(parseInt(pageNum) - 1); // PDF-lib usa índice baseado em 0
+        const pageIndex = parseInt(pageNum) - 1; // PDF-lib usa índice baseado em 0
+        const page = pdfDoc.getPage(pageIndex);
         
         // Calcular posição no PDF (coordenadas PDF são diferentes do canvas)
         const { width: pageWidth, height: pageHeight } = page.getSize();
@@ -377,12 +388,25 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         const pdfX = (position.x / canvasWidth) * pageWidth;
         const pdfY = pageHeight - ((position.y / canvasHeight) * pageHeight) - 50; // Ajustar altura da assinatura
         
+        // Verificar se a posição está dentro dos limites da página
+        const signatureWidth = 120;
+        const signatureHeight = 60;
+        
+        // Ajustar posição se estiver fora dos limites
+        let finalX = pdfX;
+        let finalY = pdfY;
+        
+        if (finalX < 0) finalX = 10;
+        if (finalX + signatureWidth > pageWidth) finalX = pageWidth - signatureWidth - 10;
+        if (finalY < 0) finalY = 10;
+        if (finalY + signatureHeight > pageHeight) finalY = pageHeight - signatureHeight - 10;
+        
         // Desenhar assinatura no PDF
         page.drawImage(signaturePngImage, {
-          x: pdfX,
-          y: pdfY,
-          width: 100,
-          height: 50,
+          x: finalX,
+          y: finalY,
+          width: signatureWidth,
+          height: signatureHeight,
         });
       });
       
@@ -394,6 +418,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const blob = new Blob([pdfBytesModified], { type: 'application/pdf' });
       formData.append('signedPdf', blob, 'documento_assinado.pdf');
       
+      console.log('📤 Enviando PDF assinado para o servidor...');
       const uploadResponse = await fetch(`http://localhost:5000/api/documents/${documentId}/upload-signed`, {
         method: 'POST',
         headers: {
@@ -402,7 +427,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         body: formData
       });
       
+      console.log('📡 Resposta do servidor:', uploadResponse.status);
+      
       if (uploadResponse.ok) {
+        const result = await uploadResponse.json();
+        console.log('✅ PDF assinado salvo com sucesso:', result);
         toast.success('Assinaturas aplicadas com sucesso!');
         
         // Chamar callback para notificar que a assinatura foi concluída
@@ -410,7 +439,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           onSignatureComplete();
         }
       } else {
-        throw new Error('Erro ao salvar PDF assinado');
+        const errorData = await uploadResponse.json();
+        console.error('❌ Erro ao salvar PDF assinado:', errorData);
+        throw new Error(errorData.error || `HTTP ${uploadResponse.status}`);
       }
       
     } catch (error) {
@@ -437,7 +468,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     }
   };
 
-  if (isLoading && !pdfUrl) {
+  if (isLoading && !pdfDocument) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -552,6 +583,20 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
               }}
             />
           </div>
+        </div>
+
+        {/* Instruções */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2 text-blue-800">
+            📝 Como posicionar a assinatura:
+          </h3>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• <strong>Clique no local desejado</strong> na página para marcar onde a assinatura deve aparecer</li>
+            <li>• <strong>Clique novamente</strong> no mesmo local para remover a assinatura</li>
+            <li>• <strong>Use o zoom</strong> para posicionar com mais precisão</li>
+            <li>• <strong>Navegue entre as páginas</strong> para assinar em múltiplas páginas se necessário</li>
+            <li>• <strong>A assinatura aparecerá apenas nas páginas marcadas</strong> (não se repetirá em todas)</li>
+          </ul>
         </div>
 
         {/* Status das Páginas */}

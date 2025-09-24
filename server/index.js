@@ -177,7 +177,7 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const authMode = process.env.AUTH_MODE || 'ad'; // Padrão para AD
+    const authMode = process.env.AUTH_MODE || 'local'; // Padrão para local
 
     console.log('🔍 === INÍCIO DO LOGIN ===');
     console.log('📝 Dados recebidos:', { username, passwordLength: password ? password.length : 'null', authMode });
@@ -877,20 +877,35 @@ app.get('/api/documents/:id/view', async (req, res) => {
     console.log('📁 Filename do documento:', document.filename);
     console.log('📁 Original filename:', document.original_filename);
     
-    // Usar filename ou original_filename como fallback
-    const fileName = document.filename || document.original_filename;
+    // Verificar se há arquivo assinado primeiro
+    let fileName = null;
+    let filePath = null;
     
-    if (!fileName) {
-      console.log('❌ Nenhum nome de arquivo encontrado (filename e original_filename estão undefined)');
-      return res.status(500).json({ error: 'Nome do arquivo não encontrado no banco de dados' });
+    // Primeiro, tentar arquivo assinado se existir
+    if (document.signed_filename && fs.existsSync(path.join(__dirname, 'uploads', document.signed_filename))) {
+      fileName = document.signed_filename;
+      console.log('📁 Usando arquivo assinado:', fileName);
+    }
+    // Se não há arquivo assinado, usar o original
+    else if (document.filename && fs.existsSync(path.join(__dirname, 'uploads', document.filename))) {
+      fileName = document.filename;
+      console.log('📁 Usando arquivo original:', fileName);
+    }
+    // Fallback para original_filename
+    else if (document.original_filename && fs.existsSync(path.join(__dirname, 'uploads', document.original_filename))) {
+      fileName = document.original_filename;
+      console.log('📁 Usando original_filename:', fileName);
     }
     
-    console.log('📁 Usando arquivo:', fileName);
-    const filePath = path.join(__dirname, 'uploads', fileName);
+    if (!fileName) {
+      console.log('❌ Nenhum arquivo válido encontrado');
+      return res.status(404).json({ error: 'Arquivo não encontrado no sistema' });
+    }
+    
+    filePath = path.join(__dirname, 'uploads', fileName);
     console.log('📂 Caminho completo do arquivo:', filePath);
     
     // Listar alguns arquivos da pasta uploads para debug
-    const fs = require('fs');
     const uploadsDir = path.join(__dirname, 'uploads');
     const files = fs.readdirSync(uploadsDir);
     console.log('📁 Arquivos na pasta uploads (primeiros 5):', files.slice(0, 5));
@@ -1873,11 +1888,29 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     fs.renameSync(req.file.path, signedPath);
 
     // Atualizar documento com o arquivo assinado
-    await pool.query(`
-      UPDATE documents 
-      SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3
-    `, [signedPath, signedFilename, documentId]);
+    // Check if columns exist before updating
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'documents' AND column_name IN ('signed_file_path', 'signed_filename', 'signed_at')
+    `);
+    
+    const hasSignedColumns = columnCheck.rows.length > 0;
+    
+    if (hasSignedColumns) {
+      await pool.query(`
+        UPDATE documents 
+        SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `, [signedPath, signedFilename, documentId]);
+    } else {
+      // Fallback: update with basic columns
+      await pool.query(`
+        UPDATE documents 
+        SET file_path = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [signedPath, documentId]);
+    }
 
     // Registrar na auditoria
     await logAudit(userId, 'DOCUMENT_SIGNED', documentId, `Documento assinado: ${document.title}`, req.ip);
