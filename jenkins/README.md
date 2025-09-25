@@ -144,6 +144,16 @@ docker-compose -f jenkins/docker-compose.yml logs -f jenkins
 ```
 
 ### **Executar Scripts Manualmente**
+
+#### **Windows (Recomendado):**
+```cmd
+# Na raiz do projeto (C:\Nota Fiscais\Nota Fiscais)
+jenkins\run-build.bat
+jenkins\run-tests.bat
+jenkins\run-scripts.bat
+```
+
+#### **Linux/Mac ou Git Bash:**
 ```bash
 # Build
 ./jenkins/scripts/build.sh
@@ -153,6 +163,14 @@ docker-compose -f jenkins/docker-compose.yml logs -f jenkins
 
 # Deploy
 DEPLOY_ENV=development ./jenkins/scripts/deploy.sh
+```
+
+#### **PowerShell:**
+```powershell
+# Na raiz do projeto
+bash jenkins/scripts/build.sh
+bash jenkins/scripts/test.sh
+bash jenkins/scripts/deploy.sh
 ```
 
 ## 🚨 Troubleshooting
