@@ -12,7 +12,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
   const [scale, setScale] = useState(1.0);
+  // eslint-disable-next-line no-unused-vars
   const [mousePosition, setMousePosition] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [showSignaturePreview, setShowSignaturePreview] = useState(false);
   
   const canvasRef = useRef(null);

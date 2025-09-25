@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins-sistema-assinaturas
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/var/jenkins_home/config
+      - ../:/workspace
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - JENKINS_OPTS=--httpPort=8080
+    networks:
+      - jenkins-network
+
+  # PostgreSQL para testes (opcional)
+  postgres-test:
+    image: postgres:15
+    container_name: postgres-jenkins-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sistema_assinaturas_test
+      POSTGRES_USER: jenkins
+      POSTGRES_PASSWORD: jenkins123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    networks:
+      - jenkins-network
+
+  # Nginx para proxy reverso (opcional)
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-jenkins
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/ssl:/etc/nginx/ssl
+    depends_on:
+      - jenkins
+    networks:
+      - jenkins-network
+
+volumes:
+  jenkins_home:
+    driver: local
+  postgres_test_data:
+    driver: local
+
+networks:
+  jenkins-network:
+    driver: bridge
