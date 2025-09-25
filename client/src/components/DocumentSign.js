@@ -22,9 +22,8 @@ const DocumentSign = () => {
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
-  const [govSignature, setGovSignature] = useState('');
   const [showPositioning, setShowPositioning] = useState(false);
-  const [signatureMode, setSignatureMode] = useState('text'); // 'text' ou 'positioning'
+  const [signatureMode, setSignatureMode] = useState('positioning'); // apenas 'positioning'
 
   useEffect(() => {
     fetchDocument();
@@ -64,17 +63,11 @@ const DocumentSign = () => {
   };
 
   const handleSign = async () => {
-    if (signatureMode === 'text' && !govSignature.trim()) {
-      toast.error('Digite sua assinatura GOV.BR');
-      return;
-    }
-
     setSigning(true);
 
     try {
       await axios.post(`/api/documents/${id}/sign`, {
-        govSignature: govSignature.trim(),
-        signatureMode: signatureMode
+        signatureMode: 'positioning'
       });
 
       toast.success('Documento assinado com sucesso!');
@@ -236,40 +229,18 @@ const DocumentSign = () => {
               Modo de Assinatura
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <button
-                onClick={() => setSignatureMode('text')}
-                className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                  signatureMode === 'text'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <Shield className={`h-6 w-6 ${signatureMode === 'text' ? 'text-blue-600' : 'text-gray-400'}`} />
-                  <div>
-                    <h3 className="font-medium text-gray-900">Assinatura Textual</h3>
-                    <p className="text-sm text-gray-600">Assinatura via texto GOV.BR</p>
-                  </div>
+            <div className="p-4 rounded-lg mb-6" style={{backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)'}}>
+              <div className="flex items-start space-x-3">
+                <PenTool className="h-5 w-5 mt-0.5" style={{color: 'var(--info)'}} />
+                <div>
+                  <h4 className="text-sm font-medium mb-1" style={{color: 'var(--text-primary)'}}>
+                    Posicionamento Visual da Assinatura
+                  </h4>
+                  <p className="text-sm" style={{color: 'var(--text-secondary)'}}>
+                    Você poderá posicionar sua assinatura visualmente no documento PDF.
+                  </p>
                 </div>
-              </button>
-              
-              <button
-                onClick={() => setSignatureMode('positioning')}
-                className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                  signatureMode === 'positioning'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <PenTool className={`h-6 w-6 ${signatureMode === 'positioning' ? 'text-blue-600' : 'text-gray-400'}`} />
-                  <div>
-                    <h3 className="font-medium text-gray-900">Posicionamento Visual</h3>
-                    <p className="text-sm text-gray-600">Posicionar assinatura no PDF</p>
-                  </div>
-                </div>
-              </button>
+              </div>
             </div>
           </div>
 

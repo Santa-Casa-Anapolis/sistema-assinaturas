@@ -83,7 +83,16 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         toast.success('PDF carregado com sucesso!');
       } else {
         console.error('❌ Erro ao carregar documento:', response.status);
-        toast.error('Erro ao carregar documento');
+        
+        if (response.status === 404) {
+          toast.error('Documento não encontrado. Verifique se o documento existe e se você tem permissão para acessá-lo.');
+        } else if (response.status === 401) {
+          toast.error('Token de autenticação inválido. Faça login novamente.');
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Detalhes do erro:', errorText);
+          toast.error(`Erro ao carregar documento: ${response.status} - ${response.statusText}`);
+        }
       }
     } catch (error) {
       console.error('❌ Erro ao carregar PDF:', error);
@@ -215,10 +224,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
       }
       
-      // Desenhar marcadores após renderização
-      setTimeout(() => {
-        drawSignatureMarkers();
-      }, 100);
+      // Desenhar marcadores após renderização (sem setTimeout para ser mais rápido)
+      drawSignatureMarkersOnCanvas();
       
     } catch (error) {
       // Ignorar erros de cancelamento de renderização
@@ -239,6 +246,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     drawSignatureMarkersOnCanvas();
   };
 
+  // Cache da imagem de assinatura para evitar recarregar
+  const signatureImageCacheRef = useRef(null);
+  
   const drawSignatureMarkersOnCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -255,11 +265,41 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         // Se temos uma imagem de assinatura, desenhar ela
         if (signatureImage) {
+          // Usar cache se disponível
+          if (signatureImageCacheRef.current) {
+            drawSignatureAtPosition(context, signatureImageCacheRef.current, x, y);
+          } else {
+            // Carregar e cachear a imagem
           const img = new Image();
           img.onload = () => {
-            // Desenhar a assinatura redimensionada
-            const signatureWidth = 120; // Largura fixa
-            const signatureHeight = (img.height * signatureWidth) / img.width; // Proporção mantida
+              signatureImageCacheRef.current = img;
+              drawSignatureAtPosition(context, img, x, y);
+            };
+            img.src = signatureImage;
+          }
+        } else {
+          // Fallback: desenhar quadrado verde
+          context.fillStyle = 'rgba(34, 197, 94, 0.3)';
+          context.fillRect(x - 10, y - 10, 20, 20);
+          
+          context.strokeStyle = 'rgb(34, 197, 94)';
+          context.lineWidth = 2;
+          context.strokeRect(x - 10, y - 10, 20, 20);
+          
+          context.fillStyle = 'rgb(34, 197, 94)';
+          context.font = '12px Arial';
+          context.fillText('✓', x - 4, y + 4);
+        }
+      }
+    });
+    
+    // Restaurar o estado do canvas
+    context.restore();
+  };
+  
+  const drawSignatureAtPosition = (context, img, x, y) => {
+    const signatureWidth = 120;
+    const signatureHeight = (img.height * signatureWidth) / img.width;
             
             // Desenhar fundo semi-transparente
             context.fillStyle = 'rgba(255, 255, 255, 0.9)';
@@ -278,24 +318,35 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
             context.font = 'bold 12px Arial';
             context.fillText('✓ Assinatura', x - signatureWidth/2, y - signatureHeight/2 - 10);
           };
-          img.src = signatureImage;
-        } else {
-          // Fallback: desenhar quadrado verde
-          context.fillStyle = 'rgba(34, 197, 94, 0.3)';
-          context.fillRect(x - 10, y - 10, 20, 20);
-          
-          context.strokeStyle = 'rgb(34, 197, 94)';
-          context.lineWidth = 2;
-          context.strokeRect(x - 10, y - 10, 20, 20);
-          
-          context.fillStyle = 'rgb(34, 197, 94)';
-          context.font = '12px Arial';
-          context.fillText('✓', x - 4, y + 4);
-        }
-      }
-    });
+  
+  const drawSignaturePreview = (context, img, x, y) => {
+    const signatureWidth = 120;
+    const signatureHeight = (img.height * signatureWidth) / img.width;
     
-    // Restaurar o estado do canvas
+    // Desenhar preview semi-transparente
+    context.globalAlpha = 0.6;
+    context.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+    
+    // Desenhar a assinatura
+    context.globalAlpha = 0.7;
+    context.drawImage(img, x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
+    
+    // Desenhar borda tracejada
+    context.globalAlpha = 0.9;
+    context.strokeStyle = '#10B981';
+          context.lineWidth = 2;
+    context.setLineDash([5, 5]);
+    context.strokeRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+    context.setLineDash([]);
+    
+    // Desenhar texto "Preview"
+    context.fillStyle = '#10B981';
+    context.font = 'bold 12px Arial';
+    context.fillText('👁️ Preview', x - signatureWidth/2, y - signatureHeight/2 - 10);
+    
+    // Restaurar estado
+    context.globalAlpha = 1;
     context.restore();
   };
 
@@ -318,26 +369,22 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       removeSignaturePosition(currentPage);
       toast.info(`Assinatura removida da página ${currentPage}`);
       
-      // Redesenhar imediatamente para mostrar a remoção
-      setTimeout(() => {
-        drawSignatureMarkers();
-      }, 50);
+      // Redesenhar apenas os marcadores (sem re-renderizar a página)
+      drawSignatureMarkersOnCanvas();
     } else {
       // Se não existe, adicionar
-      setSignaturePositions(prev => ({
-        ...prev,
-        [currentPage]: { x, y }
-      }));
+    setSignaturePositions(prev => ({
+      ...prev,
+      [currentPage]: { x, y }
+    }));
 
       // Mostrar feedback visual imediato
       showClickFeedback(x, y);
 
-      // Redesenhar marcadores
-      setTimeout(() => {
-        drawSignatureMarkers();
-      }, 100);
+      // Redesenhar marcadores imediatamente (sem delay)
+      drawSignatureMarkersOnCanvas();
 
-      toast.success(`Assinatura marcada na página ${currentPage}`);
+    toast.success(`Assinatura marcada na página ${currentPage}`);
     }
   };
 
@@ -347,40 +394,65 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     
     const context = canvas.getContext('2d');
     
-    // Desenhar um círculo pulsante no local do clique
-    let radius = 5;
+    // Feedback visual mais rápido - menos frames
+    let radius = 0;
+    let opacity = 1;
     const animate = () => {
-      context.clearRect(x - 20, y - 20, 40, 40);
+      // Limpar apenas uma pequena área ao redor do clique
+      context.clearRect(x - 30, y - 30, 60, 60);
+      
+      // Redesenhar marcadores existentes na área limpa
+      drawSignatureMarkersOnCanvas();
+      
+      // Desenhar feedback
       context.beginPath();
       context.arc(x, y, radius, 0, 2 * Math.PI);
-      context.fillStyle = 'rgba(34, 197, 94, 0.7)';
+      context.fillStyle = `rgba(34, 197, 94, ${opacity})`;
       context.fill();
-      context.strokeStyle = 'rgb(34, 197, 94)';
+      context.strokeStyle = `rgba(34, 197, 94, ${opacity})`;
       context.lineWidth = 2;
       context.stroke();
       
-      radius += 2;
-      if (radius < 15) {
+      radius += 2; // Mais rápido
+      opacity -= 0.15; // Mais rápido
+      
+      if (radius < 25 && opacity > 0) {
         requestAnimationFrame(animate);
+      } else {
+        // Limpar área final e redesenhar marcadores
+        context.clearRect(x - 30, y - 30, 60, 60);
+        drawSignatureMarkersOnCanvas();
       }
     };
     
     animate();
   };
 
+  // Throttle para movimento do mouse (mais responsivo)
+  const mouseMoveThrottleRef = useRef(null);
+  
   const handleMouseMove = (event) => {
     const canvas = canvasRef.current;
     if (!canvas || !signatureImage) return;
     
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Throttle mais suave para melhor responsividade
+    if (mouseMoveThrottleRef.current) {
+      clearTimeout(mouseMoveThrottleRef.current);
+    }
     
-    setMousePosition({ x, y });
-    setShowSignaturePreview(true);
-    
-    // Redesenhar marcadores com preview
-    drawSignatureMarkersWithPreview(x, y);
+    mouseMoveThrottleRef.current = setTimeout(() => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      setMousePosition({ x, y });
+      setShowSignaturePreview(true);
+      
+      // Redesenhar marcadores com preview
+      drawSignatureMarkersWithPreview(x, y);
+      
+      mouseMoveThrottleRef.current = null;
+    }, 8); // ~120fps para melhor responsividade
   };
 
   const handleMouseLeave = () => {
@@ -391,56 +463,85 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     drawSignatureMarkersOnCanvas();
   };
 
+  // Cache do contexto para evitar múltiplos previews
+  const previewContextRef = useRef(null);
+  const lastPreviewPositionRef = useRef(null);
+  
   const drawSignatureMarkersWithPreview = (previewX, previewY) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !signatureImage) return;
+    
+    // Evitar redesenhar se a posição não mudou significativamente
+    const lastPos = lastPreviewPositionRef.current;
+    if (lastPos && Math.abs(lastPos.x - previewX) < 5 && Math.abs(lastPos.y - previewY) < 5) {
+      return;
+    }
+    
+    lastPreviewPositionRef.current = { x: previewX, y: previewY };
     
     const context = canvas.getContext('2d');
     
-    // Limpar apenas a área do preview anterior
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Re-renderizar a página
-    if (pdfDocument) {
-      renderPage(currentPage).then(() => {
-        // Desenhar marcadores existentes
-        drawSignatureMarkersOnCanvas();
-        
-        // Desenhar preview da assinatura
-        if (signatureImage && showSignaturePreview) {
-          const img = new Image();
-          img.onload = () => {
-            const signatureWidth = 120;
-            const signatureHeight = (img.height * signatureWidth) / img.width;
-            
-            // Desenhar preview semi-transparente
-            context.globalAlpha = 0.6;
-            context.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            context.fillRect(previewX - signatureWidth/2 - 5, previewY - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
-            
-            context.drawImage(img, previewX - signatureWidth/2, previewY - signatureHeight/2, signatureWidth, signatureHeight);
-            
-            // Desenhar borda tracejada
-            context.globalAlpha = 0.8;
-            context.strokeStyle = '#10B981';
-            context.lineWidth = 2;
-            context.setLineDash([5, 5]);
-            context.strokeRect(previewX - signatureWidth/2 - 5, previewY - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
-            context.setLineDash([]);
-            
-            // Desenhar texto "Preview"
-            context.fillStyle = '#10B981';
-            context.font = 'bold 12px Arial';
-            context.fillText('👁️ Preview', previewX - signatureWidth/2, previewY - signatureHeight/2 - 10);
-            
-            context.globalAlpha = 1;
-          };
-          img.src = signatureImage;
-        }
-      }).catch(err => {
-        console.error('Erro ao re-renderizar:', err);
-      });
+    // Limpar apenas a área do preview anterior se existir
+    if (previewContextRef.current) {
+      const prevPos = previewContextRef.current;
+      const clearWidth = 150; // Largura da área de preview
+      const clearHeight = 80; // Altura da área de preview
+      context.clearRect(prevPos.x - clearWidth/2, prevPos.y - clearHeight/2, clearWidth, clearHeight);
     }
+    
+    // Salvar posição atual do preview
+    previewContextRef.current = { x: previewX, y: previewY };
+    
+    // Desenhar marcadores existentes primeiro (sem re-renderizar a página)
+    drawSignatureMarkersOnCanvas();
+    
+    // Desenhar apenas um preview da assinatura
+    if (signatureImageCacheRef.current) {
+      drawSignaturePreview(context, signatureImageCacheRef.current, previewX, previewY);
+    } else {
+      // Carregar e cachear a imagem
+      const img = new Image();
+      img.onload = () => {
+        signatureImageCacheRef.current = img;
+        // Redesenhar apenas se ainda estiver na mesma posição
+        if (showSignaturePreview && lastPreviewPositionRef.current && 
+            Math.abs(lastPreviewPositionRef.current.x - previewX) < 5 && 
+            Math.abs(lastPreviewPositionRef.current.y - previewY) < 5) {
+          drawSignatureMarkersOnCanvas();
+          drawSignaturePreview(context, img, previewX, previewY);
+        }
+      };
+      img.src = signatureImage;
+      
+      // Enquanto carrega, desenhar um preview simples
+      drawSimplePreview(context, previewX, previewY);
+    }
+  };
+  
+  const drawSimplePreview = (context, x, y) => {
+    const signatureWidth = 120;
+    const signatureHeight = 60; // Altura padrão
+    
+    // Desenhar preview simples
+    context.globalAlpha = 0.6;
+    context.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+    
+    // Desenhar borda tracejada
+    context.globalAlpha = 0.9;
+    context.strokeStyle = '#10B981';
+    context.lineWidth = 2;
+    context.setLineDash([5, 5]);
+    context.strokeRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+    context.setLineDash([]);
+    
+    // Desenhar texto "Preview"
+    context.fillStyle = '#10B981';
+    context.font = 'bold 12px Arial';
+    context.fillText('👁️ Preview', x - signatureWidth/2, y - signatureHeight/2 - 10);
+    
+    context.globalAlpha = 1;
+    context.restore();
   };
 
   const removeSignaturePosition = (page) => {
@@ -469,7 +570,30 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Carregar o PDF original
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/documents/${documentId}/view?token=${token}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Documento não encontrado. Verifique se o documento existe e se você tem permissão para acessá-lo.');
+        } else if (response.status === 401) {
+          throw new Error('Token de autenticação inválido. Faça login novamente.');
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Detalhes do erro:', errorText);
+          throw new Error(`Erro ao carregar documento: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+      }
+      
       const pdfBytes = await response.arrayBuffer();
+      
+      // Verificar se o arquivo é um PDF válido
+      const uint8Array = new Uint8Array(pdfBytes);
+      const header = String.fromCharCode.apply(null, uint8Array.slice(0, 4));
+      
+      if (header !== '%PDF') {
+        throw new Error('Arquivo não é um PDF válido. O arquivo deve ter o cabeçalho PDF correto.');
+      }
+      
+      console.log('✅ Arquivo PDF válido detectado, processando...');
       
       // Carregar PDF com PDF-lib
       const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -696,11 +820,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
             <div className="mb-4">
               <p className="text-gray-600 mb-2">
-                {signatureImage 
-                  ? `Clique na página ${currentPage} para marcar onde a assinatura deve aparecer`
-                  : 'Aguardando carregamento da assinatura do administrador...'
-                }
-              </p>
+              {signatureImage 
+                ? `Clique na página ${currentPage} para marcar onde a assinatura deve aparecer`
+                : 'Aguardando carregamento da assinatura do administrador...'
+              }
+            </p>
               {signaturePositions[currentPage] && (
                 <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>

@@ -21,13 +21,23 @@ const UploadDocument = () => {
   const [amount, setAmount] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [signatureMode, setSignatureMode] = useState('none'); // 'none', 'text', 'positioning'
-  const [govSignature, setGovSignature] = useState('');
+  const [signatureMode, setSignatureMode] = useState('positioning'); // 'positioning' - apenas posicionamento visual
   const [showSignaturePositioning, setShowSignaturePositioning] = useState(false);
   const [tempDocumentId, setTempDocumentId] = useState(null);
 
   const onDrop = (acceptedFiles) => {
     if (acceptedFiles.length > 0) {
+      // Validar se todos os arquivos são PDFs válidos
+      const invalidFiles = acceptedFiles.filter(file => {
+        return file.type !== 'application/pdf';
+      });
+      
+      if (invalidFiles.length > 0) {
+        toast.error('Apenas arquivos PDF são permitidos. Arquivos rejeitados: ' + 
+          invalidFiles.map(f => f.name).join(', '));
+        return;
+      }
+      
       setSelectedFiles(prevFiles => [...prevFiles, ...acceptedFiles]);
     }
   };
@@ -60,9 +70,9 @@ const UploadDocument = () => {
       return;
     }
 
-    // Verificar assinatura se necessário
-    if (signatureMode === 'text' && !govSignature.trim()) {
-      toast.error('Digite sua assinatura GOV.BR');
+    // Verificar se modo de assinatura foi selecionado (apenas posicionamento visual)
+    if (!signatureMode || signatureMode !== 'positioning') {
+      toast.error('Apenas assinatura por posicionamento visual é permitida');
       return;
     }
 
@@ -74,11 +84,7 @@ const UploadDocument = () => {
       formData.append('description', description);
       formData.append('amount', amount);
       formData.append('sector', user.sector);
-      formData.append('signatureMode', signatureMode);
-      
-      if (signatureMode === 'text') {
-        formData.append('govSignature', govSignature.trim());
-      }
+      formData.append('signatureMode', 'positioning');
       
       // Adicionar todos os arquivos
       selectedFiles.forEach((file, index) => {
@@ -96,19 +102,33 @@ const UploadDocument = () => {
       if (response.ok) {
         const result = await response.json();
         
-        if (signatureMode === 'positioning') {
-          // Se for posicionamento visual, abrir modal de posicionamento
+        // Sempre usar posicionamento visual
           setTempDocumentId(result.documentId);
           setShowSignaturePositioning(true);
           toast.info('Documento criado! Agora posicione sua assinatura.');
-        } else {
-          // Assinatura textual ou sem assinatura
-          toast.success('Documento enviado com sucesso!');
-          resetForm();
-        }
       } else {
         const error = await response.json();
+        
+        // Tratar erros específicos
+        if (error.error === 'Assinatura obrigatória') {
+          toast.error('❌ ' + error.message, {
+            autoClose: 8000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+          });
+        } else if (error.error === 'Modo de assinatura obrigatório') {
+          toast.error('❌ ' + error.message, {
+            autoClose: 6000
+          });
+        } else if (error.error === 'Assinatura textual obrigatória') {
+          toast.error('❌ ' + error.message, {
+            autoClose: 6000
+          });
+        } else {
         toast.error(error.error || 'Erro ao enviar documento');
+        }
       }
     } catch (error) {
       console.error('Erro ao enviar documento:', error);
@@ -123,8 +143,7 @@ const UploadDocument = () => {
     setDescription('');
     setAmount('');
     setSelectedFiles([]);
-    setSignatureMode('none');
-    setGovSignature('');
+    setSignatureMode('positioning');
     setTempDocumentId(null);
   };
 
@@ -148,13 +167,13 @@ const UploadDocument = () => {
 
   if (user.role !== 'supervisor') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: 'var(--bg-primary)'}}>
+        <div className="rounded-lg shadow-md p-8 max-w-md w-full text-center" style={{backgroundColor: 'var(--bg-card)'}}>
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold mb-2" style={{color: 'var(--text-primary)'}}>
             Acesso Restrito
           </h2>
-          <p className="text-gray-600">
+          <p style={{color: 'var(--text-secondary)'}}>
             Apenas supervisores podem enviar documentos para o fluxo de aprovação.
           </p>
         </div>
@@ -163,24 +182,35 @@ const UploadDocument = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6" style={{backgroundColor: 'var(--bg-primary)'}}>
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="rounded-lg shadow-md p-8" style={{backgroundColor: 'var(--bg-card)'}}>
           <div className="flex items-center space-x-3 mb-6">
             <Upload className="h-8 w-8 text-blue-600" />
             <h1 className="text-2xl font-bold" style={{color: 'var(--text-primary)'}}>Enviar Documento</h1>
           </div>
 
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2">Fluxo de Aprovação</h3>
+          {/* Aviso sobre assinatura obrigatória */}
+          <div className="mb-6 p-4 rounded-lg" style={{backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning)'}}>
+            <div className="flex items-center space-x-2 mb-2">
+              <Shield className="h-5 w-5" style={{color: 'var(--warning)'}} />
+              <h3 className="font-semibold" style={{color: 'var(--warning)'}}>Assinatura Obrigatória</h3>
+            </div>
+            <p className="text-sm" style={{color: 'var(--warning)'}}>
+              Para enviar documentos, você deve ter uma assinatura configurada em seu perfil e selecionar um modo de assinatura.
+            </p>
+          </div>
+
+          <div className="mb-6 p-4 rounded-lg" style={{backgroundColor: 'var(--info-bg)', border: '1px solid var(--info)'}}>
+            <h3 className="font-semibold mb-2" style={{color: 'var(--info)'}}>Fluxo de Aprovação</h3>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-blue-700">📊 Contabilidade</span>
-              <span className="text-blue-500">→</span>
-              <span className="text-blue-700">💰 Financeiro</span>
-              <span className="text-blue-500">→</span>
-              <span className="text-blue-700">👔 Diretoria</span>
-              <span className="text-blue-500">→</span>
-              <span className="text-blue-700">💳 Pagamento</span>
+              <span style={{color: 'var(--info)'}}>📊 Contabilidade</span>
+              <span style={{color: 'var(--info)'}}>→</span>
+              <span style={{color: 'var(--info)'}}>💰 Financeiro</span>
+              <span style={{color: 'var(--info)'}}>→</span>
+              <span style={{color: 'var(--info)'}}>👔 Diretoria</span>
+              <span style={{color: 'var(--info)'}}>→</span>
+              <span style={{color: 'var(--info)'}}>💳 Pagamento</span>
             </div>
           </div>
 
@@ -251,100 +281,20 @@ const UploadDocument = () => {
                 Assinatura do Supervisor
               </label>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setSignatureMode('none')}
-                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                    signatureMode === 'none'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <FileText className={`h-6 w-6 ${signatureMode === 'none' ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <div>
-                      <h3 className="font-medium text-gray-900">Sem Assinatura</h3>
-                      <p className="text-sm text-gray-600">Enviar sem assinar</p>
-                    </div>
-                  </div>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setSignatureMode('text')}
-                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                    signatureMode === 'text'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Shield className={`h-6 w-6 ${signatureMode === 'text' ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <div>
-                      <h3 className="font-medium text-gray-900">Assinatura Textual</h3>
-                      <p className="text-sm text-gray-600">Assinatura via texto GOV.BR</p>
-                    </div>
-                  </div>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setSignatureMode('positioning')}
-                  className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                    signatureMode === 'positioning'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <PenTool className={`h-6 w-6 ${signatureMode === 'positioning' ? 'text-blue-600' : 'text-gray-400'}`} />
-                    <div>
-                      <h3 className="font-medium text-gray-900">Posicionamento Visual</h3>
-                      <p className="text-sm text-gray-600">Posicionar assinatura no PDF</p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-
-              {/* Campo de assinatura textual */}
-              {signatureMode === 'text' && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
-                    Assinatura GOV.BR *
-                  </label>
-                  <textarea
-                    value={govSignature}
-                    onChange={(e) => setGovSignature(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    style={{
-                      backgroundColor: 'var(--bg-primary)',
-                      borderColor: 'var(--border-primary)',
-                      color: 'var(--text-primary)'
-                    }}
-                    rows="3"
-                    placeholder="Digite sua assinatura digital (ex: CPF, certificado digital, etc.)"
-                    required
-                  />
-                </div>
-              )}
-
-              {/* Informação sobre posicionamento visual */}
-              {signatureMode === 'positioning' && (
-                <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+              <div className="p-4 rounded-lg" style={{backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)'}}>
                   <div className="flex items-start space-x-3">
-                    <PenTool className="h-5 w-5 text-purple-600 mt-0.5" />
+                  <PenTool className="h-5 w-5 mt-0.5" style={{color: 'var(--info)'}} />
                     <div>
-                      <h4 className="text-sm font-medium text-purple-900 mb-1">
-                        Posicionamento Visual
+                    <h4 className="text-sm font-medium mb-1" style={{color: 'var(--text-primary)'}}>
+                      Posicionamento Visual da Assinatura
                       </h4>
-                      <p className="text-sm text-purple-700">
+                    <p className="text-sm" style={{color: 'var(--text-secondary)'}}>
                         Após enviar o documento, você poderá posicionar sua assinatura visualmente em cada página do PDF.
                       </p>
                     </div>
                   </div>
                 </div>
-              )}
+
             </div>
 
             <div>
@@ -417,16 +367,16 @@ const UploadDocument = () => {
               )}
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 mb-2">Informações do Setor</h4>
+            <div className="rounded-lg p-4" style={{backgroundColor: 'var(--bg-secondary)'}}>
+              <h4 className="font-medium mb-2" style={{color: 'var(--text-primary)'}}>Informações do Setor</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-500">Setor:</span>
-                  <span className="ml-2 font-medium">{user.sector}</span>
+                  <span style={{color: 'var(--text-secondary)'}}>Setor:</span>
+                  <span className="ml-2 font-medium" style={{color: 'var(--text-primary)'}}>{user.sector}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Supervisor:</span>
-                  <span className="ml-2 font-medium">{user.name}</span>
+                  <span style={{color: 'var(--text-secondary)'}}>Supervisor:</span>
+                  <span className="ml-2 font-medium" style={{color: 'var(--text-primary)'}}>{user.name}</span>
                 </div>
               </div>
             </div>

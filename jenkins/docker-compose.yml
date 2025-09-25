@@ -11,10 +11,13 @@ services:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config:/var/jenkins_home/config
+      - ./config/init.groovy:/var/jenkins_home/init.groovy.d/init.groovy
       - ../:/workspace
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
       - JENKINS_OPTS=--httpPort=8080
+      - JENKINS_ADMIN_ID=admin
+      - JENKINS_ADMIN_PASSWORD=admin123
     networks:
       - jenkins-network
 

@@ -69,6 +69,147 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Forçar fundo escuro em todos os elementos principais */
+body.dark-mode {
+  background-color: var(--bg-primary) !important;
+}
+
+/* Corrigir fundos brancos hardcoded */
+body.dark-mode .bg-white,
+body.dark-mode .bg-gray-50,
+body.dark-mode .bg-gray-100,
+body.dark-mode .bg-gray-200,
+body.dark-mode .bg-slate-50,
+body.dark-mode .bg-zinc-50 {
+  background-color: var(--bg-card) !important;
+}
+
+/* Corrigir textos que ficam invisíveis */
+body.dark-mode .text-gray-900,
+body.dark-mode .text-gray-800,
+body.dark-mode .text-gray-700,
+body.dark-mode .text-black {
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode .text-gray-600,
+body.dark-mode .text-gray-500,
+body.dark-mode .text-gray-400 {
+  color: var(--text-secondary) !important;
+}
+
+/* Corrigir bordas */
+body.dark-mode .border-gray-200,
+body.dark-mode .border-gray-300,
+body.dark-mode .border-gray-400 {
+  border-color: var(--border-primary) !important;
+}
+
+/* Corrigir inputs e formulários */
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Corrigir modais e overlays */
+body.dark-mode .modal,
+body.dark-mode .modal-content,
+body.dark-mode .overlay {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Corrigir dropdowns */
+body.dark-mode .dropdown,
+body.dark-mode .dropdown-menu {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+}
+
+/* Corrigir tabelas */
+body.dark-mode table,
+body.dark-mode thead,
+body.dark-mode tbody,
+body.dark-mode tr,
+body.dark-mode th,
+body.dark-mode td {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Corrigir botões secundários */
+body.dark-mode .btn-secondary,
+body.dark-mode button[class*="bg-gray"],
+body.dark-mode button[class*="text-gray"] {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+/* Corrigir links */
+body.dark-mode a {
+  color: var(--info) !important;
+}
+
+body.dark-mode a:hover {
+  color: var(--border-focus) !important;
+}
+
+/* Corrigir React Toastify */
+body.dark-mode .Toastify__toast {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+body.dark-mode .Toastify__toast--success {
+  background-color: var(--success-bg) !important;
+  color: var(--success) !important;
+}
+
+body.dark-mode .Toastify__toast--error {
+  background-color: var(--error-bg) !important;
+  color: var(--error) !important;
+}
+
+body.dark-mode .Toastify__toast--warning {
+  background-color: var(--warning-bg) !important;
+  color: var(--warning) !important;
+}
+
+body.dark-mode .Toastify__toast--info {
+  background-color: var(--info-bg) !important;
+  color: var(--info) !important;
+}
+
+/* Corrigir elementos específicos do sistema */
+body.dark-mode .min-h-screen {
+  background-color: var(--bg-primary) !important;
+}
+
+body.dark-mode .rounded-lg {
+  background-color: var(--bg-card) !important;
+}
+
+body.dark-mode .shadow-md,
+body.dark-mode .shadow-sm {
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Corrigir divisores */
+body.dark-mode .divide-gray-200 > * + * {
+  border-color: var(--border-primary) !important;
+}
+
 /* Global Components Dark Mode Styles */
 
 /* Cards */

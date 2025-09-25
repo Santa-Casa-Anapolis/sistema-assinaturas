@@ -1545,6 +1545,85 @@ app.post('/api/admin/assign-group', authenticateToken, requireAdmin, async (req,
 
 // ==================== ROTAS DE DOCUMENTOS ====================
 
+// Buscar documentos pendentes de assinatura
+app.get('/api/documents/pending', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const userSector = req.user.sector;
+
+    console.log('🔍 Buscando documentos pendentes para:', req.user.username, 'Role:', userRole, 'Setor:', userSector);
+
+    let query = `
+      SELECT d.*, u.name as supplier_name, u.sector as document_sector
+      FROM documents d
+      LEFT JOIN users u ON d.created_by = u.id
+      WHERE d.status = 'pending'
+    `;
+    
+    let params = [];
+
+    // Filtrar por permissões do usuário
+    if (userRole === 'supervisor') {
+      // Supervisores veem documentos que criaram
+      query += ' AND d.created_by = $1';
+      params.push(userId);
+    } else if (['contabilidade', 'financeiro', 'diretoria'].includes(userRole)) {
+      // Outros roles podem ver todos os documentos pendentes
+      query += ' AND 1=1';
+    } else {
+      // Outros usuários veem apenas seus próprios documentos
+      query += ' AND d.created_by = $1';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY d.created_at DESC';
+
+    console.log('📊 Query executando:', query);
+    console.log('📊 Parâmetros:', params);
+
+    const result = await pool.query(query, params);
+    
+    console.log(`✅ Encontrados ${result.rows.length} documentos pendentes`);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao buscar documentos pendentes:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Buscar meus documentos
+app.get('/api/documents/my-documents', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const userSector = req.user.sector;
+
+    console.log('🔍 Buscando meus documentos para:', req.user.username, 'Role:', userRole);
+
+    const result = await pool.query(`
+      SELECT d.*, 
+             u.name as supplier_name,
+             COUNT(sf.id) as total_signers,
+             COUNT(CASE WHEN sf.status = 'signed' THEN 1 END) as signed_count
+      FROM documents d
+      LEFT JOIN signature_flow sf ON d.id = sf.document_id
+      LEFT JOIN users u ON d.created_by = u.id
+      WHERE d.created_by = $1
+      GROUP BY d.id, u.name
+      ORDER BY d.created_at DESC
+    `, [userId]);
+    
+    console.log(`✅ Encontrados ${result.rows.length} meus documentos`);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao buscar meus documentos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Buscar documentos do usuário
 app.get('/api/documents', authenticateToken, async (req, res) => {
   try {
@@ -1594,21 +1673,69 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
       return res.status(400).json({ error: 'Pelo menos um arquivo é obrigatório' });
     }
 
+    // Validar se todos os arquivos são PDFs válidos
+    for (const file of files) {
+      if (file.mimetype !== 'application/pdf') {
+        return res.status(400).json({ 
+          error: 'Apenas arquivos PDF são permitidos',
+          message: `Arquivo "${file.originalname}" não é um PDF válido.`
+        });
+      }
+      
+      // Verificar cabeçalho PDF
+      const filePath = file.path;
+      const fileBuffer = fs.readFileSync(filePath);
+      const header = fileBuffer.slice(0, 4).toString();
+      
+      if (header !== '%PDF') {
+        return res.status(400).json({ 
+          error: 'Arquivo PDF inválido',
+          message: `Arquivo "${file.originalname}" não possui cabeçalho PDF válido.`
+        });
+      }
+    }
+
     // Apenas supervisores podem criar documentos
     if (userRole !== 'supervisor') {
       return res.status(403).json({ error: 'Apenas supervisores podem criar documentos' });
     }
 
+    // Validar se o usuário tem assinatura configurada
+    const signatureResult = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
+    if (signatureResult.rows.length === 0) {
+      return res.status(400).json({ 
+        error: 'Assinatura obrigatória', 
+        message: 'Você deve configurar sua assinatura antes de enviar documentos. Acesse o perfil para fazer upload da sua assinatura.' 
+      });
+    }
+
+    // Validar se o modo de assinatura foi selecionado
+    if (!signatureMode || signatureMode === 'none') {
+      return res.status(400).json({ 
+        error: 'Modo de assinatura obrigatório', 
+        message: 'Você deve selecionar um modo de assinatura antes de enviar o documento.' 
+      });
+    }
+
+    // Validar assinatura textual se selecionada
+    if (signatureMode === 'text' && (!govSignature || govSignature.trim() === '')) {
+      return res.status(400).json({ 
+        error: 'Assinatura textual obrigatória', 
+        message: 'Você deve fornecer uma assinatura textual quando selecionar este modo.' 
+      });
+    }
+
     // Inserir documento principal (usando o primeiro arquivo como file_path principal)
     const result = await pool.query(`
-      INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+      INSERT INTO documents (title, description, file_path, original_filename, filename, created_by, supervisor_id, sector, amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
       RETURNING id
     `, [
       title,
       description,
       files[0].path,
       files[0].originalname,
+      files[0].filename, // Adicionar filename para compatibilidade
       userId,
       userId, // supervisor_id
       sector || req.user.sector,

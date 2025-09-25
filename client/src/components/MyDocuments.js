@@ -14,11 +14,17 @@ import {
 
 const MyDocuments = () => {
   const [documents, setDocuments] = useState([]);
+  const [filteredDocuments, setFilteredDocuments] = useState([]);
+  const [activeFilter, setActiveFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMyDocuments();
   }, []);
+
+  useEffect(() => {
+    filterDocuments();
+  }, [documents, activeFilter]);
 
   const fetchMyDocuments = async () => {
     try {
@@ -29,6 +35,39 @@ const MyDocuments = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterDocuments = () => {
+    let filtered = documents;
+    
+    switch (activeFilter) {
+      case 'pending':
+        filtered = documents.filter(doc => doc.status === 'pending');
+        break;
+      case 'approved':
+        filtered = documents.filter(doc => doc.status === 'approved');
+        break;
+      case 'completed':
+        filtered = documents.filter(doc => doc.status === 'completed');
+        break;
+      case 'rejected':
+        filtered = documents.filter(doc => doc.status === 'rejected');
+        break;
+      default:
+        filtered = documents;
+    }
+    
+    setFilteredDocuments(filtered);
+  };
+
+  const getDocumentCounts = () => {
+    return {
+      all: documents.length,
+      pending: documents.filter(doc => doc.status === 'pending').length,
+      approved: documents.filter(doc => doc.status === 'approved').length,
+      completed: documents.filter(doc => doc.status === 'completed').length,
+      rejected: documents.filter(doc => doc.status === 'rejected').length
+    };
   };
 
   const handleDownload = async (documentId, filename) => {
@@ -188,7 +227,45 @@ const MyDocuments = () => {
         </p>
       </div>
 
-      {documents.length === 0 ? (
+      {/* Filtros */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-3" style={{color: 'var(--text-primary)'}}>
+          Filtros
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {(() => {
+            const counts = getDocumentCounts();
+            const filters = [
+              { key: 'all', label: 'Todos', count: counts.all },
+              { key: 'pending', label: 'Pendentes', count: counts.pending },
+              { key: 'approved', label: 'Aprovados', count: counts.approved },
+              { key: 'completed', label: 'Finalizados', count: counts.completed },
+              { key: 'rejected', label: 'Rejeitados', count: counts.rejected }
+            ];
+            
+            return filters.map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeFilter === filter.key
+                    ? 'text-white'
+                    : 'hover:opacity-80'
+                }`}
+                style={{
+                  backgroundColor: activeFilter === filter.key ? 'var(--info)' : 'var(--bg-secondary)',
+                  color: activeFilter === filter.key ? 'white' : 'var(--text-primary)',
+                  border: '1px solid var(--border-primary)'
+                }}
+              >
+                {filter.label} ({filter.count})
+              </button>
+            ));
+          })()}
+        </div>
+      </div>
+
+      {filteredDocuments.length === 0 ? (
         <div className="text-center py-12">
           <FileText className="mx-auto h-16 w-16 text-gray-400 mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -208,12 +285,12 @@ const MyDocuments = () => {
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              {documents.length} documento{documents.length !== 1 ? 's' : ''} encontrado{documents.length !== 1 ? 's' : ''}
+              {filteredDocuments.length} documento{filteredDocuments.length !== 1 ? 's' : ''} encontrado{filteredDocuments.length !== 1 ? 's' : ''}
             </h2>
           </div>
           
           <div className="divide-y divide-gray-200">
-            {documents.map((doc) => (
+            {filteredDocuments.map((doc) => (
               <div key={doc.id} className="px-6 py-4 hover:bg-gray-50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
