@@ -12,6 +12,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
   const [scale, setScale] = useState(1.0);
+  const [mousePosition, setMousePosition] = useState(null);
+  const [showSignaturePreview, setShowSignaturePreview] = useState(false);
   
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
@@ -231,7 +233,18 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
+    // Apenas desenhar os marcadores sem re-renderizar
+    drawSignatureMarkersOnCanvas();
+  };
+
+  const drawSignatureMarkersOnCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
     const context = canvas.getContext('2d');
+    
+    // Salvar o estado do canvas antes de desenhar os marcadores
+    context.save();
     
     // Desenhar marcadores de assinatura
     Object.entries(signaturePositions).forEach(([page, position]) => {
@@ -279,6 +292,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
       }
     });
+    
+    // Restaurar o estado do canvas
+    context.restore();
   };
 
 
@@ -299,6 +315,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Se já existe, remover
       removeSignaturePosition(currentPage);
       toast.info(`Assinatura removida da página ${currentPage}`);
+      
+      // Redesenhar imediatamente para mostrar a remoção
+      setTimeout(() => {
+        drawSignatureMarkers();
+      }, 50);
     } else {
       // Se não existe, adicionar
       setSignaturePositions(prev => ({
@@ -306,12 +327,117 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         [currentPage]: { x, y }
       }));
 
+      // Mostrar feedback visual imediato
+      showClickFeedback(x, y);
+
       // Redesenhar marcadores
       setTimeout(() => {
         drawSignatureMarkers();
       }, 100);
 
       toast.success(`Assinatura marcada na página ${currentPage}`);
+    }
+  };
+
+  const showClickFeedback = (x, y) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const context = canvas.getContext('2d');
+    
+    // Desenhar um círculo pulsante no local do clique
+    let radius = 5;
+    const animate = () => {
+      context.clearRect(x - 20, y - 20, 40, 40);
+      context.beginPath();
+      context.arc(x, y, radius, 0, 2 * Math.PI);
+      context.fillStyle = 'rgba(34, 197, 94, 0.7)';
+      context.fill();
+      context.strokeStyle = 'rgb(34, 197, 94)';
+      context.lineWidth = 2;
+      context.stroke();
+      
+      radius += 2;
+      if (radius < 15) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    animate();
+  };
+
+  const handleMouseMove = (event) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !signatureImage) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    setMousePosition({ x, y });
+    setShowSignaturePreview(true);
+    
+    // Redesenhar marcadores com preview
+    drawSignatureMarkersWithPreview(x, y);
+  };
+
+  const handleMouseLeave = () => {
+    setShowSignaturePreview(false);
+    setMousePosition(null);
+    
+    // Redesenhar apenas os marcadores sem preview
+    drawSignatureMarkersOnCanvas();
+  };
+
+  const drawSignatureMarkersWithPreview = (previewX, previewY) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const context = canvas.getContext('2d');
+    
+    // Limpar apenas a área do preview anterior
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Re-renderizar a página
+    if (pdfDocument) {
+      renderPage(currentPage).then(() => {
+        // Desenhar marcadores existentes
+        drawSignatureMarkersOnCanvas();
+        
+        // Desenhar preview da assinatura
+        if (signatureImage && showSignaturePreview) {
+          const img = new Image();
+          img.onload = () => {
+            const signatureWidth = 120;
+            const signatureHeight = (img.height * signatureWidth) / img.width;
+            
+            // Desenhar preview semi-transparente
+            context.globalAlpha = 0.6;
+            context.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            context.fillRect(previewX - signatureWidth/2 - 5, previewY - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+            
+            context.drawImage(img, previewX - signatureWidth/2, previewY - signatureHeight/2, signatureWidth, signatureHeight);
+            
+            // Desenhar borda tracejada
+            context.globalAlpha = 0.8;
+            context.strokeStyle = '#10B981';
+            context.lineWidth = 2;
+            context.setLineDash([5, 5]);
+            context.strokeRect(previewX - signatureWidth/2 - 5, previewY - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+            context.setLineDash([]);
+            
+            // Desenhar texto "Preview"
+            context.fillStyle = '#10B981';
+            context.font = 'bold 12px Arial';
+            context.fillText('👁️ Preview', previewX - signatureWidth/2, previewY - signatureHeight/2 - 10);
+            
+            context.globalAlpha = 1;
+          };
+          img.src = signatureImage;
+        }
+      }).catch(err => {
+        console.error('Erro ao re-renderizar:', err);
+      });
     }
   };
 
@@ -566,15 +692,25 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         {/* Canvas para o PDF */}
         <div className="mb-6">
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-            <p className="text-gray-600 mb-4">
-              {signatureImage 
-                ? `Clique na página ${currentPage} para marcar onde a assinatura deve aparecer`
-                : 'Aguardando carregamento da assinatura do administrador...'
-              }
-            </p>
+            <div className="mb-4">
+              <p className="text-gray-600 mb-2">
+                {signatureImage 
+                  ? `Clique na página ${currentPage} para marcar onde a assinatura deve aparecer`
+                  : 'Aguardando carregamento da assinatura do administrador...'
+                }
+              </p>
+              {signaturePositions[currentPage] && (
+                <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                  Assinatura marcada nesta página
+                </div>
+              )}
+            </div>
             <canvas
               ref={canvasRef}
               onClick={handleCanvasClick}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseLeave}
               className="border border-gray-300 cursor-crosshair max-w-full h-auto"
               style={{ 
                 backgroundColor: '#f9f9f9',
@@ -591,6 +727,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
             📝 Como posicionar a assinatura:
           </h3>
           <ul className="text-sm text-blue-700 space-y-1">
+            <li>• <strong>Mova o mouse</strong> sobre o documento para ver um preview da assinatura</li>
             <li>• <strong>Clique no local desejado</strong> na página para marcar onde a assinatura deve aparecer</li>
             <li>• <strong>Clique novamente</strong> no mesmo local para remover a assinatura</li>
             <li>• <strong>Use o zoom</strong> para posicionar com mais precisão</li>
