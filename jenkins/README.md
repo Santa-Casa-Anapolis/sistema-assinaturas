@@ -38,7 +38,7 @@ docker-compose -f jenkins/docker-compose.yml logs -f jenkins
 
 ### 2. **Acessar Jenkins**
 
-- **URL:** http://localhost:8080
+- **URL:** http://localhost:8081
 - **Senha inicial:** Será exibida nos logs do container
 
 ### 3. **Configurar Pipeline**
@@ -98,7 +98,7 @@ graph LR
 ## 🛠️ Configurações
 
 ### **Docker Compose**
-- **Jenkins:** Porta 8080
+- **Jenkins:** Porta 8081
 - **PostgreSQL:** Porta 5433 (para testes)
 - **Nginx:** Porta 80 (proxy reverso)
 
@@ -126,7 +126,7 @@ docker-compose -f jenkins/docker-compose.yml logs -f app
 docker-compose -f jenkins/docker-compose.yml ps
 
 # Verificar saúde
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 ```
 
 ## 🔧 Comandos Úteis
