@@ -1,0 +1,581 @@
+/* Dark Mode Global Styles */
+
+/* Light Mode (Default) */
+body.light-mode {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-hover: #f8fafc;
+  
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+  
+  --border-primary: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --border-focus: #3b82f6;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --error: #ef4444;
+  --error-bg: #fef2f2;
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
+}
+
+/* Dark Mode */
+body.dark-mode {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-card: #1e293b;
+  --bg-hover: #334155;
+  
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-inverse: #1e293b;
+  
+  --border-primary: #334155;
+  --border-secondary: #475569;
+  --border-focus: #60a5fa;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  
+  --success: #34d399;
+  --success-bg: #064e3b;
+  --warning: #fbbf24;
+  --warning-bg: #78350f;
+  --error: #f87171;
+  --error-bg: #7f1d1d;
+  --info: #60a5fa;
+  --info-bg: #1e3a8a;
+}
+
+/* Apply CSS Variables to Body */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Forçar fundo escuro em todos os elementos principais */
+body.dark-mode {
+  background-color: var(--bg-primary) !important;
+}
+
+/* Corrigir fundos brancos hardcoded */
+body.dark-mode .bg-white,
+body.dark-mode .bg-gray-50,
+body.dark-mode .bg-gray-100,
+body.dark-mode .bg-gray-200,
+body.dark-mode .bg-slate-50,
+body.dark-mode .bg-zinc-50 {
+  background-color: var(--bg-card) !important;
+}
+
+/* Corrigir textos que ficam invisíveis */
+body.dark-mode .text-gray-900,
+body.dark-mode .text-gray-800,
+body.dark-mode .text-gray-700,
+body.dark-mode .text-black {
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode .text-gray-600,
+body.dark-mode .text-gray-500,
+body.dark-mode .text-gray-400 {
+  color: var(--text-secondary) !important;
+}
+
+/* Corrigir bordas */
+body.dark-mode .border-gray-200,
+body.dark-mode .border-gray-300,
+body.dark-mode .border-gray-400 {
+  border-color: var(--border-primary) !important;
+}
+
+/* Corrigir inputs e formulários */
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+body.dark-mode input::placeholder,
+body.dark-mode textarea::placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Corrigir modais e overlays */
+body.dark-mode .modal,
+body.dark-mode .modal-content,
+body.dark-mode .overlay {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Corrigir dropdowns */
+body.dark-mode .dropdown,
+body.dark-mode .dropdown-menu {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+}
+
+/* Corrigir tabelas */
+body.dark-mode table,
+body.dark-mode thead,
+body.dark-mode tbody,
+body.dark-mode tr,
+body.dark-mode th,
+body.dark-mode td {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Corrigir botões secundários */
+body.dark-mode .btn-secondary,
+body.dark-mode button[class*="bg-gray"],
+body.dark-mode button[class*="text-gray"] {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+/* Corrigir links */
+body.dark-mode a {
+  color: var(--info) !important;
+}
+
+body.dark-mode a:hover {
+  color: var(--border-focus) !important;
+}
+
+/* Corrigir React Toastify */
+body.dark-mode .Toastify__toast {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+body.dark-mode .Toastify__toast--success {
+  background-color: var(--success-bg) !important;
+  color: var(--success) !important;
+}
+
+body.dark-mode .Toastify__toast--error {
+  background-color: var(--error-bg) !important;
+  color: var(--error) !important;
+}
+
+body.dark-mode .Toastify__toast--warning {
+  background-color: var(--warning-bg) !important;
+  color: var(--warning) !important;
+}
+
+body.dark-mode .Toastify__toast--info {
+  background-color: var(--info-bg) !important;
+  color: var(--info) !important;
+}
+
+/* Corrigir elementos específicos do sistema */
+body.dark-mode .min-h-screen {
+  background-color: var(--bg-primary) !important;
+}
+
+body.dark-mode .rounded-lg {
+  background-color: var(--bg-card) !important;
+}
+
+body.dark-mode .shadow-md,
+body.dark-mode .shadow-sm {
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* Corrigir divisores */
+body.dark-mode .divide-gray-200 > * + * {
+  border-color: var(--border-primary) !important;
+}
+
+/* Global Components Dark Mode Styles */
+
+/* Cards */
+.card,
+.document-card,
+.user-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.card:hover,
+.document-card:hover,
+.user-card:hover {
+  background-color: var(--bg-hover);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Forms */
+.form-group input,
+.form-group textarea,
+.form-group select {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group label {
+  color: var(--text-secondary);
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--info);
+  border-color: var(--info);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background-color: var(--border-focus);
+  border-color: var(--border-focus);
+}
+
+.btn-secondary {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+}
+
+/* Navigation */
+.navbar,
+.header {
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.nav-link {
+  color: var(--text-secondary);
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--text-primary);
+}
+
+/* Tables */
+.table {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.table th {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+}
+
+.table td {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--bg-secondary);
+}
+
+/* Modals */
+.modal-content {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-primary);
+}
+
+/* Dropdowns */
+.dropdown-menu {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-lg);
+}
+
+.dropdown-item {
+  color: var(--text-primary);
+}
+
+.dropdown-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Alerts */
+.alert-success {
+  background-color: var(--success-bg);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.alert-warning {
+  background-color: var(--warning-bg);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.alert-error,
+.alert-danger {
+  background-color: var(--error-bg);
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.alert-info {
+  background-color: var(--info-bg);
+  border-color: var(--info);
+  color: var(--info);
+}
+
+/* Sidebar */
+.sidebar {
+  background-color: var(--bg-card);
+  border-right: 1px solid var(--border-primary);
+}
+
+.sidebar-item {
+  color: var(--text-secondary);
+}
+
+.sidebar-item:hover,
+.sidebar-item.active {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Loading Spinners */
+.spinner {
+  border-color: var(--border-primary);
+  border-top-color: var(--border-focus);
+}
+
+/* Code Blocks */
+code,
+pre {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+}
+
+/* Links */
+a {
+  color: var(--info);
+}
+
+a:hover {
+  color: var(--border-focus);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--info);
+  color: var(--text-inverse);
+}
+
+/* Botões de Ação - Manter cores diferenciadas no modo escuro */
+.dark-mode .btn-view,
+.dark-mode button[title*="Ver Documento"],
+.dark-mode button[title*="View Document"] {
+  color: #60a5fa !important; /* Azul claro para visualizar */
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+
+.dark-mode .btn-sign,
+.dark-mode button[title*="Assinar"],
+.dark-mode button[title*="Sign"] {
+  color: #fbbf24 !important; /* Amarelo dourado para assinar */
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-approve,
+.dark-mode button[title*="Aprovar"],
+.dark-mode button[title*="Approve"] {
+  color: #34d399 !important; /* Verde esmeralda para aprovar */
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Ícones específicos para botões de ação */
+.dark-mode .btn-view svg,
+.dark-mode button[title*="Ver Documento"] svg,
+.dark-mode button[title*="View Document"] svg {
+  color: #60a5fa !important;
+}
+
+.dark-mode .btn-sign svg,
+.dark-mode button[title*="Assinar"] svg,
+.dark-mode button[title*="Sign"] svg {
+  color: #fbbf24 !important;
+}
+
+.dark-mode .btn-approve svg,
+.dark-mode button[title*="Aprovar"] svg,
+.dark-mode button[title*="Approve"] svg {
+  color: #34d399 !important;
+}
+
+/* Hover effects para botões de ação */
+.dark-mode .btn-view:hover,
+.dark-mode button[title*="Ver Documento"]:hover,
+.dark-mode button[title*="View Document"]:hover {
+  color: #93c5fd !important;
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.dark-mode .btn-sign:hover,
+.dark-mode button[title*="Assinar"]:hover,
+.dark-mode button[title*="Sign"]:hover {
+  color: #fcd34d !important;
+  background-color: rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-approve:hover,
+.dark-mode button[title*="Aprovar"]:hover,
+.dark-mode button[title*="Approve"]:hover {
+  color: #6ee7b7 !important;
+  background-color: rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Transições suaves para todos os botões de ação */
+.dark-mode .btn-view,
+.dark-mode .btn-sign,
+.dark-mode .btn-approve,
+.dark-mode button[title*="Ver Documento"],
+.dark-mode button[title*="Assinar"],
+.dark-mode button[title*="Aprovar"] {
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Botões de Upload de Documento */
+.dark-mode .btn-clear,
+.dark-mode button[title*="Limpar"] {
+  color: #fbbf24 !important; /* Amarelo dourado para limpar */
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-submit,
+.dark-mode button[title*="Enviar Documentos"] {
+  color: #34d399 !important; /* Verde esmeralda para enviar */
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Hover effects para botões de upload */
+.dark-mode .btn-clear:hover,
+.dark-mode button[title*="Limpar"]:hover {
+  color: #fcd34d !important;
+  background-color: rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-submit:hover,
+.dark-mode button[title*="Enviar Documentos"]:hover {
+  color: #6ee7b7 !important;
+  background-color: rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Transições para botões de upload */
+.dark-mode .btn-clear,
+.dark-mode .btn-submit,
+.dark-mode button[title*="Limpar"],
+.dark-mode button[title*="Enviar Documentos"] {
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Placeholder text styling */
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.7;
+}
+
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.7;
+}
+
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.7;
+}
+
+input:-ms-input-placeholder,
+textarea:-ms-input-placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.7;
+}
