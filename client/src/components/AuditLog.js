@@ -17,10 +17,6 @@ const AuditLog = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAuditData();
-  }, [id, fetchAuditData]);
-
   const fetchAuditData = useCallback(async () => {
     try {
       // Buscar informações do documento
@@ -37,6 +33,10 @@ const AuditLog = () => {
       setLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    fetchAuditData();
+  }, [id, fetchAuditData]);
 
   const getActionIcon = (action) => {
     switch (action) {

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { 
   Upload, 
   Trash2, 
@@ -15,12 +14,6 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-
-  useEffect(() => {
-    if (userId) {
-      fetchSignature();
-    }
-  }, [userId, fetchSignature]);
 
   const fetchSignature = useCallback(async () => {
     try {
@@ -46,6 +39,12 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
       setLoading(false);
     }
   }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchSignature();
+    }
+  }, [userId, fetchSignature]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];

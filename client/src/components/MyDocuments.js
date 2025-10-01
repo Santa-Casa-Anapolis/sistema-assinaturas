@@ -18,14 +18,6 @@ const MyDocuments = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchMyDocuments();
-  }, []);
-
-  useEffect(() => {
-    filterDocuments();
-  }, [documents, activeFilter, filterDocuments]);
-
   const fetchMyDocuments = async () => {
     try {
       const response = await axios.get('/api/documents/my-documents');
@@ -59,6 +51,14 @@ const MyDocuments = () => {
     
     setFilteredDocuments(filtered);
   }, [documents, activeFilter]);
+
+  useEffect(() => {
+    fetchMyDocuments();
+  }, []);
+
+  useEffect(() => {
+    filterDocuments();
+  }, [documents, activeFilter, filterDocuments]);
 
   const getDocumentCounts = () => {
     return {

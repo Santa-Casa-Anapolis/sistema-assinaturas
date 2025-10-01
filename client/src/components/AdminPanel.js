@@ -48,15 +48,6 @@ const AdminPanel = () => {
     'manage_groups'
   ];
 
-  useEffect(() => {
-    fetchUsers();
-    fetchGroups();
-  }, []);
-
-  useEffect(() => {
-    filterUsers();
-  }, [users, searchTerm, filterUsers]);
-
   const filterUsers = useCallback(() => {
     if (!searchTerm.trim()) {
       setFilteredUsers(users);
@@ -71,6 +62,15 @@ const AdminPanel = () => {
       setFilteredUsers(filtered);
     }
   }, [users, searchTerm]);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchGroups();
+  }, []);
+
+  useEffect(() => {
+    filterUsers();
+  }, [users, searchTerm, filterUsers]);
 
   const fetchUsers = async () => {
     try {

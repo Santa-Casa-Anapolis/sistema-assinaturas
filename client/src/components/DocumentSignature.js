@@ -10,18 +10,10 @@ import { toast } from 'react-toastify';
 
 const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
   const [signature, setSignature] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [signing, setSigning] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [documentSignatures, setDocumentSignatures] = useState([]);
   const { user } = useAuth();
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchUserSignature();
-      fetchDocumentSignatures();
-    }
-  }, [user?.id, documentId, fetchUserSignature, fetchDocumentSignatures]);
 
   const fetchUserSignature = useCallback(async () => {
     try {
@@ -59,6 +51,13 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
       console.error('Erro ao buscar assinaturas do documento:', error);
     }
   }, [documentId]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserSignature();
+      fetchDocumentSignatures();
+    }
+  }, [user?.id, documentId, fetchUserSignature, fetchDocumentSignatures]);
 
   const handleSignDocument = async () => {
     if (!signature) {
@@ -142,13 +141,6 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
     sig => sig.user_id === user.id && sig.stage === stage
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
 
   if (isAlreadySigned) {
     return (

@@ -19,10 +19,6 @@ const DocumentSign = () => {
   const [showPositioning, setShowPositioning] = useState(false);
   const [signatureMode, setSignatureMode] = useState('positioning'); // apenas 'positioning'
 
-  useEffect(() => {
-    fetchDocument();
-  }, [id, fetchDocument]);
-
   const fetchDocument = useCallback(async () => {
     try {
       const response = await axios.get(`/api/documents/${id}`);
@@ -34,6 +30,10 @@ const DocumentSign = () => {
       setLoading(false);
     }
   }, [id, navigate]);
+
+  useEffect(() => {
+    fetchDocument();
+  }, [id, fetchDocument]);
 
   const handleDownload = async () => {
     try {
