@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 
 const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
   const [signature, setSignature] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [signing, setSigning] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [documentSignatures, setDocumentSignatures] = useState([]);
