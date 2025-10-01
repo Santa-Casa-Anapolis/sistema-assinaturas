@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -21,7 +21,7 @@ const AuditLog = () => {
     fetchAuditData();
   }, [id, fetchAuditData]);
 
-  const fetchAuditData = async () => {
+  const fetchAuditData = useCallback(async () => {
     try {
       // Buscar informações do documento
       const docsResponse = await axios.get('/api/documents/my-documents');
@@ -36,7 +36,7 @@ const AuditLog = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   const getActionIcon = (action) => {
     switch (action) {

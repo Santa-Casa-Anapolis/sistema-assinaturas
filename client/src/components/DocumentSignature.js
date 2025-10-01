@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   FileSignature, 
@@ -10,7 +10,6 @@ import { toast } from 'react-toastify';
 
 const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
   const [signature, setSignature] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [signing, setSigning] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [documentSignatures, setDocumentSignatures] = useState([]);
@@ -23,7 +22,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
     }
   }, [user?.id, documentId, fetchUserSignature, fetchDocumentSignatures]);
 
-  const fetchUserSignature = async () => {
+  const fetchUserSignature = useCallback(async () => {
     try {
       const response = await fetch(`/api/users/${user.id}/signature`, {
         headers: {
@@ -41,9 +40,9 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
       console.error('Erro ao buscar assinatura:', error);
       setSignature(null);
     }
-  };
+  }, [user.id]);
 
-  const fetchDocumentSignatures = async () => {
+  const fetchDocumentSignatures = useCallback(async () => {
     try {
       const response = await fetch(`/api/documents/${documentId}/signatures`, {
         headers: {
@@ -58,7 +57,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
     } catch (error) {
       console.error('Erro ao buscar assinaturas do documento:', error);
     }
-  };
+  }, [documentId]);
 
   const handleSignDocument = async () => {
     if (!signature) {

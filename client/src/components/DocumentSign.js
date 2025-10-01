@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -23,7 +23,7 @@ const DocumentSign = () => {
     fetchDocument();
   }, [id, fetchDocument]);
 
-  const fetchDocument = async () => {
+  const fetchDocument = useCallback(async () => {
     try {
       const response = await axios.get(`/api/documents/${id}`);
       setDocument(response.data);
@@ -33,7 +33,7 @@ const DocumentSign = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   const handleDownload = async () => {
     try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Upload, 
@@ -22,7 +22,7 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
     }
   }, [userId, fetchSignature]);
 
-  const fetchSignature = async () => {
+  const fetchSignature = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/users/${userId}/signature`, {
@@ -45,7 +45,7 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];

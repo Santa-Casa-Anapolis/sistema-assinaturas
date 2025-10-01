@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Users, UserPlus, Settings, Shield, Trash2, Edit, Search } from 'lucide-react';
 import UserSignatureManager from './UserSignatureManager';
 
@@ -57,7 +57,7 @@ const AdminPanel = () => {
     filterUsers();
   }, [users, searchTerm, filterUsers]);
 
-  const filterUsers = () => {
+  const filterUsers = useCallback(() => {
     if (!searchTerm.trim()) {
       setFilteredUsers(users);
     } else {
@@ -70,7 +70,7 @@ const AdminPanel = () => {
       );
       setFilteredUsers(filtered);
     }
-  };
+  }, [users, searchTerm]);
 
   const fetchUsers = async () => {
     try {

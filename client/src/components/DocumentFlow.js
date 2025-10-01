@@ -2,16 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   CheckCircle, 
-  XCircle, 
   Clock, 
   ArrowRight, 
-  Upload,
   Download,
   Eye,
-  Edit,
-  Trash2,
   DollarSign,
-  Calendar,
   X,
   FileSignature
 } from 'lucide-react';
@@ -209,10 +204,6 @@ const DocumentFlow = () => {
     }
   };
 
-  const handleViewDocument = (document) => {
-    setSelectedDocument(document);
-    setShowViewModal(true);
-  };
 
   const handleRequestSignature = (document, stage) => {
     setSignatureDocument(document);
@@ -294,7 +285,6 @@ const DocumentFlow = () => {
     if (!user) return false;
     
     const userRole = user.role;
-    const stage = document.current_stage;
     
     // Supervisores podem ver documentos do seu setor
     if (userRole === 'supervisor' && document.sector === user.sector) {

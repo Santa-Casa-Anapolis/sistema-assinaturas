@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -37,7 +37,7 @@ const MyDocuments = () => {
     }
   };
 
-  const filterDocuments = () => {
+  const filterDocuments = useCallback(() => {
     let filtered = documents;
     
     switch (activeFilter) {
@@ -58,7 +58,7 @@ const MyDocuments = () => {
     }
     
     setFilteredDocuments(filtered);
-  };
+  }, [documents, activeFilter]);
 
   const getDocumentCounts = () => {
     return {
