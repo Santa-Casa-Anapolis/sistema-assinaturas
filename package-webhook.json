@@ -1,0 +1,27 @@
+{
+  "name": "sistema-assinaturas-webhook",
+  "version": "1.0.0",
+  "description": "Webhook para deploy automático do Sistema de Assinaturas",
+  "main": "webhook-deploy.js",
+  "scripts": {
+    "start": "node webhook-deploy.js",
+    "dev": "nodemon webhook-deploy.js",
+    "install-deps": "npm install express crypto"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "webhook",
+    "deploy",
+    "git",
+    "automation"
+  ],
+  "author": "Sistema de Assinaturas",
+  "license": "MIT"
+}
+
+

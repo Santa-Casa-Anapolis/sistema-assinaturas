@@ -7,10 +7,7 @@ import {
   Clock, 
   CheckCircle, 
   Upload, 
-  Users,
-  TrendingUp,
-  Shield,
-  ArrowRight
+  Users
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -20,7 +17,6 @@ const Dashboard = () => {
     completed: 0,
     total: 0
   });
-  const [recentDocuments, setRecentDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,8 +41,6 @@ const Dashboard = () => {
         total: totalCount
       });
 
-      // Documentos recentes (últimos 5)
-      setRecentDocuments(myDocs.slice(0, 5));
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
     } finally {
@@ -65,23 +59,6 @@ const Dashboard = () => {
     return roleNames[role] || role;
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      'completed': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      'in_progress': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
-  };
-
-  const getStatusText = (status) => {
-    const texts = {
-      'pending': 'Pendente',
-      'completed': 'Concluído',
-      'in_progress': 'Em Andamento'
-    };
-    return texts[status] || status;
-  };
 
   if (loading) {
     return (
@@ -189,85 +166,8 @@ const Dashboard = () => {
           </div>
         </Link>
 
-        <div className="card p-6 rounded-lg shadow-sm">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <Shield className="h-5 w-5 text-purple-600 dark:text-purple-200" />
-            </div>
-            <div>
-              <h3 className="font-medium" style={{color: 'var(--text-primary)'}}>Segurança</h3>
-              <p className="text-sm" style={{color: 'var(--text-muted)'}}>Assinatura GOV.BR</p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Documentos recentes */}
-      <div className="card rounded-lg shadow-sm">
-        <div className="px-6 py-4" style={{borderBottom: '1px solid var(--border-primary)'}}>
-          <h2 className="text-lg font-semibold" style={{color: 'var(--text-primary)'}}>Documentos Recentes</h2>
-        </div>
-        
-        {recentDocuments.length === 0 ? (
-          <div className="p-6 text-center">
-            <FileText className="mx-auto h-12 w-12 mb-4" style={{color: 'var(--text-muted)'}} />
-            <h3 className="text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>Nenhum documento encontrado</h3>
-            <p className="text-sm mb-4" style={{color: 'var(--text-muted)'}}>
-              Comece enviando seu primeiro documento para assinatura.
-            </p>
-            <Link
-              to="/upload"
-              className="btn-primary inline-flex items-center px-4 py-2 rounded-md"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Enviar Documento
-            </Link>
-          </div>
-        ) : (
-          <div style={{borderTop: '1px solid var(--border-primary)'}}>
-            {recentDocuments.map((doc) => (
-              <div key={doc.id} className="px-6 py-4" style={{borderBottom: '1px solid var(--border-primary)'}}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-lg" style={{backgroundColor: 'var(--bg-secondary)'}}>
-                      <FileText className="h-4 w-4" style={{color: 'var(--text-secondary)'}} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium" style={{color: 'var(--text-primary)'}}>{doc.title}</h3>
-                      <p className="text-sm" style={{color: 'var(--text-muted)'}}>
-                        {new Date(doc.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(doc.status)}`}>
-                      {getStatusText(doc.status)}
-                    </span>
-                    
-                    {doc.status === 'pending' && (
-                      <Link
-                        to={`/sign/${doc.id}`}
-                        className="inline-flex items-center text-sm hover:underline"
-                        style={{color: 'var(--info)'}}
-                        onMouseEnter={(e) => {
-                          e.target.style.color = 'var(--border-focus)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.color = 'var(--info)';
-                        }}
-                      >
-                        Assinar
-                        <ArrowRight className="h-4 w-4 ml-1" />
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Informações do usuário */}
       <div className="mt-8 card rounded-lg p-6" style={{background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)'}}>

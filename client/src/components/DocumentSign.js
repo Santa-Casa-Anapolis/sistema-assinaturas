@@ -3,16 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { 
-  FileText, 
   Download, 
-  Shield, 
-  CheckCircle, 
   Clock,
   AlertCircle,
   ArrowLeft,
-  PenTool,
-  Eye,
-  X
+  PenTool
 } from 'lucide-react';
 import DocumentSignaturePositioning from './DocumentSignaturePositioning';
 
@@ -21,13 +16,12 @@ const DocumentSign = () => {
   const navigate = useNavigate();
   const [document, setDocument] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [signing, setSigning] = useState(false);
   const [showPositioning, setShowPositioning] = useState(false);
   const [signatureMode, setSignatureMode] = useState('positioning'); // apenas 'positioning'
 
   useEffect(() => {
     fetchDocument();
-  }, [id]);
+  }, [id, fetchDocument]);
 
   const fetchDocument = async () => {
     try {
@@ -62,47 +56,20 @@ const DocumentSign = () => {
     }
   };
 
-  const handleSign = async () => {
-    setSigning(true);
-
-    try {
-      await axios.post(`/api/documents/${id}/sign`, {
-        signatureMode: 'positioning'
-      });
-
-      toast.success('Documento assinado com sucesso!');
-      navigate('/pending');
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Erro ao assinar documento');
-    } finally {
-      setSigning(false);
-    }
-  };
 
   const handleSignatureComplete = (status = 'completed') => {
     if (status === 'cancelled') {
       toast.info('Assinatura cancelada');
       setShowPositioning(false);
-      setSignatureMode('text');
+      setSignatureMode('positioning');
       navigate('/my-documents');
     } else {
       toast.success('Assinaturas posicionadas com sucesso!');
       setShowPositioning(false);
-      setSignatureMode('text');
+      setSignatureMode('positioning');
     }
   };
 
-  const handleCancelSignature = () => {
-    const confirmed = window.confirm(
-      'Tem certeza que deseja cancelar a assinatura?\n\n' +
-      'Esta ação irá cancelar o processo de assinatura e você retornará à lista de documentos.'
-    );
-    
-    if (confirmed) {
-      toast.info('Assinatura cancelada');
-      navigate('/my-documents');
-    }
-  };
 
   if (loading) {
     return (
@@ -262,97 +229,6 @@ const DocumentSign = () => {
             </div>
           )}
 
-          {signatureMode === 'text' && (
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Assinatura Digital GOV.BR
-              </h2>
-            
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-start space-x-3">
-                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-900 mb-1">
-                      Assinatura Digital Segura
-                    </h4>
-                    <p className="text-sm text-blue-700">
-                      Esta assinatura terá validade jurídica e será registrada com timestamp e IP.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="govSignature" className="block text-sm font-medium mb-2" style={{color: 'var(--text-secondary)'}}>
-                  Assinatura GOV.BR *
-                </label>
-                <textarea
-                  id="govSignature"
-                  value={govSignature}
-                  onChange={(e) => setGovSignature(e.target.value)}
-                  placeholder="Digite sua assinatura digital (ex: CPF, certificado digital, etc.)"
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{
-                    backgroundColor: 'var(--bg-primary)',
-                    borderColor: 'var(--border-primary)',
-                    color: 'var(--text-primary)'
-                  }}
-                  rows={4}
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  * Campo obrigatório para validação da assinatura
-                </p>
-              </div>
-
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-medium text-yellow-900 mb-1">
-                      Importante
-                    </h4>
-                    <ul className="text-sm text-yellow-700 space-y-1">
-                      <li>• Revise o documento antes de assinar</li>
-                      <li>• A assinatura é irrevogável</li>
-                      <li>• Todas as ações são registradas para auditoria</li>
-                      <li>• O próximo signatário será notificado automaticamente</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleCancelSignature}
-                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                  <span>Cancelar</span>
-                </button>
-                
-                <button
-                  onClick={handleSign}
-                  disabled={signing || !govSignature.trim()}
-                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {signing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Assinando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Assinar Documento</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-          )}
 
           {/* Fluxo de assinaturas */}
           <div className="bg-white p-6 rounded-lg shadow-sm border">
@@ -386,7 +262,14 @@ const DocumentSign = () => {
                 Posicionar Assinatura - {document?.title}
               </h3>
               <button
-                onClick={handleCancelSignature}
+                onClick={() => {
+                  const confirmed = window.confirm('Tem certeza que deseja cancelar a assinatura?');
+                  if (confirmed) {
+                    toast.info('Assinatura cancelada');
+                    setShowPositioning(false);
+                    navigate('/my-documents');
+                  }
+                }}
                 className="text-gray-400 hover:text-red-600 transition-colors"
                 title="Cancelar assinatura e fechar"
               >

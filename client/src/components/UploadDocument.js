@@ -17,6 +17,7 @@ import DocumentSignaturePositioning from './DocumentSignaturePositioning';
 const UploadDocument = () => {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
+  const [supplier, setSupplier] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -24,6 +25,7 @@ const UploadDocument = () => {
   const [signatureMode, setSignatureMode] = useState('positioning'); // 'positioning' - apenas posicionamento visual
   const [showSignaturePositioning, setShowSignaturePositioning] = useState(false);
   const [tempDocumentId, setTempDocumentId] = useState(null);
+  const [workflowType, setWorkflowType] = useState('normal'); // 'normal' ou 'direct_finance'
 
   const onDrop = (acceptedFiles) => {
     if (acceptedFiles.length > 0) {
@@ -81,10 +83,12 @@ const UploadDocument = () => {
     try {
       const formData = new FormData();
       formData.append('title', title);
+      formData.append('supplier', supplier);
       formData.append('description', description);
       formData.append('amount', amount);
       formData.append('sector', user.sector);
       formData.append('signatureMode', 'positioning');
+      formData.append('workflowType', workflowType);
       
       // Adicionar todos os arquivos
       selectedFiles.forEach((file, index) => {
@@ -140,10 +144,12 @@ const UploadDocument = () => {
 
   const resetForm = () => {
     setTitle('');
+    setSupplier('');
     setDescription('');
     setAmount('');
     setSelectedFiles([]);
     setSignatureMode('positioning');
+    setWorkflowType('normal');
     setTempDocumentId(null);
   };
 
@@ -204,13 +210,25 @@ const UploadDocument = () => {
           <div className="mb-6 p-4 rounded-lg" style={{backgroundColor: 'var(--info-bg)', border: '1px solid var(--info)'}}>
             <h3 className="font-semibold mb-2" style={{color: 'var(--info)'}}>Fluxo de Aprovação</h3>
             <div className="flex items-center justify-between text-sm">
-              <span style={{color: 'var(--info)'}}>📊 Contabilidade</span>
-              <span style={{color: 'var(--info)'}}>→</span>
-              <span style={{color: 'var(--info)'}}>💰 Financeiro</span>
-              <span style={{color: 'var(--info)'}}>→</span>
-              <span style={{color: 'var(--info)'}}>👔 Diretoria</span>
-              <span style={{color: 'var(--info)'}}>→</span>
-              <span style={{color: 'var(--info)'}}>💳 Pagamento</span>
+              {workflowType === 'normal' ? (
+                <>
+                  <span style={{color: 'var(--info)'}}>📊 Contabilidade</span>
+                  <span style={{color: 'var(--info)'}}>→</span>
+                  <span style={{color: 'var(--info)'}}>💰 Financeiro</span>
+                  <span style={{color: 'var(--info)'}}>→</span>
+                  <span style={{color: 'var(--info)'}}>👔 Diretoria</span>
+                  <span style={{color: 'var(--info)'}}>→</span>
+                  <span style={{color: 'var(--info)'}}>💳 Pagamento</span>
+                </>
+              ) : (
+                <>
+                  <span style={{color: 'var(--warning)'}}>💰 Financeiro</span>
+                  <span style={{color: 'var(--warning)'}}>→</span>
+                  <span style={{color: 'var(--warning)'}}>👔 Diretoria</span>
+                  <span style={{color: 'var(--warning)'}}>→</span>
+                  <span style={{color: 'var(--warning)'}}>💳 Pagamento</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -295,6 +313,71 @@ const UploadDocument = () => {
                   </div>
                 </div>
 
+            </div>
+
+            {/* Seleção do Fluxo de Aprovação */}
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
+                Fluxo de Aprovação *
+              </label>
+              
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3 p-4 rounded-lg border" 
+                     style={{
+                       backgroundColor: workflowType === 'normal' ? 'var(--info-bg)' : 'var(--bg-secondary)',
+                       borderColor: workflowType === 'normal' ? 'var(--info)' : 'var(--border-primary)'
+                     }}>
+                  <input
+                    type="radio"
+                    id="workflow-normal"
+                    name="workflowType"
+                    value="normal"
+                    checked={workflowType === 'normal'}
+                    onChange={(e) => setWorkflowType(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="workflow-normal" className="block text-sm font-medium cursor-pointer" 
+                           style={{color: 'var(--text-primary)'}}>
+                      📊 Fluxo Normal (Recomendado)
+                    </label>
+                    <p className="text-sm mt-1" style={{color: 'var(--text-secondary)'}}>
+                      Contabilidade → Financeiro → Diretoria → Pagamento
+                    </p>
+                    <p className="text-xs mt-1" style={{color: 'var(--text-muted)'}}>
+                      Para documentos que precisam de análise contábil prévia
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 rounded-lg border" 
+                     style={{
+                       backgroundColor: workflowType === 'direct_finance' ? 'var(--warning-bg)' : 'var(--bg-secondary)',
+                       borderColor: workflowType === 'direct_finance' ? 'var(--warning)' : 'var(--border-primary)'
+                     }}>
+                  <input
+                    type="radio"
+                    id="workflow-direct"
+                    name="workflowType"
+                    value="direct_finance"
+                    checked={workflowType === 'direct_finance'}
+                    onChange={(e) => setWorkflowType(e.target.value)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="workflow-direct" className="block text-sm font-medium cursor-pointer" 
+                           style={{color: 'var(--text-primary)'}}>
+                      💰 Fluxo Direto para Financeiro
+                    </label>
+                    <p className="text-sm mt-1" style={{color: 'var(--text-secondary)'}}>
+                      Financeiro → Diretoria → Pagamento
+                    </p>
+                    <p className="text-xs mt-1" style={{color: 'var(--text-muted)'}}>
+                      Para documentos que não precisam de análise contábil (ex: pagamentos diretos)
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -385,18 +468,20 @@ const UploadDocument = () => {
               <button
                 type="button"
                 onClick={resetForm}
-                className="flex-1 py-3 rounded-lg transition-colors"
+                className="btn-clear flex-1 py-3 rounded-lg transition-colors"
                 style={{
                   backgroundColor: 'var(--bg-secondary)',
                   color: 'var(--text-primary)'
                 }}
+                title="Limpar formulário"
               >
                 Limpar
               </button>
               <button
                 type="submit"
                 disabled={loading || selectedFiles.length === 0 || !title.trim()}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                className="btn-submit flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+                title="Enviar documentos"
               >
                 {loading ? (
                   <>

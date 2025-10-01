@@ -1,32 +1,106 @@
-
-# Dependencies
+# Dependências
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Production builds
-client/build/
-client/dist/
-
-# Environment variables
+# Arquivos de ambiente (PROTEÇÃO DE SENHAS)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.backup
-server/.env.backup
 
-# Database
-*.sqlite
-*.sqlite3
-database.sqlite
-temp-database.sqlite
-server/temp-database.sqlite
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory usado por ferramentas como istanbul
+coverage/
+
+# Arquivos temporários
+.tmp/
+temp/
+
+# Arquivos de build
+build/
+dist/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Docker
-.dockerignore
+.docker/
 
-# Uploads
+# Banco de dados local (SQLite)
+*.sqlite
+*.sqlite3
+*.db
+
+# Uploads de arquivos (ignorar completamente)
 server/uploads/
+server/uploads-nova/
+
+# Backup files
+*.backup
+*.bak
+
+# Arquivos de configuração local
+config/local.js
+config/local.json
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Arquivos de deploy
+deploy-*.sh
+deploy-*.bat
+
+# Arquivos de teste
+test-results/
+coverage/
+
+# Arquivos específicos do Windows
+*.lnk
+
+# Arquivos específicos do macOS
+.AppleDouble
+.LSOverride
+
+# Arquivos específicos do Linux
+*~
+
+# Arquivos de configuração sensíveis
+server/config/production.js
+server/config/development.js
+
+# Certificados SSL
+*.pem
+*.key
+*.crt
+
+# Arquivos de backup do banco
+*.sql
+backup_*.sql
+
+# Arquivos de log específicos
+server/logs/
+client/logs/
+
+# Arquivos temporários de upload
+temp-uploads/
+temp-files/

@@ -19,13 +19,13 @@ const AuditLog = () => {
 
   useEffect(() => {
     fetchAuditData();
-  }, [id]);
+  }, [id, fetchAuditData]);
 
   const fetchAuditData = async () => {
     try {
       // Buscar informações do documento
       const docsResponse = await axios.get('/api/documents/my-documents');
-      const doc = docsResponse.data.find(d => d.id == id);
+      const doc = docsResponse.data.find(d => d.id === id);
       setDocument(doc);
 
       // Buscar logs de auditoria

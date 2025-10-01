@@ -68,9 +68,18 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         console.log('✅ Blob recebido, tamanho:', blob.size);
         const arrayBuffer = await blob.arrayBuffer();
         
-        console.log('📄 Carregando PDF com PDF.js...');
-        // Carregar PDF com PDF.js
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        console.log('📄 Carregando PDF com PDF.js (otimizado)...');
+        // Carregar PDF com PDF.js - configurações otimizadas
+        const pdf = await pdfjsLib.getDocument({ 
+          data: arrayBuffer,
+          // Configurações de performance
+          disableAutoFetch: false,
+          disableStream: false,
+          disableRange: false,
+          // Configurações de renderização
+          renderInteractiveForms: false,
+          enableWebGL: false
+        }).promise;
         console.log('✅ PDF carregado, páginas:', pdf.numPages);
         
         setPdfDocument(pdf);
@@ -186,12 +195,13 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         isRenderingRef.current = false;
       }
       
-      // Calcular scale automático baseado no container
+      // Calcular scale automático baseado no container (otimizado)
       const containerWidth = canvas.parentElement.clientWidth - 40; // 40px de padding
       const pageViewport = page.getViewport({ scale: 1.0 });
-      const autoScale = Math.min(containerWidth / pageViewport.width, 2.0); // Máximo 2x
       
-      const finalScale = Math.max(autoScale, 0.5); // Mínimo 0.5x
+      // Scale mais conservador para melhor performance
+      const autoScale = Math.min(containerWidth / pageViewport.width, 1.5); // Máximo 1.5x (reduzido de 2x)
+      const finalScale = Math.max(autoScale, 0.8); // Mínimo 0.8x (aumentado de 0.5x)
       const viewport = page.getViewport({ scale: finalScale });
       
       // Redimensionar canvas
@@ -199,9 +209,16 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       canvas.width = viewport.width;
       
       const context = canvas.getContext('2d');
+      
+      // Configurar contexto para melhor qualidade e performance
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
+        intent: 'display', // Otimizado para exibição
+        renderInteractiveForms: false // Desabilitar formulários interativos para melhor performance
       };
       
       // Renderizar página e salvar a task
@@ -238,13 +255,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     }
   };
 
-  const drawSignatureMarkers = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Apenas desenhar os marcadores sem re-renderizar
-    drawSignatureMarkersOnCanvas();
-  };
 
   // Cache da imagem de assinatura para evitar recarregar
   const signatureImageCacheRef = useRef(null);
@@ -258,27 +268,31 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     // Salvar o estado do canvas antes de desenhar os marcadores
     context.save();
     
-    // Desenhar marcadores de assinatura
-    Object.entries(signaturePositions).forEach(([page, position]) => {
-      if (parseInt(page) === currentPage) {
-        const { x, y } = position;
-        
-        // Se temos uma imagem de assinatura, desenhar ela
-        if (signatureImage) {
-          // Usar cache se disponível
-          if (signatureImageCacheRef.current) {
-            drawSignatureAtPosition(context, signatureImageCacheRef.current, x, y);
-          } else {
-            // Carregar e cachear a imagem
-          const img = new Image();
-          img.onload = () => {
-              signatureImageCacheRef.current = img;
-              drawSignatureAtPosition(context, img, x, y);
-            };
-            img.src = signatureImage;
-          }
+    // Configurar contexto para melhor qualidade
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    
+    // Desenhar marcadores de assinatura apenas da página atual (otimização)
+    const currentPagePosition = signaturePositions[currentPage];
+    if (currentPagePosition) {
+      const { x, y } = currentPagePosition;
+      
+      // Se temos uma imagem de assinatura, desenhar ela
+      if (signatureImage) {
+        // Usar cache se disponível
+        if (signatureImageCacheRef.current) {
+          drawSignatureAtPosition(context, signatureImageCacheRef.current, x, y);
         } else {
-          // Fallback: desenhar quadrado verde
+          // Carregar e cachear a imagem
+        const img = new Image();
+        img.onload = () => {
+            signatureImageCacheRef.current = img;
+            drawSignatureAtPosition(context, img, x, y);
+          };
+          img.src = signatureImage;
+        }
+      } else {
+        // Fallback: desenhar quadrado verde
           context.fillStyle = 'rgba(34, 197, 94, 0.3)';
           context.fillRect(x - 10, y - 10, 20, 20);
           
@@ -291,7 +305,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           context.fillText('✓', x - 4, y + 4);
         }
       }
-    });
     
     // Restaurar o estado do canvas
     context.restore();
@@ -428,23 +441,32 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     animate();
   };
 
-  // Throttle para movimento do mouse (mais responsivo)
+  // Throttle para movimento do mouse (otimizado)
   const mouseMoveThrottleRef = useRef(null);
+  const lastMousePositionRef = useRef(null);
   
   const handleMouseMove = (event) => {
     const canvas = canvasRef.current;
     if (!canvas || !signatureImage) return;
     
-    // Throttle mais suave para melhor responsividade
-    if (mouseMoveThrottleRef.current) {
-      clearTimeout(mouseMoveThrottleRef.current);
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Evitar processamento se a posição não mudou significativamente
+    const lastPos = lastMousePositionRef.current;
+    if (lastPos && Math.abs(lastPos.x - x) < 3 && Math.abs(lastPos.y - y) < 3) {
+      return;
     }
     
-    mouseMoveThrottleRef.current = setTimeout(() => {
-      const rect = canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      
+    lastMousePositionRef.current = { x, y };
+    
+    // Throttle otimizado com requestAnimationFrame
+    if (mouseMoveThrottleRef.current) {
+      return;
+    }
+    
+    mouseMoveThrottleRef.current = requestAnimationFrame(() => {
       setMousePosition({ x, y });
       setShowSignaturePreview(true);
       
@@ -452,15 +474,34 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       drawSignatureMarkersWithPreview(x, y);
       
       mouseMoveThrottleRef.current = null;
-    }, 8); // ~120fps para melhor responsividade
+    });
   };
 
   const handleMouseLeave = () => {
     setShowSignaturePreview(false);
     setMousePosition(null);
     
-    // Redesenhar apenas os marcadores sem preview
-    drawSignatureMarkersOnCanvas();
+    // Limpar área do preview se existir
+    if (previewContextRef.current) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const context = canvas.getContext('2d');
+        const prevPos = previewContextRef.current;
+        const clearWidth = 200;
+        const clearHeight = 100;
+        
+        context.save();
+        context.clearRect(prevPos.x - clearWidth/2, prevPos.y - clearHeight/2, clearWidth, clearHeight);
+        context.restore();
+        
+        // Redesenhar marcadores na área limpa
+        drawSignatureMarkersOnCanvas();
+      }
+    }
+    
+    // Limpar referências
+    previewContextRef.current = null;
+    lastPreviewPositionRef.current = null;
   };
 
   // Cache do contexto para evitar múltiplos previews
@@ -473,7 +514,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     
     // Evitar redesenhar se a posição não mudou significativamente
     const lastPos = lastPreviewPositionRef.current;
-    if (lastPos && Math.abs(lastPos.x - previewX) < 5 && Math.abs(lastPos.y - previewY) < 5) {
+    if (lastPos && Math.abs(lastPos.x - previewX) < 3 && Math.abs(lastPos.y - previewY) < 3) {
       return;
     }
     
@@ -481,21 +522,29 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     
     const context = canvas.getContext('2d');
     
-    // Limpar apenas a área do preview anterior se existir
+    // Limpar área do preview anterior de forma mais eficiente
     if (previewContextRef.current) {
       const prevPos = previewContextRef.current;
-      const clearWidth = 150; // Largura da área de preview
-      const clearHeight = 80; // Altura da área de preview
+      const clearWidth = 200; // Área maior para limpeza
+      const clearHeight = 100; // Área maior para limpeza
+      
+      // Salvar estado do contexto
+      context.save();
+      
+      // Limpar área anterior
       context.clearRect(prevPos.x - clearWidth/2, prevPos.y - clearHeight/2, clearWidth, clearHeight);
+      
+      // Restaurar estado
+      context.restore();
     }
     
     // Salvar posição atual do preview
     previewContextRef.current = { x: previewX, y: previewY };
     
-    // Desenhar marcadores existentes primeiro (sem re-renderizar a página)
+    // Redesenhar apenas os marcadores existentes (não a página inteira)
     drawSignatureMarkersOnCanvas();
     
-    // Desenhar apenas um preview da assinatura
+    // Desenhar preview da assinatura
     if (signatureImageCacheRef.current) {
       drawSignaturePreview(context, signatureImageCacheRef.current, previewX, previewY);
     } else {
@@ -503,10 +552,10 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const img = new Image();
       img.onload = () => {
         signatureImageCacheRef.current = img;
-        // Redesenhar apenas se ainda estiver na mesma posição
+        // Verificar se ainda está na mesma posição antes de desenhar
         if (showSignaturePreview && lastPreviewPositionRef.current && 
-            Math.abs(lastPreviewPositionRef.current.x - previewX) < 5 && 
-            Math.abs(lastPreviewPositionRef.current.y - previewY) < 5) {
+            Math.abs(lastPreviewPositionRef.current.x - previewX) < 3 && 
+            Math.abs(lastPreviewPositionRef.current.y - previewY) < 3) {
           drawSignatureMarkersOnCanvas();
           drawSignaturePreview(context, img, previewX, previewY);
         }
@@ -722,9 +771,15 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
   if (isLoading && !pdfDocument) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-600">Carregando documento...</span>
+        <div className="text-center">
+          <p className="text-gray-600 font-medium">Carregando documento...</p>
+          <p className="text-sm text-gray-500 mt-1">Isso pode levar alguns segundos</p>
+        </div>
+        <div className="w-64 bg-gray-200 rounded-full h-2">
+          <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+        </div>
       </div>
     );
   }

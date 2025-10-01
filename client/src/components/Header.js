@@ -20,14 +20,22 @@ const Header = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Enviar Documento', href: '/upload', icon: Upload },
     { name: 'Fluxo de Documentos', href: '/flow', icon: FileText },
     { name: 'Pendentes', href: '/pending', icon: Clock },
-    { name: 'Meus Documentos', href: '/my-documents', icon: FileText },
   ];
 
-  // Adicionar link de administração para diretores e admins
-  if (user.role === 'diretoria' || user.role === 'admin') {
+  // Adicionar "Enviar Documento" apenas para supervisores
+  if (user.role === 'supervisor') {
+    navigation.splice(1, 0, { name: 'Enviar Documento', href: '/upload', icon: Upload });
+  }
+
+  // Adicionar "Meus Documentos" apenas para supervisores
+  if (user.role === 'supervisor') {
+    navigation.push({ name: 'Meus Documentos', href: '/my-documents', icon: FileText });
+  }
+
+  // Adicionar link de administração apenas para admins
+  if (user.role === 'admin') {
     navigation.push({ name: 'Administração', href: '/admin', icon: Settings });
   }
 

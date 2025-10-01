@@ -4,9 +4,7 @@ import {
   FileSignature, 
   CheckCircle, 
   XCircle,
-  AlertTriangle,
-  Download,
-  Eye
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -23,7 +21,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
       fetchUserSignature();
       fetchDocumentSignatures();
     }
-  }, [user?.id, documentId]);
+  }, [user?.id, documentId, fetchUserSignature, fetchDocumentSignatures]);
 
   const fetchUserSignature = async () => {
     try {
@@ -208,7 +206,8 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
         <button
           onClick={handleSignDocument}
           disabled={!signature || signing}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          className="btn-sign flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          title="Assinar"
         >
           <FileSignature className="h-4 w-4" />
           {signing ? 'Assinando...' : 'Assinar Documento'}

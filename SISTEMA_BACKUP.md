@@ -194,3 +194,6 @@ Em caso de problemas com backups:
 **⚠️ IMPORTANTE:** As assinaturas digitais são dados críticos e irreversíveis. Mantenha sempre múltiplos backups em locais seguros!
 
 
+
+
+

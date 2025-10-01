@@ -683,7 +683,16 @@ app.post('/api/documents/:id/sign', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { govSignature } = req.body;
 
-    // Verificar se é a vez do usuário assinar
+    // Verificar se o documento existe
+    const docResult = await pool.query('SELECT * FROM documents WHERE id = $1', [id]);
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+    const document = docResult.rows[0];
+
+    // Verificar se é a vez do usuário assinar (com fallback para documentos sem fluxo)
+    let signatureFlow = null;
+    
     const signatureFlowResult = await pool.query(`
       SELECT sf.*, d.title, u.name as supplier_name
       FROM signature_flow sf
@@ -693,10 +702,39 @@ app.post('/api/documents/:id/sign', authenticateToken, async (req, res) => {
       ORDER BY sf.order_index ASC
       LIMIT 1
     `, [id, req.user.id]);
-    const signatureFlow = signatureFlowResult.rows[0];
+    
+    signatureFlow = signatureFlowResult.rows[0];
 
+    // Se não há fluxo configurado, permitir assinatura para usuários autorizados
     if (!signatureFlow) {
-      return res.status(400).json({ error: 'Documento não encontrado ou não autorizado para assinatura' });
+      const canSign = (
+        document.created_by === req.user.id || // Criador do documento
+        ['contabilidade', 'financeiro', 'diretoria'].includes(req.user.role) // Roles com permissão
+      );
+      
+      if (!canSign) {
+        return res.status(403).json({ error: 'Usuário não autorizado para assinar este documento' });
+      }
+      
+      // Criar um fluxo temporário para este usuário
+      await pool.query(`
+        INSERT INTO signature_flow (document_id, user_id, order_index, status, created_at)
+        VALUES ($1, $2, 1, 'pending', CURRENT_TIMESTAMP)
+        ON CONFLICT (document_id, user_id) DO UPDATE SET status = 'pending'
+      `, [id, req.user.id]);
+      
+      // Buscar o fluxo criado
+      const newFlowResult = await pool.query(`
+        SELECT sf.*, d.title, u.name as supplier_name
+        FROM signature_flow sf
+        JOIN documents d ON sf.document_id = d.id
+        JOIN users u ON d.created_by = u.id
+        WHERE sf.document_id = $1 AND sf.user_id = $2
+        ORDER BY sf.order_index ASC
+        LIMIT 1
+      `, [id, req.user.id]);
+      
+      signatureFlow = newFlowResult.rows[0];
     }
 
     // Simular assinatura GOV.BR
@@ -873,6 +911,26 @@ app.get('/api/documents/:id/view', async (req, res) => {
       console.log('❌ Documento não encontrado no banco');
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
+
+    // Verificar permissões de visualização
+    const userId = decoded.id;
+    const userRole = decoded.role;
+    const userSector = decoded.sector;
+    
+    console.log('👤 Verificando permissões para usuário:', decoded.username, 'Role:', userRole, 'Setor:', userSector);
+    
+    const canView = (
+      document.created_by === userId || // Criador do documento
+      (userRole === 'supervisor' && document.sector === userSector) || // Supervisor do setor
+      ['contabilidade', 'financeiro', 'diretoria'].includes(userRole) // Outros roles com permissão
+    );
+
+    if (!canView) {
+      console.log('❌ Acesso negado - usuário não tem permissão para visualizar este documento');
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    console.log('✅ Permissão de visualização concedida');
 
     console.log('📁 Filename do documento:', document.filename);
     console.log('📁 Original filename:', document.original_filename);
@@ -1339,32 +1397,32 @@ app.get('/api/admin/ad-users', authenticateToken, async (req, res) => {
 
 // ==================== ROTAS DE ADMINISTRAÇÃO ====================
 
-// Função auxiliar para verificar se é o admin principal
+// Função auxiliar para verificar se é admin
 const isMainAdmin = async (userId) => {
   try {
-    const result = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
-    return result.rows.length > 0 && result.rows[0].username === 'admin@santacasa.org';
+    const result = await pool.query('SELECT is_admin FROM users WHERE id = $1', [userId]);
+    return result.rows.length > 0 && result.rows[0].is_admin === 1;
   } catch (error) {
-    console.error('Erro ao verificar admin principal:', error);
+    console.error('Erro ao verificar admin:', error);
     return false;
   }
 };
 
-// Middleware para verificar se é admin (apenas admin@santacasa.org)
+// Middleware para verificar se é admin
 const requireAdmin = async (req, res, next) => {
   try {
     console.log('🔍 Verificando admin - User ID:', req.user.id);
     console.log('🔍 Verificando admin - User:', req.user);
     
     const isAdmin = await isMainAdmin(req.user.id);
-    console.log('🔍 É admin principal?', isAdmin);
+    console.log('🔍 É admin?', isAdmin);
     
     if (!isAdmin) {
-      console.log('❌ Acesso negado - não é admin principal');
-      return res.status(403).json({ error: 'Acesso negado. Apenas o administrador principal pode gerenciar usuários.' });
+      console.log('❌ Acesso negado - não é admin');
+      return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem gerenciar usuários.' });
     }
     
-    console.log('✅ Acesso permitido - é admin principal');
+    console.log('✅ Acesso permitido - é admin');
     next();
   } catch (error) {
     console.error('Erro ao verificar permissões de admin:', error);
@@ -1664,7 +1722,7 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
 // Criar novo documento
 app.post('/api/documents', authenticateToken, upload.array('documents', 10), async (req, res) => {
   try {
-    const { title, description, amount, sector, signatureMode, govSignature } = req.body;
+    const { title, description, amount, sector, signatureMode, govSignature, workflowType } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
     const files = req.files;
@@ -1746,6 +1804,9 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
 
     // Arquivos já foram salvos pelo multer
 
+    // Criar fluxo de assinatura baseado no workflowType
+    await createSignatureFlow(documentId, workflowType || 'normal');
+
     // Processar assinatura textual se fornecida
     if (signatureMode === 'text' && govSignature) {
       console.log(`✅ Documento ${documentId} assinado textualmente pelo supervisor ${req.user.username}`);
@@ -1788,6 +1849,27 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
 
     if (!canApprove) {
       return res.status(403).json({ error: 'Usuário não pode aprovar neste estágio' });
+    }
+
+    // Verificar se o usuário já assinou o documento (regra: só pode aprovar após assinar)
+    const signatureCheck = await pool.query(`
+      SELECT status FROM signature_flow 
+      WHERE document_id = $1 AND user_id = $2
+    `, [documentId, userId]);
+    
+    if (signatureCheck.rows.length === 0) {
+      return res.status(403).json({ 
+        error: 'Assinatura obrigatória', 
+        message: 'Você deve assinar o documento antes de poder aprová-lo.' 
+      });
+    }
+    
+    const signatureStatus = signatureCheck.rows[0].status;
+    if (signatureStatus !== 'signed') {
+      return res.status(403).json({ 
+        error: 'Assinatura obrigatória', 
+        message: 'Você deve assinar o documento antes de poder aprová-lo.' 
+      });
     }
 
     // Registrar aprovação
@@ -2025,11 +2107,11 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     const hasSignedColumns = columnCheck.rows.length > 0;
     
     if (hasSignedColumns) {
-      await pool.query(`
-        UPDATE documents 
-        SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
-      `, [signedPath, signedFilename, documentId]);
+    await pool.query(`
+      UPDATE documents 
+      SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+    `, [signedPath, signedFilename, documentId]);
     } else {
       // Fallback: update with basic columns
       await pool.query(`
@@ -2054,6 +2136,66 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
+
+// Função para criar fluxo de assinatura baseado no tipo de workflow
+async function createSignatureFlow(documentId, workflowType) {
+  try {
+    console.log(`🔄 Criando fluxo de assinatura para documento ${documentId} - Tipo: ${workflowType}`);
+    
+    // Buscar usuários por role
+    let rolesToInclude = [];
+    
+    if (workflowType === 'direct_finance') {
+      // Fluxo direto: Financeiro → Diretoria
+      rolesToInclude = ['financeiro', 'diretoria'];
+    } else {
+      // Fluxo normal: Contabilidade → Financeiro → Diretoria
+      rolesToInclude = ['contabilidade', 'financeiro', 'diretoria'];
+    }
+    
+    const usersResult = await pool.query(`
+      SELECT id, name, username, role, sector 
+      FROM users 
+      WHERE role = ANY($1)
+      AND auth_mode = 'local'
+      ORDER BY 
+        CASE role 
+          WHEN 'contabilidade' THEN 1
+          WHEN 'financeiro' THEN 2
+          WHEN 'diretoria' THEN 3
+          ELSE 4
+        END
+    `, [rolesToInclude]);
+    
+    console.log(`👥 Usuários encontrados para fluxo ${workflowType}: ${usersResult.rows.length}`);
+    
+    // Criar fluxo de assinatura
+    for (let i = 0; i < usersResult.rows.length; i++) {
+      const user = usersResult.rows[i];
+      
+      try {
+        await pool.query(`
+          INSERT INTO signature_flow (document_id, user_id, order_index, status, created_at)
+          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+        `, [documentId, user.id, i + 1, 'pending']);
+        
+        console.log(`✅ Adicionado ao fluxo: ${user.name} (${user.role}) - ordem ${i + 1}`);
+      } catch (error) {
+        if (error.code === '23505') { // Duplicate key
+          console.log(`⚠️ ${user.name} já está no fluxo`);
+        } else {
+          console.error(`❌ Erro ao adicionar ${user.name}:`, error.message);
+        }
+      }
+    }
+    
+    console.log(`✅ Fluxo de assinatura criado para documento ${documentId}`);
+    
+  } catch (error) {
+    console.error('❌ Erro ao criar fluxo de assinatura:', error);
+    throw error;
+  }
+}
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

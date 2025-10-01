@@ -11,7 +11,7 @@ const pool = new Pool({
   // Configurações de pool
   max: 20, // máximo de conexões no pool
   idleTimeoutMillis: 30000, // tempo limite de inatividade
-  connectionTimeoutMillis: 2000, // tempo limite de conexão
+  connectionTimeoutMillis: 30000, // tempo limite de conexão
 });
 
 // Testar conexão

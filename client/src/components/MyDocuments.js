@@ -24,7 +24,7 @@ const MyDocuments = () => {
 
   useEffect(() => {
     filterDocuments();
-  }, [documents, activeFilter]);
+  }, [documents, activeFilter, filterDocuments]);
 
   const fetchMyDocuments = async () => {
     try {
@@ -156,7 +156,7 @@ const MyDocuments = () => {
       });
       
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         toast.success('Documento excluído com sucesso!');
         // Atualizar lista de documentos
         fetchMyDocuments();
@@ -291,7 +291,7 @@ const MyDocuments = () => {
           
           <div className="divide-y divide-gray-200">
             {filteredDocuments.map((doc) => (
-              <div key={doc.id} className="px-6 py-4 hover:bg-gray-50">
+              <div key={doc.id} className="px-6 py-4 transition-colors duration-200" style={{backgroundColor: 'var(--bg-card)'}} onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bg-hover)'} onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--bg-card)'}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="p-2 bg-blue-100 rounded-lg">
@@ -325,8 +325,16 @@ const MyDocuments = () => {
                     
                     <button
                       onClick={() => handleViewDocument(doc.id)}
-                      className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-md"
-                      title="Visualizar documento"
+                      className="btn-view inline-flex items-center px-3 py-1 text-sm text-blue-600 rounded-md transition-colors duration-200"
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                        e.target.style.color = '#3b82f6';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = '#3b82f6';
+                      }}
+                      title="Ver Documento"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Visualizar
@@ -334,7 +342,15 @@ const MyDocuments = () => {
                     
                     <button
                       onClick={() => handleDownload(doc.id, doc.original_filename)}
-                      className="inline-flex items-center px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
+                      className="inline-flex items-center px-3 py-1 text-sm text-gray-600 rounded-md transition-colors duration-200"
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = 'rgba(107, 114, 128, 0.1)';
+                        e.target.style.color = '#374151';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = 'transparent';
+                        e.target.style.color = '#6b7280';
+                      }}
                     >
                       <Download className="h-4 w-4 mr-1" />
                       Download

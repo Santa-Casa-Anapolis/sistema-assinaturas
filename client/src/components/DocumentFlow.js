@@ -158,6 +158,9 @@ const DocumentFlow = () => {
           case 'payment':
             nextStage = 'completed';
             break;
+          default:
+            nextStage = 'unknown';
+            break;
         }
         
         alert(`Documento aprovado e encaminhado para ${nextStage}!`);
@@ -505,7 +508,8 @@ const DocumentFlow = () => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => handleViewDocumentOnline(document)}
-                  className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-1 text-sm"
+                  className="btn-view flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center space-x-1 text-sm"
+                  title="Ver Documento"
                 >
                   <Eye className="h-4 w-4" />
                   <span>Ver Documento</span>
@@ -515,14 +519,16 @@ const DocumentFlow = () => {
                   <>
                     <button
                       onClick={() => handleRequestSignature(document, document.current_stage)}
-                      className="flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 flex items-center justify-center space-x-1 text-sm"
+                      className="btn-sign flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 flex items-center justify-center space-x-1 text-sm"
+                      title="Assinar"
                     >
                       <FileSignature className="h-4 w-4" />
                       <span>Assinar</span>
                     </button>
                     <button
                       onClick={() => handleQuickApprove(document)}
-                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-1 text-sm"
+                      className="btn-approve flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center space-x-1 text-sm"
+                      title="Aprovar"
                     >
                       <CheckCircle className="h-4 w-4" />
                       <span>Aprovar</span>

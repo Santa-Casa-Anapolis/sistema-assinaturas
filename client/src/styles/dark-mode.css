@@ -428,6 +428,133 @@ a:hover {
   color: var(--text-inverse);
 }
 
+/* Botões de Ação - Manter cores diferenciadas no modo escuro */
+.dark-mode .btn-view,
+.dark-mode button[title*="Ver Documento"],
+.dark-mode button[title*="View Document"] {
+  color: #60a5fa !important; /* Azul claro para visualizar */
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+
+.dark-mode .btn-sign,
+.dark-mode button[title*="Assinar"],
+.dark-mode button[title*="Sign"] {
+  color: #fbbf24 !important; /* Amarelo dourado para assinar */
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-approve,
+.dark-mode button[title*="Aprovar"],
+.dark-mode button[title*="Approve"] {
+  color: #34d399 !important; /* Verde esmeralda para aprovar */
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Ícones específicos para botões de ação */
+.dark-mode .btn-view svg,
+.dark-mode button[title*="Ver Documento"] svg,
+.dark-mode button[title*="View Document"] svg {
+  color: #60a5fa !important;
+}
+
+.dark-mode .btn-sign svg,
+.dark-mode button[title*="Assinar"] svg,
+.dark-mode button[title*="Sign"] svg {
+  color: #fbbf24 !important;
+}
+
+.dark-mode .btn-approve svg,
+.dark-mode button[title*="Aprovar"] svg,
+.dark-mode button[title*="Approve"] svg {
+  color: #34d399 !important;
+}
+
+/* Hover effects para botões de ação */
+.dark-mode .btn-view:hover,
+.dark-mode button[title*="Ver Documento"]:hover,
+.dark-mode button[title*="View Document"]:hover {
+  color: #93c5fd !important;
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.dark-mode .btn-sign:hover,
+.dark-mode button[title*="Assinar"]:hover,
+.dark-mode button[title*="Sign"]:hover {
+  color: #fcd34d !important;
+  background-color: rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-approve:hover,
+.dark-mode button[title*="Aprovar"]:hover,
+.dark-mode button[title*="Approve"]:hover {
+  color: #6ee7b7 !important;
+  background-color: rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Transições suaves para todos os botões de ação */
+.dark-mode .btn-view,
+.dark-mode .btn-sign,
+.dark-mode .btn-approve,
+.dark-mode button[title*="Ver Documento"],
+.dark-mode button[title*="Assinar"],
+.dark-mode button[title*="Aprovar"] {
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Botões de Upload de Documento */
+.dark-mode .btn-clear,
+.dark-mode button[title*="Limpar"] {
+  color: #fbbf24 !important; /* Amarelo dourado para limpar */
+  background-color: rgba(245, 158, 11, 0.2) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-submit,
+.dark-mode button[title*="Enviar Documentos"] {
+  color: #34d399 !important; /* Verde esmeralda para enviar */
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Hover effects para botões de upload */
+.dark-mode .btn-clear:hover,
+.dark-mode button[title*="Limpar"]:hover {
+  color: #fcd34d !important;
+  background-color: rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3) !important;
+}
+
+.dark-mode .btn-submit:hover,
+.dark-mode button[title*="Enviar Documentos"]:hover {
+  color: #6ee7b7 !important;
+  background-color: rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Transições para botões de upload */
+.dark-mode .btn-clear,
+.dark-mode .btn-submit,
+.dark-mode button[title*="Limpar"],
+.dark-mode button[title*="Enviar Documentos"] {
+  transition: all 0.2s ease-in-out !important;
+}
+
 /* Placeholder text styling */
 input::placeholder,
 textarea::placeholder {

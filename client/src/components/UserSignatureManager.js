@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Upload, 
-  Download, 
   Trash2, 
   CheckCircle, 
   AlertCircle,
@@ -16,13 +15,12 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const { user } = useAuth();
 
   useEffect(() => {
     if (userId) {
       fetchSignature();
     }
-  }, [userId]);
+  }, [userId, fetchSignature]);
 
   const fetchSignature = async () => {
     try {

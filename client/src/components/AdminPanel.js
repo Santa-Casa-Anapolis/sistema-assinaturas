@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserPlus, Settings, Shield, Trash2, Edit } from 'lucide-react';
+import { Users, UserPlus, Settings, Shield, Trash2, Edit, Search } from 'lucide-react';
 import UserSignatureManager from './UserSignatureManager';
 
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [groups, setGroups] = useState([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -51,19 +53,48 @@ const AdminPanel = () => {
     fetchGroups();
   }, []);
 
+  useEffect(() => {
+    filterUsers();
+  }, [users, searchTerm, filterUsers]);
+
+  const filterUsers = () => {
+    if (!searchTerm.trim()) {
+      setFilteredUsers(users);
+    } else {
+      const filtered = users.filter(user => 
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.sector && user.sector.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      setFilteredUsers(filtered);
+    }
+  };
+
   const fetchUsers = async () => {
     try {
+      console.log('🔍 Buscando usuários no AdminPanel...');
       const response = await fetch('/api/admin/users', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
+      
+      console.log('📊 Status da resposta:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Usuários carregados:', data.length);
         setUsers(data);
+      } else {
+        const errorData = await response.text();
+        console.error('❌ Erro na resposta:', response.status, errorData);
+        alert(`Erro ao carregar usuários: ${response.status} - ${errorData}`);
       }
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+      console.error('❌ Erro ao buscar usuários:', error);
+      alert(`Erro de conexão: ${error.message}`);
     }
   };
 
@@ -262,8 +293,29 @@ const AdminPanel = () => {
             </nav>
           </div>
 
+          {/* Campo de Pesquisa */}
+          <div className="mb-6">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Pesquisar usuários por nome, email, username, role ou setor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+            </div>
+            {searchTerm && (
+              <p className="mt-2 text-sm text-gray-600">
+                {filteredUsers.length} usuário{filteredUsers.length !== 1 ? 's' : ''} encontrado{filteredUsers.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
           {/* Lista de Usuários */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {users.map((user) => (
               <div key={user.id} className="bg-gray-50 rounded-lg p-4 border">
                 <div className="flex items-center justify-between mb-3">

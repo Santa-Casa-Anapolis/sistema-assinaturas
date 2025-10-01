@@ -165,8 +165,8 @@ const PendingSignatures = () => {
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={() => handleViewDocument(doc.id)}
-                      className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-md"
-                      title="Visualizar documento"
+                      className="btn-view inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-md"
+                      title="Ver Documento"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Visualizar
@@ -182,7 +182,8 @@ const PendingSignatures = () => {
                     
                     <Link
                       to={`/sign/${doc.id}`}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                      className="btn-sign inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                      title="Assinar"
                     >
                       Assinar
                       <ArrowRight className="h-4 w-4 ml-1" />
