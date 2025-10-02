@@ -306,3 +306,4 @@ docker exec notasfiscais_db pg_isready -U postgres
 **🔒 Com este isolamento, o sistema funciona independentemente dos outros sistemas no servidor!**
 
 
+
