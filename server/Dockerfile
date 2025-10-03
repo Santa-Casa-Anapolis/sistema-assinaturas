@@ -14,7 +14,7 @@ RUN npm install --only=production
 COPY . .
 
 # Expor porta do servidor
-EXPOSE 3001
+EXPOSE 4000
 
 # Comando para iniciar o servidor
 CMD ["npm", "start"]

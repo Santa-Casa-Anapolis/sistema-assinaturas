@@ -14,7 +14,7 @@ const { authenticateLDAP } = require('./ldap-auth');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 // Middleware de segurança
 app.use(helmet());
