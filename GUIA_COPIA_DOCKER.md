@@ -15,12 +15,6 @@ docker save postgres:13 -o postgres-13.tar
 
 # Exportar imagem do pgAdmin
 docker save dpage/pgadmin4:latest -o pgadmin4-latest.tar
-
-# Exportar imagem do Jenkins
-docker save jenkins/jenkins:lts -o jenkins-lts.tar
-
-# Exportar imagem do Nginx
-docker save nginx:alpine -o nginx-alpine.tar
 ```
 
 ### **2️⃣ COMPRIMIR OS ARQUIVOS**
@@ -62,8 +56,6 @@ docker --version
 # Importar cada imagem
 docker load -i postgres-13.tar
 docker load -i pgadmin4-latest.tar
-docker load -i jenkins-lts.tar
-docker load -i nginx-alpine.tar
 
 # Verificar se foram importadas
 docker images
@@ -104,9 +96,7 @@ node init-db.js
 Nota Fiscais/
 ├── client/          (Frontend React)
 ├── server/          (Backend Node.js)
-├── jenkins/         (Configurações Jenkins)
 ├── docker-compose.yml
-├── Jenkinsfile
 └── README.md
 ```
 

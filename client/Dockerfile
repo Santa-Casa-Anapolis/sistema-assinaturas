@@ -1,6 +1,5 @@
-# Dockerfile para o cliente React
-# Estágio 1: Build
-FROM node:18-alpine as build
+# Dockerfile para o cliente React (sem Nginx)
+FROM node:18-alpine
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -8,8 +7,8 @@ WORKDIR /app
 # Copiar arquivos de dependências
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm install
+# Instalar dependências (ci para builds reproduzíveis)
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
@@ -17,17 +16,15 @@ COPY . .
 # Fazer build da aplicação React
 RUN npm run build
 
-# Estágio 2: Servir com Nginx
-FROM nginx:alpine
+# Instalar servidor estático 'serve'
+RUN npm install -g serve && npm cache clean --force
 
-# Copiar arquivos buildados para o Nginx
-COPY --from=build /app/build /usr/share/nginx/html
+# Definir variáveis de ambiente
+ENV NODE_ENV=production
+ENV PORT=5000
 
-# Copiar configuração customizada do Nginx (opcional)
-# COPY nginx.conf /etc/nginx/nginx.conf
+# Expor porta do servidor
+EXPOSE 5000
 
-# Expor porta 80
-EXPOSE 80
-
-# Comando para iniciar o Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Servir os arquivos buildados
+CMD ["serve", "-s", "build", "-l", "5000"]
