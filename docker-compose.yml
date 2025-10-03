@@ -1,5 +1,7 @@
 version: '3.8'
 
+# Este arquivo suporta variáveis BACKEND_PORT, FRONTEND_PORT e REACT_APP_API_URL
+# Defina-as via Jenkins (Environment Inject, withCredentials, ou Docker plugin) conforme o seu pipeline.
 services:
   backend:
     build:
@@ -8,7 +10,7 @@ services:
     image: santacasa/sistema-assinaturas-backend:latest
     container_name: sistema-assinaturas-backend
     ports:
-      - "4000:4000"
+      - "${BACKEND_PORT:-4000}:4000"
     networks:
       - sistema-assinaturas-network
     restart: always
@@ -19,6 +21,7 @@ services:
       DB_NAME: notasfiscais_db   # Use o mesmo nome do banco configurado no PostgreSQL
       DB_USER: postgres
       DB_PASSWORD: postgres
+      PORT: 4000
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
       restart_policy:
@@ -30,13 +33,17 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:${BACKEND_PORT:-4000}}
     image: santacasa/sistema-assinaturas-frontend:latest
     container_name: sistema-assinaturas-frontend
     ports:
-      - "5000:5000"
+      - "${FRONTEND_PORT:-5000}:5000"
     networks:
       - sistema-assinaturas-network
     restart: always
+    environment:
+      - REACT_APP_API_URL=http://localhost:${BACKEND_PORT:-4000}
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
 
@@ -62,7 +69,7 @@ services:
 
 networks:
   sistema-assinaturas-network:
-    driver: overlay  # Usar overlay para Swarm, que é compatível com múltiplos nós
+    driver: bridge  # Usar bridge para ambiente local com docker-compose
 
 volumes:
   postgres_data:

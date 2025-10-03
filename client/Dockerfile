@@ -13,6 +13,10 @@ RUN npm ci
 # Copiar código fonte
 COPY . .
 
+# Definir ARG para configurar a URL da API em tempo de build
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 # Fazer build da aplicação React
 RUN npm run build
 

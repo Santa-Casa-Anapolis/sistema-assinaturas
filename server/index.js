@@ -107,7 +107,7 @@ async function startServer() {
     const server = app.listen(PORT, () => {
       console.log('✅ Servidor HTTP iniciado com sucesso!');
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`📱 Frontend: http://localhost:3000`);
+      console.log(`📱 Frontend: http://localhost:5000`);
       console.log(`🔧 Backend: http://localhost:${PORT}`);
       console.log('🔧 === SERVIDOR PRONTO ===');
     });
