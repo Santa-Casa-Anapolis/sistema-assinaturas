@@ -30,7 +30,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post('/api/auth/login', { username, password });
+      const base = window.API_BASE || axios.defaults.baseURL || (process.env.REACT_APP_API_URL || '');
+      const endpoint = `${base}/api/auth/login`;
+      console.log('[Auth] Tentando login via', endpoint);
+      const response = await axios.post(endpoint, { username, password });
       const { token, user } = response.data;
       
       localStorage.setItem('token', token);
@@ -38,8 +41,10 @@ export const AuthProvider = ({ children }) => {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       setUser(user);
+      console.log('[Auth] Login bem-sucedido para', user?.username || user?.name);
       return { success: true };
     } catch (error) {
+      console.error('[Auth] Falha no login:', error?.message, error?.response?.status, error?.response?.data);
       return { 
         success: false, 
         error: error.response?.data?.error || 'Erro ao fazer login' 
