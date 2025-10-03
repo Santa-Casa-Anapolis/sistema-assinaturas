@@ -21,6 +21,14 @@ services:
       DB_NAME: notasfiscais_db   # Use o mesmo nome do banco configurado no PostgreSQL
       DB_USER: postgres
       DB_PASSWORD: postgres
+      LDAP_URL: ldap://santacasa.org:389
+      LDAP_BASE_DN: DC=santacasa,DC=org
+      LDAP_BIND_DN: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
+      LDAP_BIND_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
+      AD_URL: ldap://santacasa.org:389
+      AD_BASE_DN: DC=santacasa,DC=org
+      AD_USERNAME: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
+      AD_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
       PORT: 4000
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
