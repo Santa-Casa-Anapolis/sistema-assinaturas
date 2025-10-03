@@ -13,7 +13,13 @@ services:
       - sistema-assinaturas-network
     restart: always
     environment:
-      DATABASE_URL: postgres://postgres:123456@notasfiscais_db:5432/notasfiscais_db
+      # Configurações do Banco de Dados PostgreSQL
+      DB_HOST=notasfiscais_db
+      DB_PORT=5432
+      DB_NAME=nota_fiscais
+      DB_USER=postgres
+      DB_PASSWORD=postgres
+
     depends_on:
       - postgres
 
