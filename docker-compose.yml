@@ -19,7 +19,10 @@ services:
       DB_NAME: notasfiscais_db   # Use o mesmo nome do banco configurado no PostgreSQL
       DB_USER: postgres
       DB_PASSWORD: postgres
-
+    deploy:
+      replicas: 1  # Definir quantidade de réplicas para o Swarm
+      restart_policy:
+        condition: any
     depends_on:
       - postgres
 
@@ -34,6 +37,8 @@ services:
     networks:
       - sistema-assinaturas-network
     restart: always
+    deploy:
+      replicas: 1  # Definir quantidade de réplicas para o Swarm
 
   postgres:
     image: postgres:15
@@ -50,10 +55,15 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - sistema-assinaturas-network
+    deploy:
+      replicas: 1  # Definir quantidade de réplicas para o Swarm
+      restart_policy:
+        condition: any
 
 networks:
   sistema-assinaturas-network:
-    driver: bridge
+    driver: overlay  # Usar overlay para Swarm, que é compatível com múltiplos nós
 
 volumes:
   postgres_data:
+    driver: local  # Definir driver local para Swarm, pode ser modificado conforme a necessidade
