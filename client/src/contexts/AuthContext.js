@@ -28,9 +28,20 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  // Resolve a base da API de forma robusta, ignorando placeholders como ${BACKEND_PORT:-4000}
+  const resolveApiBase = () => {
+    const host = window.location?.hostname || 'localhost';
+    const raw = window.API_BASE || axios.defaults.baseURL || process.env.REACT_APP_API_URL || '';
+
+    if (typeof raw === 'string' && raw && !raw.includes('${') && /^https?:\/\//.test(raw)) {
+      return raw.replace(/\/+$/, '');
+    }
+    return `http://${host}:4000`;
+  };
+
   const login = async (username, password) => {
     try {
-      const base = window.API_BASE || axios.defaults.baseURL || (process.env.REACT_APP_API_URL || '');
+      const base = resolveApiBase();
       const endpoint = `${base}/api/auth/login`;
       console.log('[Auth] Tentando login via', endpoint);
       const response = await axios.post(endpoint, { username, password });
