@@ -4,8 +4,9 @@ import './index.css';
 import App from './App';
 import axios from 'axios';
 
-// Configuração de API para ambiente local
-const API_BASE = process.env.REACT_APP_API_URL || window.API_BASE || 'http://localhost:4000';
+// Configuração de API para ambiente local/implantado
+const HOST = window.location?.hostname || 'localhost';
+const API_BASE = process.env.REACT_APP_API_URL || window.API_BASE || `http://${HOST}:4000`;
 window.API_BASE = API_BASE;
 axios.defaults.baseURL = API_BASE;
 
