@@ -1,6 +1,34 @@
-# Docker Compose para PostgreSQL
+version: '3.8'
 
 services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: santacasa/sistema-assinaturas-backend:latest
+    container_name: sistema-assinaturas-backend
+    ports:
+      - "4000:4000"
+    networks:
+      - sistema-assinaturas-network
+    restart: always
+    environment:
+      DATABASE_URL: postgres://postgres:123456@notasfiscais_db:5432/notasfiscais_db
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: santacasa/sistema-assinaturas-frontend:latest
+    container_name: sistema-assinaturas-frontend
+    ports:
+      - "5000:5000"
+    networks:
+      - sistema-assinaturas-network
+    restart: always
+
   postgres:
     image: postgres:15
     container_name: notasfiscais_db
@@ -15,26 +43,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - notasfiscais_network
+      - sistema-assinaturas-network
 
-  # Opcional: pgAdmin para gerenciar o banco
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: notasfiscais_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@empresa.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-    ports:
-      - "8080:80"
-    depends_on:
-      - postgres
-    networks:
-      - notasfiscais_network
+networks:
+  sistema-assinaturas-network:
+    driver: bridge
 
 volumes:
   postgres_data:
-
-networks:
-  notasfiscais_network:
-    driver: bridge
