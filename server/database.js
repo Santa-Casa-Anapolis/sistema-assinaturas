@@ -6,8 +6,8 @@ const pool = new Pool({
   user: process.env.DB_USER || 'postgres',
   host: process.env.DB_HOST || 'localhost',
   database: process.env.DB_NAME || 'notasfiscais_db',
-  password: process.env.DB_PASSWORD || '123456',
-  port: process.env.DB_PORT || 5432,
+  password: process.env.DB_PASSWORD || 'postgres',
+  port: process.env.DB_PORT || 5433,
   // Configurações de pool
   max: 20, // máximo de conexões no pool
   idleTimeoutMillis: 30000, // tempo limite de inatividade
