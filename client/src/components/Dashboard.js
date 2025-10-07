@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
+
+// Configurar baseURL do axios para o Dashboard
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://172.16.0.219:4000';
 import { 
   FileText, 
   Clock, 
