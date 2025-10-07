@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   FileText, 
   CheckCircle, 
@@ -12,6 +13,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import DocumentSignature from './DocumentSignature';
+
+// Configurar baseURL do axios
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://172.16.0.219:4000';
 
 const DocumentFlow = () => {
   const [documents, setDocuments] = useState([]);
@@ -42,16 +46,13 @@ const DocumentFlow = () => {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch('/api/documents', {
+      const response = await axios.get('/api/documents', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setDocuments(data);
-      }
+      setDocuments(response.data);
     } catch (error) {
       console.error('Erro ao buscar documentos:', error);
     } finally {
@@ -83,17 +84,15 @@ const DocumentFlow = () => {
 
   const handleApproval = async (documentId, action) => {
     try {
-      const response = await fetch(`/api/documents/${documentId}/approve`, {
-        method: 'POST',
+      const response = await axios.post(`/api/documents/${documentId}/approve`, {
+        action,
+        comments: approvalData.comments,
+        govSignatureId: approvalData.govSignatureId
+      }, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          action,
-          comments: approvalData.comments,
-          govSignatureId: approvalData.govSignatureId
-        })
+        }
       });
 
       if (response.ok) {
