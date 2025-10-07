@@ -1,6 +1,60 @@
-# Docker Compose para PostgreSQL
+version: '3.8'
 
+# Este arquivo suporta variáveis BACKEND_PORT, FRONTEND_PORT e REACT_APP_API_URL
+# Defina-as via Jenkins (Environment Inject, withCredentials, ou Docker plugin) conforme o seu pipeline.
 services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: santacasa/sistema-assinaturas-backend:latest
+    container_name: sistema-assinaturas-backend
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    networks:
+      - sistema-assinaturas-network
+    restart: always
+    environment:
+      # Configurações do Banco de Dados PostgreSQL
+      DB_HOST: 10.0.7.21
+      DB_PORT: 5432
+      DB_NAME: notasfiscais_db   # Use o mesmo nome do banco configurado no PostgreSQL
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      LDAP_URL: ldap://santacasa.org:389
+      LDAP_BASE_DN: DC=santacasa,DC=org
+      LDAP_BIND_DN: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
+      LDAP_BIND_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
+      AD_URL: ldap://santacasa.org:389
+      AD_BASE_DN: DC=santacasa,DC=org
+      AD_USERNAME: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
+      AD_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
+      PORT: 4000
+    deploy:
+      replicas: 1  # Definir quantidade de réplicas para o Swarm
+      restart_policy:
+        condition: any
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:${BACKEND_PORT:-4000}}
+    image: santacasa/sistema-assinaturas-frontend:latest
+    container_name: sistema-assinaturas-frontend
+    ports:
+      - "${FRONTEND_PORT:-5000}:5000"
+    networks:
+      - sistema-assinaturas-network
+    restart: always
+    environment:
+      - REACT_APP_API_URL=http://localhost:${BACKEND_PORT:-4000}
+    deploy:
+      replicas: 1  # Definir quantidade de réplicas para o Swarm
+
   postgres:
     image: postgres:15
     container_name: notasfiscais_db
@@ -8,33 +62,23 @@ services:
     environment:
       POSTGRES_DB: notasfiscais_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
+      POSTGRES_PASSWORD: postgres  # Certifique-se de que a senha aqui é a mesma no backend
     ports:
-      - "5433:5432"  # PostgreSQL na porta 5433 (não interfere com outros)
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - notasfiscais_network
+      - sistema-assinaturas-network
+    deploy:
+      replicas: 1  # Definir quantidade de réplicas para o Swarm
+      restart_policy:
+        condition: any
 
-  # Opcional: pgAdmin para gerenciar o banco
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: notasfiscais_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@empresa.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-    ports:
-      - "8081:80"  # pgAdmin na porta 8081 (não interfere com outros)
-    depends_on:
-      - postgres
-    networks:
-      - notasfiscais_network
+networks:
+  sistema-assinaturas-network:
+    driver: bridge  # Usar bridge para ambiente local com docker-compose
 
 volumes:
   postgres_data:
-
-networks:
-  notasfiscais_network:
-    driver: bridge
+    driver: local  # Definir driver local para Swarm, pode ser modificado conforme a necessidade
