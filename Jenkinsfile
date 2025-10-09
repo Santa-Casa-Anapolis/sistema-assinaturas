@@ -183,6 +183,34 @@ pipeline {
                         echo "✅ Lint validado"
                     '''
                     
+                    echo '🐳 Fazendo deploy com Docker Swarm...'
+                    
+                    // Remover stack antigo para evitar conflito de portas
+                    sh '''
+                        echo "🗑️ Removendo stack antigo..."
+                        docker stack rm sistema-assinaturas || echo "Stack não existe ainda"
+                        
+                        echo "⏳ Aguardando serviços serem removidos (30 segundos)..."
+                        sleep 30
+                        
+                        echo "🔍 Verificando se portas estão livres..."
+                        docker service ls | grep sistema-assinaturas || echo "✅ Stack removido com sucesso"
+                    '''
+                    
+                    // Deploy do novo stack
+                    sh '''
+                        echo "🚀 Fazendo deploy do novo stack..."
+                        docker stack deploy -c docker-compose.yml sistema-assinaturas
+                        
+                        echo "📊 Verificando serviços criados..."
+                        sleep 5
+                        docker service ls | grep sistema-assinaturas
+                        
+                        echo "✅ Deploy concluído!"
+                        echo "📱 Frontend: http://172.16.0.219:3000"
+                        echo "🖥️ Backend:  http://172.16.0.219:5000"
+                    '''
+                    
                     echo '🏭 Deploy para produção concluído!'
                 }
             }
