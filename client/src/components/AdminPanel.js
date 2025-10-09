@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { Users, UserPlus, Settings, Shield, Trash2, Edit, Search } from 'lucide-react';
 import UserSignatureManager from './UserSignatureManager';
+
+// O proxy está configurado no package.json para http://localhost:5000
+// Não definimos baseURL aqui para usar o proxy do React
 
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
@@ -75,42 +79,52 @@ const AdminPanel = () => {
   const fetchUsers = async () => {
     try {
       console.log('🔍 Buscando usuários no AdminPanel...');
-      const response = await fetch('/api/admin/users', {
+      const response = await axios.get('/api/admin/users', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
       
       console.log('📊 Status da resposta:', response.status);
+      console.log('📦 Tipo de dados recebidos:', typeof response.data);
+      console.log('📋 Dados recebidos:', response.data);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Usuários carregados:', data.length);
-        setUsers(data);
+      if (Array.isArray(response.data)) {
+        console.log('✅ Usuários carregados:', response.data.length);
+        setUsers(response.data);
       } else {
-        const errorData = await response.text();
-        console.error('❌ Erro na resposta:', response.status, errorData);
-        alert(`Erro ao carregar usuários: ${response.status} - ${errorData}`);
+        console.error('❌ Dados não são um array:', response.data);
+        alert('Erro: dados de usuários em formato inválido');
       }
     } catch (error) {
       console.error('❌ Erro ao buscar usuários:', error);
+      console.error('❌ Detalhes do erro:', error.response?.data || error.message);
       alert(`Erro de conexão: ${error.message}`);
     }
   };
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/admin/groups', {
+      console.log('🔍 Buscando grupos...');
+      const response = await axios.get('/api/admin/groups', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data);
+      
+      console.log('📊 Status da resposta de grupos:', response.status);
+      console.log('📦 Tipo de dados recebidos:', typeof response.data);
+      console.log('📋 Grupos recebidos:', response.data);
+      
+      if (Array.isArray(response.data)) {
+        console.log('✅ Grupos carregados:', response.data.length);
+        setGroups(response.data);
+      } else {
+        console.error('❌ Dados de grupos não são um array:', response.data);
       }
     } catch (error) {
-      console.error('Erro ao buscar grupos:', error);
+      console.error('❌ Erro ao buscar grupos:', error);
+      console.error('❌ Detalhes do erro:', error.response?.data || error.message);
     }
   };
 

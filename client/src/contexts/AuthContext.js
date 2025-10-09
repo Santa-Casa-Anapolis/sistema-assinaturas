@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-// Configurar baseURL do axios
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://172.16.0.219:4000';
+// O proxy está configurado no package.json para http://localhost:5000
+// Não definimos baseURL aqui para usar o proxy do React
 
 const AuthContext = createContext();
 

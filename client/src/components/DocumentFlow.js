@@ -14,8 +14,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import DocumentSignature from './DocumentSignature';
 
-// Configurar baseURL do axios
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://172.16.0.219:4000';
+// O proxy está configurado no package.json para http://localhost:5000
+// Não definimos baseURL aqui para usar o proxy do React
 
 const DocumentFlow = () => {
   const [documents, setDocuments] = useState([]);
