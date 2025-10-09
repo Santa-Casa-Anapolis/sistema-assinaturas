@@ -42,7 +42,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: https://172.16.0.219:4000
+        REACT_APP_API_URL: http://172.16.0.219:4000
     image: santacasa/sistema-assinaturas-frontend:latest
     container_name: sistema-assinaturas-frontend
     ports:
@@ -51,7 +51,7 @@ services:
       - sistema-assinaturas-network
     restart: always
     environment:
-      - REACT_APP_API_URL=http://localhost:${BACKEND_PORT:-4000}
+      - REACT_APP_API_URL=http://172.16.0.219:4000
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
 
