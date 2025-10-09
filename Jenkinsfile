@@ -190,11 +190,22 @@ pipeline {
                         echo "🗑️ Removendo stack antigo..."
                         docker stack rm sistema-assinaturas || echo "Stack não existe ainda"
                         
-                        echo "⏳ Aguardando serviços serem removidos (30 segundos)..."
-                        sleep 30
+                        echo "⏳ Aguardando serviços serem removidos (60 segundos)..."
+                        sleep 60
                         
-                        echo "🔍 Verificando se portas estão livres..."
-                        docker service ls | grep sistema-assinaturas || echo "✅ Stack removido com sucesso"
+                        echo "🔍 Verificando se todos os serviços foram removidos..."
+                        SERVICES=$(docker service ls | grep sistema-assinaturas | wc -l)
+                        if [ "$SERVICES" -gt 0 ]; then
+                            echo "⚠️ Ainda existem $SERVICES serviços. Aguardando mais 30 segundos..."
+                            sleep 30
+                        fi
+                        
+                        echo "🧹 Limpando recursos órfãos..."
+                        docker container prune -f
+                        docker network prune -f
+                        
+                        echo "✅ Stack removido com sucesso"
+                        docker service ls | grep sistema-assinaturas || echo "✅ Nenhum serviço antigo encontrado"
                     '''
                     
                     // Deploy do novo stack
