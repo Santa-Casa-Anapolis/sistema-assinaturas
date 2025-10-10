@@ -1837,15 +1837,14 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
 
     // Inserir documento principal (usando o primeiro arquivo como file_path principal)
     const result = await pool.query(`
-      INSERT INTO documents (title, description, file_path, original_filename, filename, created_by, supervisor_id, sector, amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
+      INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
       RETURNING id
     `, [
       title,
       description,
-      files[0].path,
+      files[0].filename, // Salvar o filename do multer como file_path
       files[0].originalname,
-      files[0].filename, // Adicionar filename para compatibilidade
       userId,
       userId, // supervisor_id
       sector || req.user.sector,
