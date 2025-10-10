@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../config/api';
 import { Users, UserPlus, Settings, Shield, Trash2, Edit, Search } from 'lucide-react';
 import UserSignatureManager from './UserSignatureManager';
-
-// O proxy está configurado no package.json para http://localhost:5000
-// Não definimos baseURL aqui para usar o proxy do React
 
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
@@ -330,7 +327,7 @@ const AdminPanel = () => {
 
           {/* Lista de Usuários */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {users.map((user) => (
+            {(searchTerm ? filteredUsers : users).map((user) => (
               <div key={user.id} className="bg-gray-50 rounded-lg p-4 border">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-3">
