@@ -337,7 +337,7 @@ app.post('/api/auth/login', async (req, res) => {
             username,
             userRole,
             userSector,
-            isAdmin
+            isAdmin ? 1 : 0
           ]);
           
           user = newUser.rows[0];

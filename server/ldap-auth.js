@@ -140,6 +140,51 @@ class LDAPAuth {
   }
 
   /**
+   * Busca os grupos de um usuário
+   * @param {string} userDN - DN do usuário
+   * @returns {Array} - Lista de grupos
+   */
+  async getUserGroups(userDN) {
+    try {
+      console.log(`🔍 Buscando grupos para: ${userDN}`);
+      
+      const searchOptions = {
+        scope: 'base',
+        filter: '(objectClass=*)',
+        attributes: ['memberOf']
+      };
+
+      const { searchEntries } = await this.client.search(userDN, searchOptions);
+      
+      if (!searchEntries || searchEntries.length === 0) {
+        console.log('⚠️ Nenhum grupo encontrado para o usuário');
+        return [];
+      }
+
+      const entry = searchEntries[0];
+      let groups = [];
+
+      if (entry.memberOf) {
+        // memberOf pode ser um array ou string única
+        const memberOfArray = Array.isArray(entry.memberOf) ? entry.memberOf : [entry.memberOf];
+        
+        groups = memberOfArray.map(groupDN => {
+          // Extrair o nome do grupo do DN
+          const cnMatch = groupDN.match(/CN=([^,]+)/);
+          return cnMatch ? cnMatch[1] : groupDN;
+        });
+      }
+
+      console.log(`✅ Encontrados ${groups.length} grupos:`, groups);
+      return groups;
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar grupos do usuário:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Método principal de autenticação
    * @param {string} username - samaccountname do usuário
    * @param {string} password - senha do usuário
@@ -176,7 +221,11 @@ class LDAPAuth {
       console.log('🔐 Passo 4: Autenticando usuário com credenciais...');
       await this.authenticateUser(userData.dn, password);
       
-      // 5. Retornar dados do usuário
+      // 5. Buscar grupos do usuário
+      console.log('👥 Passo 5: Buscando grupos do usuário...');
+      const userGroups = await this.getUserGroups(userData.dn);
+      
+      // 6. Retornar dados do usuário
       const userInfo = {
         username: username,
         dn: userData.dn,
@@ -184,7 +233,8 @@ class LDAPAuth {
         email: userData.attributes.mail,
         department: userData.attributes.department,
         title: userData.attributes.title,
-        samaccountname: userData.attributes.samaccountname
+        samaccountname: userData.attributes.samaccountname,
+        groups: userGroups
       };
 
       console.log('✅ Autenticação LDAP bem-sucedida');
