@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:18-alpine'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
     
     environment {
         NODE_VERSION = '18'
@@ -8,6 +13,17 @@ pipeline {
     }
     
     stages {
+        stage('📦 Setup Docker') {
+            steps {
+                echo '🐳 Instalando Docker CLI...'
+                sh '''
+                    apk add --no-cache docker-cli
+                    echo "✅ Docker CLI instalado"
+                    docker --version
+                '''
+            }
+        }
+        
         stage('🔄 Checkout') {
             steps {
                 echo '📥 Fazendo checkout do código...'
@@ -24,24 +40,6 @@ pipeline {
                 }
                 echo "🌿 Branch: ${env.GIT_BRANCH}"
                 echo "📝 Commit: ${env.GIT_COMMIT_SHORT}"
-            }
-        }
-        
-        stage('📦 Setup Environment') {
-            steps {
-                echo '⚙️ Configurando ambiente...'
-                script {
-                    // Verificar se Node.js está instalado
-                    sh '''
-                        if ! command -v node &> /dev/null; then
-                            echo "❌ Node.js não encontrado!"
-                            exit 1
-                        fi
-                        
-                        echo "✅ Node.js versão: $(node --version)"
-                        echo "✅ NPM versão: $(npm --version)"
-                    '''
-                }
             }
         }
         
