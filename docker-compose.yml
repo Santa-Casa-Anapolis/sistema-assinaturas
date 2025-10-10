@@ -77,7 +77,8 @@ services:
 
 networks:
   sistema-assinaturas-network:
-    driver: bridge  # Usar bridge para ambiente local com docker-compose
+    driver: overlay  # Usar overlay para Docker Swarm
+    attachable: true  # Permitir containers standalone se conectarem
 
 volumes:
   postgres_data:
