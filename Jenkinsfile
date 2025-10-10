@@ -168,6 +168,31 @@ pipeline {
             }
         }
         
+        stage('🐳 Build Docker Images') {
+            when {
+                branch 'master'
+            }
+            steps {
+                echo '🐳 Fazendo build das imagens Docker...'
+                script {
+                    sh '''
+                        echo "🏗️ Build do Backend..."
+                        cd server
+                        docker build -t santacasa/sistema-assinaturas-backend:latest .
+                        cd ..
+                        
+                        echo "🏗️ Build do Frontend..."
+                        cd client
+                        docker build -t santacasa/sistema-assinaturas-frontend:latest .
+                        cd ..
+                        
+                        echo "✅ Imagens Docker criadas com sucesso!"
+                        docker images | grep sistema-assinaturas
+                    '''
+                }
+            }
+        }
+        
         stage('📱 Production Deploy') {
             when {
                 branch 'master'
@@ -180,12 +205,12 @@ pipeline {
                         echo "🔒 Validações de produção:"
                         echo "✅ Build validado"
                         echo "✅ Testes passaram"
-                        echo "✅ Lint validado"
+                        echo "✅ Imagens Docker criadas"
                     '''
                     
                     echo '🐳 Fazendo deploy com Docker Swarm...'
                     
-                    // Remover stack antigo para evitar conflito de portas
+                    // Remover stack antigo
                     sh '''
                         echo "🗑️ Removendo stack antigo..."
                         docker stack rm sistema-assinaturas || echo "Stack não existe ainda"
@@ -214,12 +239,12 @@ pipeline {
                         docker stack deploy -c docker-compose.yml sistema-assinaturas
                         
                         echo "📊 Verificando serviços criados..."
-                        sleep 5
+                        sleep 10
                         docker service ls | grep sistema-assinaturas
                         
                         echo "✅ Deploy concluído!"
-                        echo "📱 Frontend: http://172.16.0.219:3000"
-                        echo "🖥️ Backend:  http://172.16.0.219:5000"
+                        echo "📱 Sistema: http://172.16.0.219:5000"
+                        echo "🖥️ API:     http://172.16.0.219:4000"
                     '''
                     
                     echo '🏭 Deploy para produção concluído!'
