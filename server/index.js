@@ -13,6 +13,79 @@ const { pool, initDatabase } = require('./database');
 const { authenticateLDAP } = require('./ldap-auth');
 require('dotenv').config();
 
+// ==================== MAPEAMENTO DE GRUPOS AD ====================
+
+/**
+ * Mapeia grupos AD para roles do sistema
+ */
+function getUserRoleFromGroups(groups) {
+  const groupNames = groups.map(g => g.toLowerCase());
+  
+  // Grupos de TI - Administradores
+  if (groupNames.some(g => g.includes('sc_st_ti') || g.includes('domain admins') || g.includes('administrators'))) {
+    return 'admin';
+  }
+  
+  // Outros grupos específicos podem ter roles diferentes
+  if (groupNames.some(g => g.includes('sc_gerencia') || g.includes('sc_diretoria'))) {
+    return 'manager';
+  }
+  
+  // Padrão para usuários comuns
+  return 'user';
+}
+
+/**
+ * Mapeia grupos AD para setores do sistema
+ */
+function getUserSectorFromGroups(groups) {
+  const groupNames = groups.map(g => g.toLowerCase());
+  
+  // Mapeamento específico de grupos para setores
+  if (groupNames.some(g => g.includes('sc_st_ti'))) {
+    return 'TECNOLOGIA DA INFORMAÇÃO';
+  }
+  
+  if (groupNames.some(g => g.includes('sc_rh') || g.includes('recursos humanos'))) {
+    return 'RECURSOS HUMANOS';
+  }
+  
+  if (groupNames.some(g => g.includes('sc_financeiro') || g.includes('financeiro'))) {
+    return 'FINANCEIRO';
+  }
+  
+  if (groupNames.some(g => g.includes('sc_gerencia') || g.includes('gerencia'))) {
+    return 'GERÊNCIA';
+  }
+  
+  if (groupNames.some(g => g.includes('sc_diretoria') || g.includes('diretoria'))) {
+    return 'DIRETORIA';
+  }
+  
+  // Padrão
+  return 'GERAL';
+}
+
+/**
+ * Mapeia grupos AD para permissões de admin
+ */
+function getUserAdminFromGroups(groups) {
+  const groupNames = groups.map(g => g.toLowerCase());
+  
+  // Grupos que recebem permissões de admin
+  const adminGroups = [
+    'sc_st_ti',
+    'domain admins', 
+    'administrators',
+    'sc_gerencia',
+    'sc_diretoria'
+  ];
+  
+  return adminGroups.some(adminGroup => 
+    groupNames.some(groupName => groupName.includes(adminGroup))
+  );
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -194,12 +267,14 @@ app.post('/api/auth/login', async (req, res) => {
     // Primeiro, verificar o modo de autenticação do usuário no banco
     const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     
-    if (userCheck.rows.length === 0) {
-      console.log('❌ Usuário não encontrado no sistema:', username);
-      return res.status(401).json({ error: 'Usuário não encontrado no sistema' });
-    }
+    let userAuthMode = 'ad'; // Padrão para AD
     
-    const userAuthMode = userCheck.rows[0].auth_mode || 'ad';
+    if (userCheck.rows.length === 0) {
+      console.log('🔍 Usuário não encontrado no banco, tentando autenticação AD...');
+      console.log('🔧 Modo de autenticação: Active Directory (criação automática)');
+    } else {
+      userAuthMode = userCheck.rows[0].auth_mode || 'ad';
+    }
     console.log(`🔍 Modo de autenticação do usuário: ${userAuthMode}`);
     
     if (userAuthMode === 'local') {
@@ -232,29 +307,64 @@ app.post('/api/auth/login', async (req, res) => {
           dn: adUser.dn,
           displayName: adUser.displayName,
           email: adUser.email,
-          department: adUser.department
+          department: adUser.department,
+          groups: adUser.groups || []
         });
         
-        // Usuário já existe (verificado acima) - atualizar informações do AD
-        await pool.query(`
-          UPDATE users 
-          SET name = $1, email = $2, department = $3, title = $4
-          WHERE username = $5
-        `, [
-          adUser.displayName || adUser.username,
-          adUser.email || '',
-          adUser.department || '',
-          adUser.title || '',
-          username
-        ]);
-        
-        user = { 
-          ...userCheck.rows[0], 
-          name: adUser.displayName || adUser.username,
-          email: adUser.email || userCheck.rows[0].email
-        };
-        
-        console.log('✅ Usuário AD atualizado:', user.name);
+        if (userCheck.rows.length === 0) {
+          // Usuário não existe - criar automaticamente baseado nos grupos AD
+          console.log('🆕 Criando usuário automaticamente baseado nos grupos AD...');
+          
+          // Mapear grupos AD para setores e permissões
+          const userRole = getUserRoleFromGroups(adUser.groups || []);
+          const userSector = getUserSectorFromGroups(adUser.groups || []);
+          const isAdmin = getUserAdminFromGroups(adUser.groups || []);
+          
+          console.log('🎯 Configurações do usuário:', {
+            role: userRole,
+            sector: userSector,
+            isAdmin: isAdmin
+          });
+          
+          // Inserir novo usuário no banco
+          const newUser = await pool.query(`
+            INSERT INTO users (name, email, username, role, password, sector, auth_mode, is_admin)
+            VALUES ($1, $2, $3, $4, '', $5, 'ad', $6)
+            RETURNING *
+          `, [
+            adUser.displayName || adUser.username,
+            adUser.email || `${username}@santacasa.org`,
+            username,
+            userRole,
+            userSector,
+            isAdmin
+          ]);
+          
+          user = newUser.rows[0];
+          console.log('✅ Novo usuário criado automaticamente:', user.name);
+          
+        } else {
+          // Usuário já existe - atualizar informações do AD
+          await pool.query(`
+            UPDATE users 
+            SET name = $1, email = $2, department = $3, title = $4
+            WHERE username = $5
+          `, [
+            adUser.displayName || adUser.username,
+            adUser.email || '',
+            adUser.department || '',
+            adUser.title || '',
+            username
+          ]);
+          
+          user = { 
+            ...userCheck.rows[0], 
+            name: adUser.displayName || adUser.username,
+            email: adUser.email || userCheck.rows[0].email
+          };
+          
+          console.log('✅ Usuário AD atualizado:', user.name);
+        }
         
       } catch (adError) {
         console.error('❌ Erro na autenticação AD:', adError.message);
