@@ -16,7 +16,7 @@ services:
     restart: always
     environment:
       # Configurações do Banco de Dados PostgreSQL
-      DB_HOST: 10.0.7.21
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: notasfiscais_db   # Use o mesmo nome do banco configurado no PostgreSQL
       DB_USER: postgres
