@@ -33,7 +33,7 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '' >> /etc/nginx/conf.d/default.conf && \
     echo '    # Proxy para API do backend' >> /etc/nginx/conf.d/default.conf && \
     echo '    location /api/ {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_pass http://backend:4000;' >> /etc/nginx/conf.d/default.conf && \
+    echo '        proxy_pass http://sistema-assinaturas_backend:5000;' >> /etc/nginx/conf.d/default.conf && \
     echo '        proxy_http_version 1.1;' >> /etc/nginx/conf.d/default.conf && \
     echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/conf.d/default.conf && \
     echo '        proxy_set_header Connection "upgrade";' >> /etc/nginx/conf.d/default.conf && \
