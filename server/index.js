@@ -703,11 +703,21 @@ app.post('/api/documents/upload', authenticateToken, upload.single('document'), 
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
 
+    // Debug: Verificar dados antes de inserir
+    console.log('📝 Debug ANTES INSERT - Dados a serem salvos:', {
+      title: title,
+      file_path: file.filename,
+      original_filename: file.originalname,
+      created_by: req.user.id
+    });
+
     // Inserir documento
     const result = await pool.query(
       `INSERT INTO documents (title, file_path, original_filename, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
       [title, file.filename, file.originalname, req.user.id]
     );
+
+    console.log('✅ Documento inserido com sucesso! ID:', result.rows[0].id);
 
     const documentId = result.rows[0].id;
 
