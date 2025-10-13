@@ -69,7 +69,7 @@ const PendingSignatures = () => {
         console.log('Documento encontrado:', document);
         
         // Abrir documento em nova aba (URL absoluta para evitar interceptação do React Router)
-        const viewUrl = `http://localhost:5000/api/documents/${documentId}/view?token=${token}`;
+        const viewUrl = `/api/documents/${documentId}/view?token=${token}`;
         const newWindow = window.open(viewUrl, '_blank');
         
         // Verificar se a janela foi bloqueada

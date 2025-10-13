@@ -59,7 +59,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const token = localStorage.getItem('token');
       
       console.log('📡 Fazendo requisição para visualizar documento...');
-      const response = await fetch(`http://localhost:5000/api/documents/${documentId}/view?token=${token}`);
+      const response = await fetch(`/api/documents/${documentId}/view?token=${token}`);
       
       console.log('📡 Resposta do documento:', response.status);
       
@@ -124,7 +124,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       }
 
       console.log('📡 Buscando dados da assinatura...');
-      const response = await fetch(`http://localhost:5000/api/users/${user.id}/signature`, {
+      const response = await fetch(`/api/users/${user.id}/signature`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -138,7 +138,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         // Buscar o arquivo de assinatura
         console.log('📡 Buscando arquivo da assinatura...');
-        const signatureResponse = await fetch(`http://localhost:5000/api/users/${user.id}/signature/file`, {
+        const signatureResponse = await fetch(`/api/users/${user.id}/signature/file`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -618,7 +618,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       // Carregar o PDF original
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/documents/${documentId}/view?token=${token}`);
+      const response = await fetch(`/api/documents/${documentId}/view?token=${token}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -720,7 +720,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       formData.append('signedPdf', blob, 'documento_assinado.pdf');
       
       console.log('📤 Enviando PDF assinado para o servidor...');
-      const uploadResponse = await fetch(`http://localhost:5000/api/documents/${documentId}/upload-signed`, {
+      const uploadResponse = await fetch(`/api/documents/${documentId}/upload-signed`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
