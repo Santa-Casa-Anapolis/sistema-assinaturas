@@ -688,8 +688,16 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
 // Upload de documento
 app.post('/api/documents/upload', authenticateToken, upload.single('document'), async (req, res) => {
   try {
+    console.log('🔍 === ROTA /api/documents/upload CHAMADA ===');
     const { title, signers } = req.body;
     const file = req.file;
+
+    console.log('📁 Debug ROTA UPLOAD - Dados do arquivo:', {
+      filename: file?.filename,
+      originalname: file?.originalname,
+      path: file?.path,
+      size: file?.size
+    });
 
     if (!file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
