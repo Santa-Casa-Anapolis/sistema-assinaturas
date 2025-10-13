@@ -1835,6 +1835,17 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
       });
     }
 
+    // Debug: Verificar dados dos arquivos
+    console.log('📁 Debug - Dados dos arquivos:', {
+      filesCount: files.length,
+      firstFile: files[0] ? {
+        filename: files[0].filename,
+        originalname: files[0].originalname,
+        path: files[0].path,
+        size: files[0].size
+      } : 'Nenhum arquivo'
+    });
+
     // Inserir documento principal (usando o primeiro arquivo como file_path principal)
     const result = await pool.query(`
       INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status)
@@ -1843,7 +1854,7 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
     `, [
       title,
       description,
-      files[0].filename, // Salvar o filename do multer como file_path
+      files[0].filename || files[0].path || files[0].originalname, // Fallback para filename
       files[0].originalname,
       userId,
       userId, // supervisor_id
