@@ -16,10 +16,36 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [mousePosition, setMousePosition] = useState(null);
   // eslint-disable-next-line no-unused-vars
   const [showSignaturePreview, setShowSignaturePreview] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // Nova: mostrar prévia primeiro
+  const [documentInfo, setDocumentInfo] = useState(null); // Nova: informações do documento
   
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
   const isRenderingRef = useRef(false);
+
+  // Função para carregar informações do documento
+  const loadDocumentInfo = async () => {
+    try {
+      console.log('📋 Carregando informações do documento:', documentId);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`/api/documents/${documentId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const docInfo = await response.json();
+        console.log('✅ Informações do documento carregadas:', docInfo);
+        setDocumentInfo(docInfo);
+      } else {
+        console.error('❌ Erro ao carregar informações do documento:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar informações do documento:', error);
+    }
+  };
 
   // Configurar PDF.js
   useEffect(() => {
@@ -27,9 +53,10 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
   }, []);
 
-  // Carregar PDF e assinatura quando o componente monta
+  // Carregar informações do documento, PDF e assinatura quando o componente monta
   useEffect(() => {
     if (documentId) {
+      loadDocumentInfo();
       loadPdf();
       loadUserSignature();
     }
@@ -779,6 +806,83 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         </div>
         <div className="w-64 bg-gray-200 rounded-full h-2">
           <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar prévia do documento primeiro
+  if (showPreview && documentInfo) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900">
+            📄 Visualizar Documento Antes de Assinar
+          </h2>
+          
+          {/* Informações do Documento */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold text-blue-900 mb-3">📋 Informações do Documento</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <span className="font-medium text-blue-800">Título:</span>
+                <p className="text-blue-700">{documentInfo.title}</p>
+              </div>
+              <div>
+                <span className="font-medium text-blue-800">Valor:</span>
+                <p className="text-blue-700">R$ {documentInfo.amount || '0,00'}</p>
+              </div>
+              <div>
+                <span className="font-medium text-blue-800">Setor:</span>
+                <p className="text-blue-700">{documentInfo.sector || 'Não informado'}</p>
+              </div>
+              <div>
+                <span className="font-medium text-blue-800">Status:</span>
+                <p className="text-blue-700">{documentInfo.status || 'Pendente'}</p>
+              </div>
+            </div>
+            {documentInfo.description && (
+              <div className="mt-4">
+                <span className="font-medium text-blue-800">Descrição:</span>
+                <p className="text-blue-700">{documentInfo.description}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Aviso Importante */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <div className="text-yellow-600 text-2xl mr-3">⚠️</div>
+              <div>
+                <h4 className="font-semibold text-yellow-800">Importante!</h4>
+                <p className="text-yellow-700">
+                  Verifique se este é realmente o documento que você deseja assinar. 
+                  Após confirmar, você será direcionado para a tela de assinatura.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="flex justify-between items-center">
+            <button
+              onClick={() => {
+                if (onSignatureComplete) {
+                  onSignatureComplete('cancelled');
+                }
+              }}
+              className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              ❌ Cancelar
+            </button>
+            
+            <button
+              onClick={() => setShowPreview(false)}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              ✅ Confirmar e Assinar Documento
+            </button>
+          </div>
         </div>
       </div>
     );
