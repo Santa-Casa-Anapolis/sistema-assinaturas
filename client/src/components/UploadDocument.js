@@ -90,10 +90,10 @@ const UploadDocument = () => {
       formData.append('signatureMode', 'positioning');
       formData.append('workflowType', workflowType);
       
-      // Adicionar todos os arquivos
-      selectedFiles.forEach((file, index) => {
-        formData.append(`documents`, file);
-      });
+      // Adicionar o primeiro arquivo como 'document' (single file)
+      if (selectedFiles.length > 0) {
+        formData.append('document', selectedFiles[0]);
+      }
 
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
