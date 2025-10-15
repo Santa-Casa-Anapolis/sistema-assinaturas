@@ -101,11 +101,14 @@ app.set('trust proxy', 1);
 // Configuração do multer para upload de documentos
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    console.log('📁 Multer destination - Campo:', file.fieldname, 'Originalname:', file.originalname);
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    const filename = file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname);
+    console.log('📁 Multer filename - Campo:', file.fieldname, 'Filename gerado:', filename);
+    cb(null, filename);
   }
 });
 
@@ -126,7 +129,7 @@ const upload = multer({
         console.log('❌ Assinatura rejeitada - não é imagem');
         cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
       }
-    } else {
+    } else if (file.fieldname === 'document') {
       // Para documentos, permitir PDF e imagens
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
       if (allowedTypes.includes(file.mimetype)) {
@@ -136,6 +139,9 @@ const upload = multer({
         console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
         cb(new Error('Tipo de arquivo não permitido'), false);
       }
+    } else {
+      console.log('❌ Campo não reconhecido:', file.fieldname);
+      cb(new Error('Campo de arquivo não reconhecido'), false);
     }
   }
 });
@@ -158,7 +164,7 @@ const uploadWithFields = multer({
         console.log('❌ Assinatura rejeitada - não é imagem');
         cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
       }
-    } else {
+    } else if (file.fieldname === 'document') {
       // Para documentos, permitir PDF e imagens
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
       if (allowedTypes.includes(file.mimetype)) {
@@ -168,6 +174,9 @@ const uploadWithFields = multer({
         console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
         cb(new Error('Tipo de arquivo não permitido'), false);
       }
+    } else {
+      console.log('❌ Campo não reconhecido:', file.fieldname);
+      cb(new Error('Campo de arquivo não reconhecido'), false);
     }
   }
 });
@@ -741,11 +750,19 @@ app.post('/api/documents/upload', authenticateToken, uploadWithFields.fields([
       filename: file?.filename,
       originalname: file?.originalname,
       path: file?.path,
-      size: file?.size
+      size: file?.size,
+      fieldname: file?.fieldname
     });
 
     if (!file) {
+      console.log('❌ Nenhum arquivo encontrado em req.files:', req.files);
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+    }
+
+    // Verificar se o filename está definido
+    if (!file.filename) {
+      console.log('❌ Filename não definido, usando originalname:', file.originalname);
+      file.filename = file.originalname;
     }
 
     // Debug: Verificar dados antes de inserir
