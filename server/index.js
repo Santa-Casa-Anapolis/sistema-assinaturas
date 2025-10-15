@@ -115,19 +115,57 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB
   },
   fileFilter: (req, file, cb) => {
+    console.log('🔍 Multer fileFilter - Campo:', file.fieldname, 'Mimetype:', file.mimetype, 'Originalname:', file.originalname);
+    
     // Permitir apenas imagens para assinaturas
     if (file.fieldname === 'signature') {
       if (file.mimetype.startsWith('image/')) {
+        console.log('✅ Assinatura aceita');
         cb(null, true);
       } else {
+        console.log('❌ Assinatura rejeitada - não é imagem');
         cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
       }
     } else {
       // Para documentos, permitir PDF e imagens
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
       if (allowedTypes.includes(file.mimetype)) {
+        console.log('✅ Documento aceito');
         cb(null, true);
       } else {
+        console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
+        cb(new Error('Tipo de arquivo não permitido'), false);
+      }
+    }
+  }
+});
+
+// Configurar multer para aceitar campos adicionais
+const uploadWithFields = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('🔍 Multer fileFilter - Campo:', file.fieldname, 'Mimetype:', file.mimetype, 'Originalname:', file.originalname);
+    
+    // Permitir apenas imagens para assinaturas
+    if (file.fieldname === 'signature') {
+      if (file.mimetype.startsWith('image/')) {
+        console.log('✅ Assinatura aceita');
+        cb(null, true);
+      } else {
+        console.log('❌ Assinatura rejeitada - não é imagem');
+        cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
+      }
+    } else {
+      // Para documentos, permitir PDF e imagens
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (allowedTypes.includes(file.mimetype)) {
+        console.log('✅ Documento aceito');
+        cb(null, true);
+      } else {
+        console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
         cb(new Error('Tipo de arquivo não permitido'), false);
       }
     }
@@ -686,11 +724,18 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
 });
 
 // Upload de documento
-app.post('/api/documents/upload', authenticateToken, upload.single('document'), async (req, res) => {
+app.post('/api/documents/upload', authenticateToken, uploadWithFields.fields([
+  { name: 'document', maxCount: 1 },
+  { name: 'signature', maxCount: 1 }
+]), async (req, res) => {
   try {
     console.log('🔍 === ROTA /api/documents/upload CHAMADA ===');
+    console.log('📝 Debug REQ.BODY:', req.body);
+    console.log('📝 Debug REQ.FILES:', req.files);
+    console.log('📝 Debug REQ.USER:', req.user);
+    
     const { title, signers } = req.body;
-    const file = req.file;
+    const file = req.files?.document?.[0] || req.files?.signature?.[0];
 
     console.log('📁 Debug ROTA UPLOAD - Dados do arquivo:', {
       filename: file?.filename,
@@ -713,38 +758,55 @@ app.post('/api/documents/upload', authenticateToken, upload.single('document'), 
 
     // Inserir documento
     const result = await pool.query(
-      `INSERT INTO documents (title, file_path, original_filename, created_by) VALUES ($1, $2, $3, $4) RETURNING id`,
-      [title, file.filename, file.originalname, req.user.id]
+      `INSERT INTO documents (title, file_path, original_filename, created_by, sector, amount, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [title, file.filename, file.originalname, req.user.id, req.body.sector || req.user.sector, req.body.amount || null, req.body.description || null]
     );
 
     console.log('✅ Documento inserido com sucesso! ID:', result.rows[0].id);
 
     const documentId = result.rows[0].id;
 
-    // Criar fluxo de assinaturas baseado nos perfis
-    const signersArray = JSON.parse(signers);
-    const profileOrder = ['supervisor', 'contabilidade', 'financeiro', 'diretoria'];
+    // Criar fluxo de assinaturas baseado nos perfis (apenas se signers estiver presente)
+    console.log('📝 Debug SIGNERS - Raw signers:', signers);
     
-    // Ordenar signatários por perfil
-    const orderedSigners = signersArray.sort((a, b) => {
-      const aIndex = profileOrder.indexOf(a.profile);
-      const bIndex = profileOrder.indexOf(b.profile);
-      return aIndex - bIndex;
-    });
+    let signersArray = [];
+    if (signers && signers.trim() !== '') {
+      try {
+        signersArray = JSON.parse(signers);
+        console.log('📝 Debug SIGNERS - Parsed signers:', signersArray);
+        
+        const profileOrder = ['supervisor', 'contabilidade', 'financeiro', 'diretoria'];
+        
+        // Ordenar signatários por perfil
+        const orderedSigners = signersArray.sort((a, b) => {
+          const aIndex = profileOrder.indexOf(a.profile);
+          const bIndex = profileOrder.indexOf(b.profile);
+          return aIndex - bIndex;
+        });
 
-    for (const [index, signer] of orderedSigners.entries()) {
-      await pool.query(
-        `INSERT INTO signature_flow (document_id, user_id, order_index) VALUES ($1, $2, $3)`,
-        [documentId, signer.id, index + 1]
-      );
-    }
+        for (const [index, signer] of orderedSigners.entries()) {
+          await pool.query(
+            `INSERT INTO signature_flow (document_id, user_id, order_index) VALUES ($1, $2, $3)`,
+            [documentId, signer.id, index + 1]
+          );
+        }
 
-    // Enviar notificação para o primeiro signatário (ordenado por perfil)
-    const firstSigner = orderedSigners[0];
-    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [firstSigner.id]);
-    const user = userResult.rows[0];
-    if (user) {
-      sendNotificationEmail(user.email, title, documentId);
+        // Enviar notificação para o primeiro signatário (ordenado por perfil)
+        if (orderedSigners.length > 0) {
+          const firstSigner = orderedSigners[0];
+          const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [firstSigner.id]);
+          const user = userResult.rows[0];
+          if (user) {
+            sendNotificationEmail(user.email, title, documentId);
+          }
+        }
+      } catch (parseError) {
+        console.error('❌ Erro ao fazer parse dos signers:', parseError);
+        console.log('📝 Debug SIGNERS - Raw signers que causou erro:', signers);
+        return res.status(400).json({ error: 'Formato inválido dos signatários' });
+      }
+    } else {
+      console.log('📝 Debug SIGNERS - Nenhum signer enviado, pulando criação do fluxo de assinaturas');
     }
 
     await logAudit(req.user.id, 'DOCUMENT_UPLOAD', documentId, `Documento "${title}" enviado`, req.ip);
@@ -755,7 +817,8 @@ app.post('/api/documents/upload', authenticateToken, upload.single('document'), 
       filename: file.filename
     });
   } catch (error) {
-    console.error('Erro no upload:', error);
+    console.error('❌ Erro no upload:', error);
+    console.error('❌ Stack trace:', error.stack);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -2196,6 +2259,34 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
 // Rota de teste
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Sistema de Assinaturas funcionando' });
+});
+
+// Middleware de tratamento de erros do multer
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    console.error('❌ Erro do multer:', error);
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'Arquivo muito grande. Tamanho máximo permitido: 10MB' });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({ error: 'Muitos arquivos enviados' });
+    }
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ error: 'Campo de arquivo inesperado: ' + error.field });
+    }
+    return res.status(400).json({ error: 'Erro no upload do arquivo: ' + error.message });
+  }
+  
+  if (error.message === 'Tipo de arquivo não permitido') {
+    return res.status(400).json({ error: 'Tipo de arquivo não permitido. Apenas PDF e imagens são aceitos.' });
+  }
+  
+  if (error.message === 'Apenas arquivos de imagem são permitidos para assinaturas') {
+    return res.status(400).json({ error: 'Apenas arquivos de imagem são permitidos para assinaturas' });
+  }
+  
+  console.error('❌ Erro não tratado:', error);
+  res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
 // Iniciar servidor
