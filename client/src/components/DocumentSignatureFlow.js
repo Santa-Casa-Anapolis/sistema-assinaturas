@@ -327,8 +327,8 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
       context.fillText(text, x - textWidth/2, y - 10);
       
       // Texto de instrução
-      context.fillStyle = '#666';
-      context.font = '11px Arial';
+      context.fillStyle = '#333';
+      context.font = '10px Arial';
       const subText = 'Tome cuidado para não esconder uma informação importante do documento.';
       const subTextWidth = context.measureText(subText).width;
       
@@ -764,20 +764,15 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
           ✍️ Posicionar Assinatura
         </h2>
         
-        {/* Campo de Instruções para Posicionamento */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        {/* Dica Importante */}
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <div className="flex items-start space-x-3">
-            <div className="text-blue-600 text-xl">📍</div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-blue-800 mb-2">Área da assinatura</h4>
-              <p className="text-sm text-blue-700 mb-3">
-                Tome cuidado para não esconder uma informação importante do documento
+            <div className="text-yellow-600 text-xl">💡</div>
+            <div>
+              <h4 className="font-semibold text-yellow-800 mb-1">Dica:</h4>
+              <p className="text-sm text-yellow-700">
+                Não é necessário assinar cada página. Apenas uma assinatura garante a integridade de todo o documento.
               </p>
-              <div className="bg-white border border-blue-300 rounded-lg p-3">
-                <p className="text-xs text-gray-600">
-                  💡 <strong>Dica:</strong> Não é necessário assinar cada página. Apenas uma assinatura garante a integridade de todo o documento.
-                </p>
-              </div>
             </div>
           </div>
         </div>
