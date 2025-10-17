@@ -90,7 +90,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
         await fetchDocumentSignatures();
         setShowConfirmModal(false);
         if (onSignatureComplete) {
-          onSignatureComplete();
+          onSignatureComplete('completed');
         }
       } else {
         const error = await response.json();
@@ -123,7 +123,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
       if (response.ok) {
         toast.success('Processamento continuado sem assinatura');
         if (onSignatureComplete) {
-          onSignatureComplete();
+          onSignatureComplete('completed');
         }
       } else {
         const error = await response.json();

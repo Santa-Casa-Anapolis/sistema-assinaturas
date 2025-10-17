@@ -804,7 +804,40 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       // Converter imagem de assinatura para PNG
       const signatureImageBytes = await fetch(signatureImage).then(res => res.arrayBuffer());
-      const signaturePngImage = await pdfDoc.embedPng(signatureImageBytes);
+      
+      // Verificar se a imagem é PNG, se não for, converter
+      let signaturePngImage;
+      try {
+        signaturePngImage = await pdfDoc.embedPng(signatureImageBytes);
+      } catch (error) {
+        console.log('⚠️ Imagem não é PNG, convertendo...');
+        // Converter para PNG usando canvas
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = signatureImage;
+        });
+        
+        // Criar canvas para conversão
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Desenhar imagem no canvas
+        ctx.drawImage(img, 0, 0);
+        
+        // Converter para PNG
+        const pngDataUrl = canvas.toDataURL('image/png');
+        const pngResponse = await fetch(pngDataUrl);
+        const pngBytes = await pngResponse.arrayBuffer();
+        
+        // Tentar novamente com PNG
+        signaturePngImage = await pdfDoc.embedPng(pngBytes);
+      }
       
       // Obter dimensões do canvas uma vez só
       let canvasWidth = 800; // Valor padrão
@@ -892,7 +925,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         // Chamar callback para notificar que a assinatura foi concluída
         if (onSignatureComplete) {
-          onSignatureComplete();
+          onSignatureComplete('completed');
         }
       } else {
         const errorData = await uploadResponse.json();

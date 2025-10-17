@@ -153,10 +153,16 @@ const UploadDocument = () => {
     setTempDocumentId(null);
   };
 
-  const handleSignatureComplete = () => {
-    toast.success('Documento assinado e enviado com sucesso!');
-    setShowSignaturePositioning(false);
-    resetForm();
+  const handleSignatureComplete = (status) => {
+    if (status === 'cancelled') {
+      toast.info('Assinatura cancelada');
+      setShowSignaturePositioning(false);
+      resetForm();
+    } else {
+      toast.success('Documento assinado e enviado com sucesso!');
+      setShowSignaturePositioning(false);
+      resetForm();
+    }
   };
 
   const removeFile = (indexToRemove) => {
