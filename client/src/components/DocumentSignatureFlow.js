@@ -195,10 +195,26 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
         isRenderingRef.current = false;
       }
       
+      // Calcular scale para A4 (210mm x 297mm) - proporção 1:1.414
       const containerWidth = canvas.parentElement.clientWidth - 40;
+      const containerHeight = canvas.parentElement.clientHeight - 40;
       const pageViewport = page.getViewport({ scale: 1.0 });
-      const autoScale = Math.min(containerWidth / pageViewport.width, 1.2);
-      const finalScale = scale || Math.max(autoScale, 0.9);
+      
+      // Calcular scale baseado no tamanho A4
+      const a4Ratio = 297 / 210; // Proporção A4
+      const pageRatio = pageViewport.height / pageViewport.width;
+      
+      let autoScale;
+      if (pageRatio > a4Ratio) {
+        // Página é mais alta que A4, ajustar pela altura
+        autoScale = Math.min(containerHeight / pageViewport.height, 1.0);
+      } else {
+        // Página é mais larga que A4, ajustar pela largura
+        autoScale = Math.min(containerWidth / pageViewport.width, 1.0);
+      }
+      
+      // Garantir que o documento sempre encaixe na tela (A4)
+      const finalScale = scale || Math.max(autoScale, 0.7); // Mínimo 70% para A4
       const viewport = page.getViewport({ scale: finalScale });
       
       canvas.height = viewport.height;
@@ -258,43 +274,46 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
     if (currentPagePosition) {
       const { x, y } = currentPagePosition;
       
-      // Desenhar apenas a área destacada (sem preview da assinatura)
-      const signatureWidth = 120;
-      const signatureHeight = 60;
+      // Desenhar área da assinatura igual à imagem
+      const signatureWidth = 200;
+      const signatureHeight = 80;
       
-      // Fundo semi-transparente
-      context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      context.fillRect(x - signatureWidth/2 - 8, y - signatureHeight/2 - 8, signatureWidth + 16, signatureHeight + 16);
+      // Fundo branco com borda tracejada laranja
+      context.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      context.fillRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
       
-      // Borda tracejada laranja (como no gov.br)
+      // Borda tracejada laranja com brilho
       context.strokeStyle = '#ff6b35';
       context.lineWidth = 2;
       context.setLineDash([8, 4]);
-      context.strokeRect(x - signatureWidth/2 - 8, y - signatureHeight/2 - 8, signatureWidth + 16, signatureHeight + 16);
+      context.strokeRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
       context.setLineDash([]);
       
-      // Texto "Área da assinatura"
+      // Adicionar brilho alaranjado ao redor
+      context.shadowColor = '#ff6b35';
+      context.shadowBlur = 8;
+      context.shadowOffsetX = 0;
+      context.shadowOffsetY = 0;
+      context.strokeStyle = '#ff6b35';
+      context.lineWidth = 1;
+      context.strokeRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
+      context.shadowColor = 'transparent';
+      
+      // Texto "Área da assinatura" em negrito
       context.fillStyle = '#ff6b35';
-      context.font = 'bold 12px Arial';
+      context.font = 'bold 14px Arial';
       const text = 'Área da assinatura';
       const textWidth = context.measureText(text).width;
+      context.fillText(text, x - textWidth/2, y - 10);
       
-      // Fundo para o texto
-      context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      context.fillRect(x - textWidth/2 - 4, y - signatureHeight/2 - 25, textWidth + 8, 18);
-      
-      // Texto
-      context.fillStyle = '#ff6b35';
-      context.fillText(text, x - textWidth/2, y - signatureHeight/2 - 10);
-      
-      // Texto adicional
+      // Texto de instrução
       context.fillStyle = '#666';
-      context.font = '10px Arial';
+      context.font = '11px Arial';
       const subText = 'Tome cuidado para não esconder uma informação importante do documento.';
       const subTextWidth = context.measureText(subText).width;
       
-      // Quebrar texto se muito longo
-      if (subTextWidth > signatureWidth + 16) {
+      // Quebrar texto se necessário
+      if (subTextWidth > signatureWidth - 20) {
         const words = subText.split(' ');
         let line = '';
         let yOffset = 0;
@@ -303,8 +322,8 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
           const testLine = line + words[i] + ' ';
           const testWidth = context.measureText(testLine).width;
           
-          if (testWidth > signatureWidth + 16 && line !== '') {
-            context.fillText(line, x - context.measureText(line).width/2, y + signatureHeight/2 + 15 + yOffset);
+          if (testWidth > signatureWidth - 20 && line !== '') {
+            context.fillText(line, x - context.measureText(line).width/2, y + 15 + yOffset);
             line = words[i] + ' ';
             yOffset += 12;
           } else {
@@ -312,10 +331,10 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
           }
         }
         if (line !== '') {
-          context.fillText(line, x - context.measureText(line).width/2, y + signatureHeight/2 + 15 + yOffset);
+          context.fillText(line, x - context.measureText(line).width/2, y + 15 + yOffset);
         }
       } else {
-        context.fillText(subText, x - subTextWidth/2, y + signatureHeight/2 + 15);
+        context.fillText(subText, x - subTextWidth/2, y + 15);
       }
     }
     
