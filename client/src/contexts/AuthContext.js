@@ -76,6 +76,31 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  // Limpar dados quando a aba for fechada
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      console.log('🔐 Aba sendo fechada, limpando dados de autenticação...');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    };
+
+    const handlePageHide = () => {
+      console.log('🔐 Página sendo ocultada, limpando dados de autenticação...');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    };
+
+    // Adicionar listeners para detectar fechamento da aba
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+
+    // Cleanup dos listeners
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, []);
+
   const login = async (username, password) => {
     try {
       const response = await axios.post('/api/auth/login', { username, password });
