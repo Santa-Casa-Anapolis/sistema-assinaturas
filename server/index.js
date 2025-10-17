@@ -294,6 +294,24 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
 
 // Rotas de autenticação
 
+// Rota para verificar se o token é válido
+app.get('/api/auth/verify', authenticateToken, async (req, res) => {
+  try {
+    // Se chegou até aqui, o token é válido
+    res.json({ 
+      valid: true, 
+      user: {
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Erro na verificação do token:', error);
+    res.status(401).json({ valid: false, error: 'Token inválido' });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;

@@ -19,39 +19,61 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há token salvo e se é válido
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    
-    if (token && savedUser) {
-      try {
-        // Verificar se o token não expirou
-        const userData = JSON.parse(savedUser);
-        const now = Date.now();
-        
-        // Se o token tem exp (expiration), verificar se não expirou
-        if (userData.exp && userData.exp * 1000 < now) {
-          console.log('🔐 Token expirado, limpando dados...');
+    // Função assíncrona para verificar token
+    const checkAuth = async () => {
+      // Verificar se há token salvo e se é válido
+      const token = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      
+      if (token && savedUser) {
+        try {
+          // Verificar se o token não expirou
+          const userData = JSON.parse(savedUser);
+          const now = Date.now();
+          
+          // Se o token tem exp (expiration), verificar se não expirou
+          if (userData.exp && userData.exp * 1000 < now) {
+            console.log('🔐 Token expirado, limpando dados...');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+          } else {
+            console.log('🔐 Token válido, carregando usuário...');
+            setUser(userData);
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            
+            // Verificar se o token ainda é válido fazendo uma requisição de teste
+            try {
+              const testResponse = await axios.get('/api/auth/verify', {
+                timeout: 5000 // 5 segundos de timeout
+              });
+              if (testResponse.status !== 200) {
+                throw new Error('Token inválido');
+              }
+              console.log('✅ Token verificado com sucesso');
+            } catch (verifyError) {
+              console.log('❌ Token inválido na verificação, limpando dados...');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setUser(null);
+              delete axios.defaults.headers.common['Authorization'];
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erro ao carregar dados do usuário:', error);
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setUser(null);
-        } else {
-          console.log('🔐 Token válido, carregando usuário...');
-          setUser(userData);
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
-      } catch (error) {
-        console.error('❌ Erro ao carregar dados do usuário:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+      } else {
+        console.log('🔐 Nenhum token encontrado');
         setUser(null);
       }
-    } else {
-      console.log('🔐 Nenhum token encontrado');
-      setUser(null);
-    }
+      
+      setLoading(false);
+    };
     
-    setLoading(false);
+    checkAuth();
   }, []);
 
   const login = async (username, password) => {
