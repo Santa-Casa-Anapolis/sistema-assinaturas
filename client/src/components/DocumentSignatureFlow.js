@@ -434,24 +434,28 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
   };
 
   const handleCanvasMouseMove = (event) => {
-    if (!isDragging || !signaturePositions[currentPage]) return;
-
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Atualizar posição da área da assinatura
-    const newX = x - dragOffset.x;
-    const newY = y - dragOffset.y;
+    // Se está arrastando uma assinatura existente
+    if (isDragging && signaturePositions[currentPage]) {
+      // Atualizar posição da área da assinatura
+      const newX = x - dragOffset.x;
+      const newY = y - dragOffset.y;
 
-    setSignaturePositions(prev => ({
-      ...prev,
-      [currentPage]: { x: newX, y: newY }
-    }));
+      setSignaturePositions(prev => ({
+        ...prev,
+        [currentPage]: { x: newX, y: newY }
+      }));
 
-    // Redesenhar com nova posição
-    drawSignatureMarkersOnCanvas();
+      // Redesenhar com nova posição
+      drawSignatureMarkersOnCanvas();
+    } else {
+      // Mostrar preview da área da assinatura durante o movimento do mouse
+      drawSignaturePreview(x, y);
+    }
   };
 
   const handleCanvasMouseUp = () => {
@@ -476,6 +480,77 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
         drawSignatureMarkersOnCanvas();
       }
     }
+  };
+
+  const drawSignaturePreview = (x, y) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const context = canvas.getContext('2d');
+    context.save();
+    
+    // Limpar área do preview anterior
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Redesenhar página
+    if (pdfDocument) {
+      renderPage(currentPage);
+    }
+    
+    // Desenhar preview da área da assinatura
+    const signatureWidth = 200;
+    const signatureHeight = 80;
+    
+    // Fundo branco com borda tracejada laranja
+    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    context.fillRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
+    
+    // Borda tracejada laranja
+    context.strokeStyle = '#ff6b35';
+    context.lineWidth = 2;
+    context.setLineDash([8, 4]);
+    context.strokeRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
+    context.setLineDash([]);
+    
+    // Texto "Área da assinatura" em negrito
+    context.fillStyle = '#ff6b35';
+    context.font = 'bold 14px Arial';
+    const text = 'Área da assinatura';
+    const textWidth = context.measureText(text).width;
+    context.fillText(text, x - textWidth/2, y - 10);
+    
+    // Texto de instrução
+    context.fillStyle = '#333';
+    context.font = '10px Arial';
+    const subText = 'Tome cuidado para não esconder uma informação importante do documento.';
+    const subTextWidth = context.measureText(subText).width;
+    
+    // Quebrar texto se necessário
+    if (subTextWidth > signatureWidth - 20) {
+      const words = subText.split(' ');
+      let line = '';
+      let yOffset = 0;
+      
+      for (let i = 0; i < words.length; i++) {
+        const testLine = line + words[i] + ' ';
+        const testWidth = context.measureText(testLine).width;
+        
+        if (testWidth > signatureWidth - 20 && line !== '') {
+          context.fillText(line, x - context.measureText(line).width/2, y + 15 + yOffset);
+          line = words[i] + ' ';
+          yOffset += 12;
+        } else {
+          line = testLine;
+        }
+      }
+      if (line !== '') {
+        context.fillText(line, x - context.measureText(line).width/2, y + 15 + yOffset);
+      }
+    } else {
+      context.fillText(subText, x - subTextWidth/2, y + 15);
+    }
+    
+    context.restore();
   };
 
   const showClickFeedback = (x, y) => {
