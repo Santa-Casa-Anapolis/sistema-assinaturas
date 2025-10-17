@@ -44,57 +44,63 @@ function App() {
         <Router>
           <div className="App">
             <ThemeToggle />
-            <Header />
-            <main className="container mx-auto px-4 py-8">
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/upload" element={
-                  <ProtectedRoute>
-                    <UploadDocument />
-                  </ProtectedRoute>
-                } />
-                <Route path="/pending" element={
-                  <ProtectedRoute>
-                    <PendingSignatures />
-                  </ProtectedRoute>
-                } />
-                <Route path="/my-documents" element={
-                  <ProtectedRoute>
-                    <MyDocuments />
-                  </ProtectedRoute>
-                } />
-                <Route path="/sign/:id" element={
-                  <ProtectedRoute>
-                    <DocumentSign />
-                  </ProtectedRoute>
-                } />
-                <Route path="/audit/:id" element={
-                  <ProtectedRoute>
-                    <AuditLog />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin" element={
-                  <ProtectedRoute>
-                    <AdminConfig />
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin-panel" element={
-                  <AdminRoute>
-                    <AdminPanel />
-                  </AdminRoute>
-                } />
-                <Route path="/flow" element={
-                  <ProtectedRoute>
-                    <DocumentFlow />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </main>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/*" element={
+                <>
+                  <Header />
+                  <main className="container mx-auto px-4 py-8">
+                    <Routes>
+                      <Route path="/" element={
+                        <ProtectedRoute>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/upload" element={
+                        <ProtectedRoute>
+                          <UploadDocument />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/pending" element={
+                        <ProtectedRoute>
+                          <PendingSignatures />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/my-documents" element={
+                        <ProtectedRoute>
+                          <MyDocuments />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/sign/:id" element={
+                        <ProtectedRoute>
+                          <DocumentSign />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/audit/:id" element={
+                        <ProtectedRoute>
+                          <AuditLog />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/admin" element={
+                        <ProtectedRoute>
+                          <AdminConfig />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/admin-panel" element={
+                        <AdminRoute>
+                          <AdminPanel />
+                        </AdminRoute>
+                      } />
+                      <Route path="/flow" element={
+                        <ProtectedRoute>
+                          <DocumentFlow />
+                        </ProtectedRoute>
+                      } />
+                    </Routes>
+                  </main>
+                </>
+              } />
+            </Routes>
             <ToastContainer position="top-right" autoClose={3000} />
           </div>
         </Router>
