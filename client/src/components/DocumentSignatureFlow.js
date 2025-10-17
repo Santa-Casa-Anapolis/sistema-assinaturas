@@ -19,6 +19,8 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
   const [scale, setScale] = useState(1.0);
   const [isRendering, setIsRendering] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -278,6 +280,15 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
       const signatureWidth = 200;
       const signatureHeight = 80;
       
+      // Efeito visual durante o drag
+      if (isDragging) {
+        context.globalAlpha = 0.8;
+        context.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        context.shadowBlur = 10;
+        context.shadowOffsetX = 2;
+        context.shadowOffsetY = 2;
+      }
+      
       // Fundo branco com borda tracejada laranja
       context.fillStyle = 'rgba(255, 255, 255, 0.95)';
       context.fillRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
@@ -298,6 +309,15 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
       context.lineWidth = 1;
       context.strokeRect(x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
       context.shadowColor = 'transparent';
+      
+      // Resetar efeitos visuais
+      if (isDragging) {
+        context.globalAlpha = 1;
+        context.shadowColor = 'transparent';
+        context.shadowBlur = 0;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 0;
+      }
       
       // Texto "Área da assinatura" em negrito
       context.fillStyle = '#ff6b35';
@@ -381,8 +401,8 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
     context.shadowOffsetY = 0;
   };
 
-  // ETAPA 3: Posicionamento de assinatura
-  const handleCanvasClick = (event) => {
+  // ETAPA 3: Posicionamento de assinatura (drag & drop)
+  const handleCanvasMouseDown = (event) => {
     if (!signatureImage) {
       toast.warning('Assinatura não encontrada. Entre em contato com o administrador.');
       return;
@@ -395,17 +415,66 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
 
     const existingPosition = signaturePositions[currentPage];
     if (existingPosition) {
-      removeSignaturePosition(currentPage);
-      toast.info(`Assinatura removida da página ${currentPage}`);
-      drawSignatureMarkersOnCanvas();
+      // Iniciar drag da área existente
+      setIsDragging(true);
+      setDragOffset({
+        x: x - existingPosition.x,
+        y: y - existingPosition.y
+      });
     } else {
+      // Criar nova área da assinatura
       setSignaturePositions(prev => ({
         ...prev,
         [currentPage]: { x, y }
       }));
       showClickFeedback(x, y);
       setTimeout(() => drawSignatureMarkersOnCanvas(), 50);
-      toast.success(`Assinatura marcada na página ${currentPage}`);
+      toast.success(`Área da assinatura criada na página ${currentPage}`);
+    }
+  };
+
+  const handleCanvasMouseMove = (event) => {
+    if (!isDragging || !signaturePositions[currentPage]) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Atualizar posição da área da assinatura
+    const newX = x - dragOffset.x;
+    const newY = y - dragOffset.y;
+
+    setSignaturePositions(prev => ({
+      ...prev,
+      [currentPage]: { x: newX, y: newY }
+    }));
+
+    // Redesenhar com nova posição
+    drawSignatureMarkersOnCanvas();
+  };
+
+  const handleCanvasMouseUp = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      toast.info('Área da assinatura reposicionada');
+    }
+  };
+
+  const handleCanvasClick = (event) => {
+    // Se não está arrastando, apenas clicar para criar/remover
+    if (!isDragging) {
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      const existingPosition = signaturePositions[currentPage];
+      if (existingPosition) {
+        removeSignaturePosition(currentPage);
+        toast.info(`Área da assinatura removida da página ${currentPage}`);
+        drawSignatureMarkersOnCanvas();
+      }
     }
   };
 
@@ -797,22 +866,27 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
             <div className="mb-4">
               <p className="text-gray-600 mb-2">
                 {signatureImage 
-                  ? `Clique no documento para reposicionar a assinatura`
+                  ? `Clique para criar a área da assinatura ou arraste para reposicionar`
                   : 'Aguardando carregamento da assinatura...'
                 }
               </p>
               {signaturePositions[currentPage] && (
                 <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
                   <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                  Área da assinatura marcada
+                  Área da assinatura marcada - arraste para reposicionar
                 </div>
               )}
             </div>
             <div className="relative">
               <canvas
                 ref={canvasRef}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
                 onClick={handleCanvasClick}
-                className="border border-gray-300 cursor-crosshair max-w-full h-auto"
+                className={`border border-gray-300 max-w-full h-auto ${
+                  isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                }`}
                 style={{ 
                   backgroundColor: '#f9f9f9',
                   minHeight: '600px',
