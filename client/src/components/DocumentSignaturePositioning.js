@@ -11,7 +11,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
-  const [scale, setScale] = useState(1.0);
+  const [scale, setScale] = useState(0.75); // Iniciar em 75% para melhor visualização
   // eslint-disable-next-line no-unused-vars
   const [mousePosition, setMousePosition] = useState(null);
   // eslint-disable-next-line no-unused-vars
@@ -274,13 +274,12 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         isRenderingRef.current = false;
       }
       
-      // Calcular scale automático baseado no container (otimizado)
+      // Calcular scale automático baseado no container (otimizado para performance)
       const containerWidth = canvas.parentElement.clientWidth - 40; // 40px de padding
       const pageViewport = page.getViewport({ scale: 1.0 });
       
-      // Scale mais conservador para melhor performance
-      const autoScale = Math.min(containerWidth / pageViewport.width, 1.5); // Máximo 1.5x (reduzido de 2x)
-      const finalScale = Math.max(autoScale, 0.8); // Mínimo 0.8x (aumentado de 0.5x)
+      // Scale fixo em 75% para melhor performance e visualização
+      const finalScale = scale || 0.75; // Usar scale do estado ou 0.75 como padrão
       const viewport = page.getViewport({ scale: finalScale });
       
       // Redimensionar canvas
@@ -519,8 +518,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Mostrar feedback visual imediato
       showClickFeedback(x, y);
 
-      // Redesenhar marcadores imediatamente (sem delay)
-      drawSignatureMarkersOnCanvas();
+      // Redesenhar marcadores com pequeno delay para melhor performance
+      setTimeout(() => drawSignatureMarkersOnCanvas(), 50);
 
     toast.success(`Assinatura marcada na página ${currentPage}`);
     }
@@ -571,35 +570,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const lastMousePositionRef = useRef(null);
   
   const handleMouseMove = (event) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !signatureImage) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    // Evitar processamento se a posição não mudou significativamente
-    const lastPos = lastMousePositionRef.current;
-    if (lastPos && Math.abs(lastPos.x - x) < 3 && Math.abs(lastPos.y - y) < 3) {
-      return;
-    }
-    
-    lastMousePositionRef.current = { x, y };
-    
-    // Throttle otimizado com requestAnimationFrame
-    if (mouseMoveThrottleRef.current) {
-      return;
-    }
-    
-    mouseMoveThrottleRef.current = requestAnimationFrame(() => {
-      setMousePosition({ x, y });
-      setShowSignaturePreview(true);
-      
-      // Redesenhar marcadores com preview
-      drawSignatureMarkersWithPreview(x, y);
-      
-      mouseMoveThrottleRef.current = null;
-    });
+    // DESABILITADO para melhor performance - preview consome muitos recursos
+    // O usuário verá a assinatura apenas após clicar
+    return;
   };
 
   const handleMouseLeave = () => {
