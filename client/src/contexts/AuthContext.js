@@ -19,13 +19,36 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há token salvo
+    // Verificar se há token salvo e se é válido
     const token = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
     
     if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      try {
+        // Verificar se o token não expirou
+        const userData = JSON.parse(savedUser);
+        const now = Date.now();
+        
+        // Se o token tem exp (expiration), verificar se não expirou
+        if (userData.exp && userData.exp * 1000 < now) {
+          console.log('🔐 Token expirado, limpando dados...');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+        } else {
+          console.log('🔐 Token válido, carregando usuário...');
+          setUser(userData);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar dados do usuário:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+    } else {
+      console.log('🔐 Nenhum token encontrado');
+      setUser(null);
     }
     
     setLoading(false);

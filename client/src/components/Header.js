@@ -13,10 +13,14 @@ import {
 } from 'lucide-react';
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const location = useLocation();
 
-  if (!user) return null;
+  // Não renderizar se estiver carregando ou se não há usuário
+  if (loading || !user) return null;
+  
+  // Não renderizar na página de login
+  if (location.pathname === '/login') return null;
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
