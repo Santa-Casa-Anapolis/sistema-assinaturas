@@ -340,54 +340,100 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const drawSignatureAtPosition = (context, img, x, y) => {
     const signatureWidth = 120;
     const signatureHeight = (img.height * signatureWidth) / img.width;
-            
-            // Desenhar fundo semi-transparente
-            context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
-            
-            // Desenhar a assinatura
-            context.drawImage(img, x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
-            
-            // Desenhar borda verde ao redor
-            context.strokeStyle = '#10B981';
-            context.lineWidth = 2;
-            context.strokeRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
-            
-            // Desenhar texto "Assinatura"
-            context.fillStyle = '#10B981';
-            context.font = 'bold 12px Arial';
-            context.fillText('✓ Assinatura', x - signatureWidth/2, y - signatureHeight/2 - 10);
-          };
+    
+    // Desenhar sombra para melhor visibilidade
+    context.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    context.shadowBlur = 4;
+    context.shadowOffsetX = 2;
+    context.shadowOffsetY = 2;
+    
+    // Desenhar fundo semi-transparente com borda mais destacada
+    context.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    context.fillRect(x - signatureWidth/2 - 8, y - signatureHeight/2 - 8, signatureWidth + 16, signatureHeight + 16);
+    
+    // Desenhar a assinatura
+    context.drawImage(img, x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
+    
+    // Desenhar borda dupla para melhor visibilidade
+    context.shadowColor = 'transparent';
+    context.strokeStyle = '#10B981';
+    context.lineWidth = 3;
+    context.strokeRect(x - signatureWidth/2 - 8, y - signatureHeight/2 - 8, signatureWidth + 16, signatureHeight + 16);
+    
+    // Borda interna
+    context.strokeStyle = '#059669';
+    context.lineWidth = 1;
+    context.strokeRect(x - signatureWidth/2 - 6, y - signatureHeight/2 - 6, signatureWidth + 12, signatureHeight + 12);
+    
+    // Desenhar texto "Assinatura" com fundo
+    context.fillStyle = '#10B981';
+    context.font = 'bold 14px Arial';
+    const text = '✓ Assinatura';
+    const textWidth = context.measureText(text).width;
+    
+    // Fundo para o texto
+    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    context.fillRect(x - textWidth/2 - 4, y - signatureHeight/2 - 25, textWidth + 8, 18);
+    
+    // Texto
+    context.fillStyle = '#10B981';
+    context.fillText(text, x - textWidth/2, y - signatureHeight/2 - 10);
+    
+    // Resetar sombra
+    context.shadowColor = 'transparent';
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+  };
   
   const drawSignaturePreview = (context, img, x, y) => {
     const signatureWidth = 120;
     const signatureHeight = (img.height * signatureWidth) / img.width;
     
-    // Desenhar preview semi-transparente
-    context.globalAlpha = 0.6;
-    context.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+    // Desenhar sombra para o preview
+    context.shadowColor = 'rgba(0, 0, 0, 0.2)';
+    context.shadowBlur = 3;
+    context.shadowOffsetX = 1;
+    context.shadowOffsetY = 1;
+    
+    // Desenhar preview semi-transparente com fundo mais visível
+    context.globalAlpha = 0.7;
+    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    context.fillRect(x - signatureWidth/2 - 8, y - signatureHeight/2 - 8, signatureWidth + 16, signatureHeight + 16);
     
     // Desenhar a assinatura
-    context.globalAlpha = 0.7;
+    context.globalAlpha = 0.8;
     context.drawImage(img, x - signatureWidth/2, y - signatureHeight/2, signatureWidth, signatureHeight);
     
-    // Desenhar borda tracejada
+    // Desenhar borda tracejada mais visível
     context.globalAlpha = 0.9;
+    context.shadowColor = 'transparent';
     context.strokeStyle = '#10B981';
-          context.lineWidth = 2;
-    context.setLineDash([5, 5]);
-    context.strokeRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, signatureWidth + 10, signatureHeight + 10);
+    context.lineWidth = 3;
+    context.setLineDash([8, 4]);
+    context.strokeRect(x - signatureWidth/2 - 8, y - signatureHeight/2 - 8, signatureWidth + 16, signatureHeight + 16);
     context.setLineDash([]);
     
-    // Desenhar texto "Preview"
+    // Desenhar texto "Preview" com fundo
     context.fillStyle = '#10B981';
-    context.font = 'bold 12px Arial';
-    context.fillText('👁️ Preview', x - signatureWidth/2, y - signatureHeight/2 - 10);
+    context.font = 'bold 14px Arial';
+    const text = '👁️ Preview';
+    const textWidth = context.measureText(text).width;
+    
+    // Fundo para o texto
+    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    context.fillRect(x - textWidth/2 - 4, y - signatureHeight/2 - 25, textWidth + 8, 18);
+    
+    // Texto
+    context.fillStyle = '#10B981';
+    context.fillText(text, x - textWidth/2, y - signatureHeight/2 - 10);
     
     // Restaurar estado
     context.globalAlpha = 1;
-    context.restore();
+    context.shadowColor = 'transparent';
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
   };
 
 
@@ -814,7 +860,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   // Mostrar prévia do documento primeiro
   if (showPreview && documentInfo) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-bold mb-6 text-gray-900">
             📄 Visualizar Documento Antes de Assinar
@@ -847,6 +893,82 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                 <p className="text-blue-700">{documentInfo.description}</p>
               </div>
             )}
+          </div>
+
+          {/* Visualização do PDF */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">📄 Visualização do Documento</h3>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <p className="text-gray-600">Carregando documento...</p>
+                </div>
+              ) : pdfDocument ? (
+                <div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <button
+                        onClick={prevPage}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 bg-gray-300 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-400"
+                      >
+                        ← Anterior
+                      </button>
+                      <span className="text-sm font-medium text-gray-700">
+                        Página {currentPage} de {totalPages}
+                      </span>
+                      <button
+                        onClick={nextPage}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 bg-gray-300 text-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-400"
+                      >
+                        Próxima →
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setScale(Math.max(0.5, scale - 0.25))}
+                        className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                      >
+                        -
+                      </button>
+                      <span className="text-sm text-gray-700">
+                        {Math.round(scale * 100)}%
+                      </span>
+                      <button
+                        onClick={() => setScale(Math.min(3, scale + 0.25))}
+                        className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <canvas
+                    ref={canvasRef}
+                    className="border border-gray-300 max-w-full h-auto mx-auto"
+                    style={{ 
+                      backgroundColor: '#f9f9f9',
+                      minHeight: '600px',
+                      width: '100%'
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                  <div className="text-gray-400 text-6xl">📄</div>
+                  <p className="text-gray-600">Documento não carregado</p>
+                  <button
+                    onClick={loadPdf}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Tentar Carregar Novamente
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Aviso Importante */}
