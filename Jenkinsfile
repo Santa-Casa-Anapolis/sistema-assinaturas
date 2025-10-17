@@ -26,6 +26,51 @@ pipeline {
             }
         }
         
+        stage('🔍 Diagnóstico Docker') {
+            steps {
+                echo '🔍 Executando diagnóstico do Docker...'
+                sh '''
+                    echo "🔍 DIAGNÓSTICO DO DOCKER NO JENKINS"
+                    echo "=================================="
+                    
+                    echo ""
+                    echo "📋 1. Verificando se Docker está instalado:"
+                    which docker || echo "❌ Docker não encontrado no PATH"
+                    
+                    echo ""
+                    echo "📋 2. Verificando versão do Docker:"
+                    docker --version || echo "❌ Docker não está funcionando"
+                    
+                    echo ""
+                    echo "📋 3. Verificando se Docker está rodando:"
+                    docker info || echo "❌ Docker daemon não está rodando"
+                    
+                    echo ""
+                    echo "📋 4. Verificando permissões do usuário:"
+                    whoami
+                    groups
+                    
+                    echo ""
+                    echo "📋 5. Verificando caminhos alternativos do Docker:"
+                    ls -la /usr/bin/docker || echo "❌ /usr/bin/docker não existe"
+                    ls -la /usr/local/bin/docker || echo "❌ /usr/local/bin/docker não existe"
+                    ls -la /snap/bin/docker || echo "❌ /snap/bin/docker não existe"
+                    
+                    echo ""
+                    echo "📋 6. Verificando variáveis de ambiente:"
+                    echo "PATH: $PATH"
+                    echo "DOCKER_HOST: $DOCKER_HOST"
+                    
+                    echo ""
+                    echo "📋 7. Verificando processos Docker:"
+                    ps aux | grep docker || echo "❌ Nenhum processo Docker encontrado"
+                    
+                    echo ""
+                    echo "✅ Diagnóstico concluído!"
+                '''
+            }
+        }
+        
         stage('🐳 Build Docker Images') {
             steps {
                 echo '🐳 Fazendo build das imagens Docker...'
