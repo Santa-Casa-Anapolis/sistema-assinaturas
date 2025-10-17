@@ -11,7 +11,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
-  const [scale, setScale] = useState(0.75); // Iniciar em 75% para melhor visualização
+  const [scale, setScale] = useState(1.0); // Iniciar em 100% para melhor visualização
   // eslint-disable-next-line no-unused-vars
   const [mousePosition, setMousePosition] = useState(null);
   // eslint-disable-next-line no-unused-vars
@@ -274,12 +274,13 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         isRenderingRef.current = false;
       }
       
-      // Calcular scale automático baseado no container (otimizado para performance)
+      // Calcular scale automático baseado no container para melhor encaixe
       const containerWidth = canvas.parentElement.clientWidth - 40; // 40px de padding
       const pageViewport = page.getViewport({ scale: 1.0 });
       
-      // Scale fixo em 75% para melhor performance e visualização
-      const finalScale = scale || 0.75; // Usar scale do estado ou 0.75 como padrão
+      // Calcular scale automático para encaixar bem na tela
+      const autoScale = Math.min(containerWidth / pageViewport.width, 1.2); // Máximo 120%
+      const finalScale = scale || Math.max(autoScale, 0.9); // Mínimo 90% para boa visualização
       const viewport = page.getViewport({ scale: finalScale });
       
       // Redimensionar canvas
@@ -1094,7 +1095,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
             {/* Controles de Zoom */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setScale(Math.max(0.5, scale - 0.25))}
+                onClick={() => {
+                  const newScale = Math.max(0.5, scale - 0.1);
+                  setScale(newScale);
+                  renderPage(currentPage);
+                }}
                 className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
               >
                 -
@@ -1103,10 +1108,23 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                 {Math.round(scale * 100)}%
               </span>
               <button
-                onClick={() => setScale(Math.min(3, scale + 0.25))}
+                onClick={() => {
+                  const newScale = Math.min(2.0, scale + 0.1);
+                  setScale(newScale);
+                  renderPage(currentPage);
+                }}
                 className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
               >
                 +
+              </button>
+              <button
+                onClick={() => {
+                  setScale(1.0);
+                  renderPage(currentPage);
+                }}
+                className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+              >
+                Reset
               </button>
             </div>
             
