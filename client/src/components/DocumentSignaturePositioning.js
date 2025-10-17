@@ -12,6 +12,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
   const [scale, setScale] = useState(1.0); // Iniciar em 100% para melhor visualização
+  const [isRendering, setIsRendering] = useState(false); // Estado para mostrar quando está renderizando
   // eslint-disable-next-line no-unused-vars
   const [mousePosition, setMousePosition] = useState(null);
   // eslint-disable-next-line no-unused-vars
@@ -112,6 +113,58 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       }
     };
   }, [scale, pdfDocument, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Atalhos de teclado para melhor experiência
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      // Evitar atalhos quando estiver digitando em inputs
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      switch (event.key) {
+        case '+':
+        case '=':
+          event.preventDefault();
+          if (!isRendering) {
+            const newScale = Math.min(2.0, scale + 0.1);
+            setScale(newScale);
+            renderPage(currentPage);
+          }
+          break;
+        case '-':
+          event.preventDefault();
+          if (!isRendering) {
+            const newScale = Math.max(0.5, scale - 0.1);
+            setScale(newScale);
+            renderPage(currentPage);
+          }
+          break;
+        case '0':
+          event.preventDefault();
+          if (!isRendering) {
+            setScale(1.0);
+            renderPage(currentPage);
+          }
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (currentPage > 1) {
+            prevPage();
+          }
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (currentPage < totalPages) {
+            nextPage();
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [scale, currentPage, totalPages, isRendering]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPdf = async () => {
     try {
@@ -257,6 +310,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     if (!pdfDocument) return;
     
     try {
+      setIsRendering(true); // Mostrar que está renderizando
       const page = await pdfDocument.getPage(pageNum);
       const canvas = canvasRef.current;
       
@@ -331,6 +385,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       }
       console.error('Erro ao renderizar página:', error);
       toast.error('Erro ao renderizar página');
+    } finally {
+      setIsRendering(false); // Sempre parar o indicador de renderização
     }
   };
 
@@ -1100,12 +1156,14 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                   setScale(newScale);
                   renderPage(currentPage);
                 }}
-                className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                disabled={isRendering}
+                className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 -
               </button>
               <span className="text-sm" style={{color: 'var(--text-primary)'}}>
                 {Math.round(scale * 100)}%
+                {isRendering && <span className="ml-2 text-blue-600">🔄</span>}
               </span>
               <button
                 onClick={() => {
@@ -1113,7 +1171,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                   setScale(newScale);
                   renderPage(currentPage);
                 }}
-                className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                disabled={isRendering}
+                className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 +
               </button>
@@ -1122,7 +1181,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                   setScale(1.0);
                   renderPage(currentPage);
                 }}
-                className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs"
+                disabled={isRendering}
+                className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Reset
               </button>
@@ -1156,18 +1216,28 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                 </div>
               )}
             </div>
-            <canvas
-              ref={canvasRef}
-              onClick={handleCanvasClick}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-              className="border border-gray-300 cursor-crosshair max-w-full h-auto"
-              style={{ 
-                backgroundColor: '#f9f9f9',
-                minHeight: '600px',
-                width: '100%'
-              }}
-            />
+            <div className="relative">
+              <canvas
+                ref={canvasRef}
+                onClick={handleCanvasClick}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+                className="border border-gray-300 cursor-crosshair max-w-full h-auto"
+                style={{ 
+                  backgroundColor: '#f9f9f9',
+                  minHeight: '600px',
+                  width: '100%'
+                }}
+              />
+              {isRendering && (
+                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+                  <div className="flex flex-col items-center space-y-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span className="text-sm text-gray-600">Renderizando página...</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1177,13 +1247,22 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
             📝 Como posicionar a assinatura:
           </h3>
           <ul className="text-sm text-blue-700 space-y-1">
-            <li>• <strong>Mova o mouse</strong> sobre o documento para ver um preview da assinatura</li>
             <li>• <strong>Clique no local desejado</strong> na página para marcar onde a assinatura deve aparecer</li>
             <li>• <strong>Clique novamente</strong> no mesmo local para remover a assinatura</li>
             <li>• <strong>Use o zoom</strong> para posicionar com mais precisão</li>
             <li>• <strong>Navegue entre as páginas</strong> para assinar em múltiplas páginas se necessário</li>
             <li>• <strong>A assinatura aparecerá apenas nas páginas marcadas</strong> (não se repetirá em todas)</li>
           </ul>
+          
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
+            <h4 className="font-semibold text-green-800 mb-2">⌨️ Atalhos de Teclado:</h4>
+            <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
+              <div><strong>+ / =</strong> - Aumentar zoom</div>
+              <div><strong>-</strong> - Diminuir zoom</div>
+              <div><strong>0</strong> - Resetar zoom (100%)</div>
+              <div><strong>← →</strong> - Navegar páginas</div>
+            </div>
+          </div>
         </div>
 
         {/* Status das Páginas */}
