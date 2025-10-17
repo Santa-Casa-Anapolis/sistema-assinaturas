@@ -49,8 +49,42 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
   // Configurar PDF.js
   useEffect(() => {
-    // Configurar o worker do PDF.js usando o arquivo local
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+    // Configurar o worker do PDF.js
+    // Tentar múltiplas opções para garantir que funcione
+    const workerOptions = [
+      `${window.location.origin}/pdf.worker.min.js`,
+      '/pdf.worker.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+      'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+    ];
+    
+    // Tentar cada opção até encontrar uma que funcione
+    const tryWorker = async (index = 0) => {
+      if (index >= workerOptions.length) {
+        console.error('❌ Nenhum worker do PDF.js funcionou');
+        toast.error('Erro ao carregar PDF.js. Recarregue a página.');
+        return;
+      }
+      
+      const workerSrc = workerOptions[index];
+      console.log(`🔧 Tentando PDF.js Worker ${index + 1}/${workerOptions.length}:`, workerSrc);
+      
+      try {
+        // Testar se o worker está acessível
+        const response = await fetch(workerSrc, { method: 'HEAD' });
+        if (response.ok) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+          console.log('✅ PDF.js Worker configurado com sucesso:', workerSrc);
+        } else {
+          throw new Error('Worker não acessível');
+        }
+      } catch (error) {
+        console.log(`❌ Worker ${index + 1} falhou:`, error.message);
+        tryWorker(index + 1);
+      }
+    };
+    
+    tryWorker();
   }, []);
 
   // Carregar informações do documento, PDF e assinatura quando o componente monta
@@ -122,6 +156,24 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         if (response.status === 404) {
           toast.error('Documento não encontrado. Verifique se o documento existe e se você tem permissão para acessá-lo.');
+          console.log('🔍 Tentando carregar documento alternativo...');
+          // Tentar carregar documento alternativo
+          try {
+            const altResponse = await fetch(`/api/documents/${documentId}/download?token=${token}`);
+            if (altResponse.ok) {
+              console.log('✅ Documento encontrado via endpoint alternativo');
+              const blob = await altResponse.blob();
+              const arrayBuffer = await blob.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+              setPdfDocument(pdf);
+              setTotalPages(pdf.numPages);
+              await renderPage(1);
+              toast.success('PDF carregado via endpoint alternativo!');
+              return;
+            }
+          } catch (altError) {
+            console.error('❌ Erro no endpoint alternativo:', altError);
+          }
         } else if (response.status === 401) {
           toast.error('Token de autenticação inválido. Faça login novamente.');
         } else {
