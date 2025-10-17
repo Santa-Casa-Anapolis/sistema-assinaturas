@@ -25,6 +25,7 @@ import AdminPanel from './components/AdminPanel';
 import DocumentFlow from './components/DocumentFlow';
 import Header from './components/Header';
 import ThemeToggle from './components/ThemeToggle';
+import InactivityWarning from './components/InactivityWarning';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
