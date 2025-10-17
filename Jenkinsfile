@@ -67,6 +67,10 @@ pipeline {
                     docker service ls | grep sistema-assinaturas || echo "✅ Nenhum serviço antigo encontrado"
                     
                     echo "🚀 Fazendo deploy do novo stack..."
+                    # Definir variáveis de ambiente para produção
+                    export BACKEND_PORT=4000
+                    export FRONTEND_PORT=5000
+                    export REACT_APP_API_URL=http://172.16.0.219:4000
                     docker stack deploy -c docker-compose.yml sistema-assinaturas
                     
                     echo "📊 Verificando serviços criados..."

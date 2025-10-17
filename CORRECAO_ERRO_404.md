@@ -118,3 +118,4 @@ docker logs notasfiscais_db
 - Tente em uma janela anônima/privada
 - Verifique o console do navegador (F12) para ver a URL que está sendo chamada
 
+

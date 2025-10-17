@@ -1,0 +1,75 @@
+version: '3.8'
+
+# Configuração para desenvolvimento local
+# Usa portas diferentes para evitar conflitos com o servidor de produção
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: santacasa/sistema-assinaturas-backend:latest
+    container_name: sistema-assinaturas-backend-local
+    ports:
+      - "4001:5000"  # Porta local 4001 para evitar conflito com servidor
+    networks:
+      - sistema-assinaturas-network-local
+    restart: always
+    environment:
+      # Configurações do Banco de Dados PostgreSQL
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: notasfiscais_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      LDAP_URL: ldap://santacasa.org:389
+      LDAP_BASE_DN: DC=santacasa,DC=org
+      LDAP_BIND_DN: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
+      LDAP_BIND_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
+      AD_URL: ldap://santacasa.org:389
+      AD_BASE_DN: DC=santacasa,DC=org
+      AD_USERNAME: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
+      AD_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
+      PORT: 5000
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:4001  # Usa porta local do backend
+    image: santacasa/sistema-assinaturas-frontend:latest
+    container_name: sistema-assinaturas-frontend-local
+    ports:
+      - "3001:5000"  # Porta local 3001 para evitar conflito com servidor
+    networks:
+      - sistema-assinaturas-network-local
+    restart: always
+    environment:
+      - REACT_APP_API_URL=http://localhost:4001
+
+  postgres:
+    image: postgres:15
+    container_name: notasfiscais_db_local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: notasfiscais_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"  # Porta local 5433 para evitar conflito com PostgreSQL local
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - sistema-assinaturas-network-local
+
+networks:
+  sistema-assinaturas-network-local:
+    driver: bridge  # Usar bridge para desenvolvimento local
+    attachable: true
+
+volumes:
+  postgres_data_local:
+    driver: local

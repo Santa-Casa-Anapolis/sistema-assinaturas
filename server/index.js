@@ -297,6 +297,12 @@ async function logAudit(userId, action, documentId, details, ipAddress) {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log('🔐 === TENTATIVA DE LOGIN ===');
+    console.log('👤 Username:', username);
+    console.log('🔑 Password presente:', password ? 'Sim' : 'Não');
+    console.log('📅 Timestamp:', new Date().toISOString());
+    console.log('🔧 Auth Mode:', process.env.AUTH_MODE || 'local');
+    
     const authMode = process.env.AUTH_MODE || 'local'; // Padrão para local
 
     console.log('🔍 === INÍCIO DO LOGIN ===');
@@ -642,10 +648,40 @@ app.get('/api/users/:id/signature/file', authenticateToken, async (req, res) => 
     }
 
     const signature = result.rows[0];
-    const filename = signature.signature_file || signature.original_filename;
-    const filePath = path.join(__dirname, 'uploads', filename);
+    let filename = signature.signature_file || signature.original_filename;
+    let filePath = path.join(__dirname, 'uploads', filename);
+    
+    // Se arquivo não existe, tentar buscar por padrão
+    if (!fs.existsSync(filePath)) {
+      console.log('🔍 Arquivo de assinatura não encontrado, buscando alternativo...');
+      const uploadsDir = path.join(__dirname, 'uploads');
+      
+      if (fs.existsSync(uploadsDir)) {
+        const allFiles = fs.readdirSync(uploadsDir);
+        console.log('📁 Arquivos na pasta uploads:', allFiles);
+        
+        // Buscar arquivo que contenha informações do usuário ou assinatura
+        const alternativeFile = allFiles.find(file => {
+          const fileLower = file.toLowerCase();
+          const userId = req.params.id;
+          
+          return fileLower.includes('signature') ||
+                 fileLower.includes('assinatura') ||
+                 fileLower.includes(userId.toString()) ||
+                 fileLower.includes('user') ||
+                 fileLower.includes('sign');
+        });
+        
+        if (alternativeFile) {
+          filename = alternativeFile;
+          filePath = path.join(uploadsDir, alternativeFile);
+          console.log('✅ Arquivo de assinatura alternativo encontrado:', filename);
+        }
+      }
+    }
     
     if (!fs.existsSync(filePath)) {
+      console.log('❌ Arquivo de assinatura não encontrado:', filePath);
       return res.status(404).json({ error: 'Arquivo de assinatura não encontrado' });
     }
 
@@ -1103,6 +1139,34 @@ app.get('/api/documents/:id/view', async (req, res) => {
     else if (document.original_filename && fs.existsSync(path.join(__dirname, 'uploads', document.original_filename))) {
       fileName = document.original_filename;
       console.log('📁 Usando original_filename:', fileName);
+    }
+    // Buscar arquivo por padrão se nenhum dos anteriores funcionar
+    else {
+      console.log('🔍 Buscando arquivo por padrão...');
+      const uploadsDir = path.join(__dirname, 'uploads');
+      if (fs.existsSync(uploadsDir)) {
+        const allFiles = fs.readdirSync(uploadsDir);
+        console.log('📁 Todos os arquivos na pasta uploads:', allFiles);
+        
+        // Buscar arquivo que contenha o ID do documento ou nome similar
+        const documentId = req.params.id;
+        const alternativeFile = allFiles.find(file => {
+          const fileLower = file.toLowerCase();
+          const docTitleLower = document.title?.toLowerCase() || '';
+          const docOriginalLower = document.original_filename?.toLowerCase() || '';
+          
+          return fileLower.includes(documentId.toString()) || 
+                 fileLower.includes(docTitleLower.replace(/\s+/g, '')) ||
+                 fileLower.includes(docOriginalLower.replace(/\s+/g, '')) ||
+                 fileLower.includes('document') ||
+                 fileLower.includes('pdf');
+        });
+        
+        if (alternativeFile) {
+          fileName = alternativeFile;
+          console.log('✅ Arquivo alternativo encontrado:', fileName);
+        }
+      }
     }
     
     if (!fileName) {

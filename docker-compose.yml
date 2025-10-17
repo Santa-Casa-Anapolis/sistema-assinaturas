@@ -2,6 +2,8 @@ version: '3.8'
 
 # Este arquivo suporta variáveis BACKEND_PORT, FRONTEND_PORT e REACT_APP_API_URL
 # Defina-as via Jenkins (Environment Inject, withCredentials, ou Docker plugin) conforme o seu pipeline.
+# Para desenvolvimento local, use: BACKEND_PORT=4001 FRONTEND_PORT=3001
+# Para produção, use: BACKEND_PORT=4000 FRONTEND_PORT=5000
 services:
   backend:
     build:
@@ -42,7 +44,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: http://172.16.0.219:4000
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://172.16.0.219:4000}
     image: santacasa/sistema-assinaturas-frontend:latest
     container_name: sistema-assinaturas-frontend
     ports:
@@ -51,7 +53,7 @@ services:
       - sistema-assinaturas-network
     restart: always
     environment:
-      - REACT_APP_API_URL=http://172.16.0.219:4000
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://172.16.0.219:4000}
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
 
