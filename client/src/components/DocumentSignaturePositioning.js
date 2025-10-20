@@ -497,17 +497,10 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     context.shadowOffsetY = 0;
   };
 
-  // Nova função para desenhar a área de posicionamento da assinatura
+  // Função simplificada para desenhar a área de posicionamento da assinatura
   const drawSignatureArea = (context, x, y, signatureWidth = 120, signatureHeight = 60) => {
-    
-    // Salvar o estado do contexto
-    context.save();
-    
-    // Configurar estilo para a área de posicionamento - mais visível
-    context.globalAlpha = 1.0;
-    
-    // Desenhar fundo semi-transparente azul - MUITO mais visível
-    context.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Azul bem visível
+    // Desenhar apenas um retângulo simples e visível
+    context.fillStyle = 'rgba(59, 130, 246, 0.3)';
     context.fillRect(
       x - signatureWidth/2 - 5, 
       y - signatureHeight/2 - 5, 
@@ -515,86 +508,23 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       signatureHeight + 10
     );
     
-    // Adicionar um fundo branco sólido para contraste
-    context.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    context.fillRect(
-      x - signatureWidth/2, 
-      y - signatureHeight/2, 
-      signatureWidth, 
-      signatureHeight
-    );
-    
-    // Desenhar borda azul sólida - mais visível
-    context.strokeStyle = '#1E40AF'; // Azul mais escuro
-    context.lineWidth = 3;
-    context.setLineDash([8, 4]); // Linha tracejada
+    // Borda simples
+    context.strokeStyle = '#3B82F6';
+    context.lineWidth = 2;
+    context.setLineDash([5, 5]);
     context.strokeRect(
       x - signatureWidth/2 - 5, 
       y - signatureHeight/2 - 5, 
       signatureWidth + 10, 
       signatureHeight + 10
     );
-    context.setLineDash([]); // Resetar linha tracejada
+    context.setLineDash([]);
     
-    // Desenhar cantos destacados
-    const cornerSize = 12;
-    context.fillStyle = '#3B82F6';
-    
-    // Canto superior esquerdo
-    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, cornerSize, 3);
-    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, 3, cornerSize);
-    
-    // Canto superior direito
-    context.fillRect(x + signatureWidth/2 + 5 - cornerSize, y - signatureHeight/2 - 5, cornerSize, 3);
-    context.fillRect(x + signatureWidth/2 + 5 - 3, y - signatureHeight/2 - 5, 3, cornerSize);
-    
-    // Canto inferior esquerdo
-    context.fillRect(x - signatureWidth/2 - 5, y + signatureHeight/2 + 5 - 3, cornerSize, 3);
-    context.fillRect(x - signatureWidth/2 - 5, y + signatureHeight/2 + 5 - cornerSize, 3, cornerSize);
-    
-    // Canto inferior direito
-    context.fillRect(x + signatureWidth/2 + 5 - cornerSize, y + signatureHeight/2 + 5 - 3, cornerSize, 3);
-    context.fillRect(x + signatureWidth/2 + 5 - 3, y + signatureHeight/2 + 5 - cornerSize, 3, cornerSize);
-    
-    // Desenhar texto descritivo no centro
-    context.fillStyle = '#1E40AF'; // Azul escuro
-    context.font = 'bold 12px Arial';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    
-    // Fundo para o texto
-    const textBgWidth = 100;
-    const textBgHeight = 20;
-    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    context.fillRect(
-      x - textBgWidth/2, 
-      y - textBgHeight/2, 
-      textBgWidth, 
-      textBgHeight
-    );
-    
-    // Texto principal
-    context.fillStyle = '#1E40AF';
-    context.fillText('Área da Assinatura', x, y - 5);
-    
-    // Texto secundário com dimensões
-    context.font = '10px Arial';
-    context.fillStyle = '#6B7280';
-    context.fillText(`${signatureWidth}x${signatureHeight}px`, x, y + 8);
-    
-    // Desenhar um ponto central bem visível
-    context.fillStyle = '#EF4444'; // Vermelho bem visível
+    // Ponto central simples
+    context.fillStyle = '#EF4444';
     context.beginPath();
-    context.arc(x, y, 4, 0, 2 * Math.PI);
+    context.arc(x, y, 3, 0, 2 * Math.PI);
     context.fill();
-    
-    // Borda branca no ponto
-    context.strokeStyle = '#FFFFFF';
-    context.lineWidth = 2;
-    context.stroke();
-    
-    // Restaurar o estado do contexto
-    context.restore();
   };
   
   const drawSignaturePreview = (context, img, x, y) => {
@@ -746,6 +676,13 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const lastMousePositionRef = useRef(null);
   
   const handleMouseMove = (event) => {
+    // Throttle para reduzir a frequência de execução
+    if (mouseMoveThrottleRef.current) return;
+    
+    mouseMoveThrottleRef.current = setTimeout(() => {
+      mouseMoveThrottleRef.current = null;
+    }, 16); // ~60fps
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -756,33 +693,27 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     // Atualizar posição do mouse
     setMousePosition({ x, y });
     
-    // Desenhar área de posicionamento de forma suave
+    // Desenhar área de posicionamento de forma muito mais leve
     const context = canvas.getContext('2d');
     if (context) {
-      // Usar requestAnimationFrame para suavizar o desenho
-      requestAnimationFrame(() => {
-        // Limpar área anterior apenas se necessário
-        if (lastMousePositionRef.current) {
-          const lastPos = lastMousePositionRef.current;
-          const clearWidth = 200;
-          const clearHeight = 100;
-          context.clearRect(
-            lastPos.x - clearWidth/2, 
-            lastPos.y - clearHeight/2, 
-            clearWidth, 
-            clearHeight
-          );
-          
-          // Redesenhar marcadores existentes na área limpa
-          drawSignatureMarkersOnCanvas();
-        }
-        
-        // Desenhar área de posicionamento na nova posição
-        drawSignatureArea(context, x, y);
-        
-        // Salvar posição atual
-        lastMousePositionRef.current = { x, y };
-      });
+      // Limpar apenas a área anterior (sem redesenhar tudo)
+      if (lastMousePositionRef.current) {
+        const lastPos = lastMousePositionRef.current;
+        const clearWidth = 130;
+        const clearHeight = 70;
+        context.clearRect(
+          lastPos.x - clearWidth/2, 
+          lastPos.y - clearHeight/2, 
+          clearWidth, 
+          clearHeight
+        );
+      }
+      
+      // Desenhar área de posicionamento diretamente
+      drawSignatureArea(context, x, y);
+      
+      // Salvar posição atual
+      lastMousePositionRef.current = { x, y };
     }
   };
 
@@ -791,35 +722,18 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     setShowSignatureArea(false);
     setMousePosition(null);
     
-    // Limpar área do preview se existir
-    if (previewContextRef.current) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const context = canvas.getContext('2d');
-        const prevPos = previewContextRef.current;
-        const clearWidth = 200;
-        const clearHeight = 100;
-        
-        context.save();
-        context.clearRect(prevPos.x - clearWidth/2, prevPos.y - clearHeight/2, clearWidth, clearHeight);
-        context.restore();
-        
-        // Redesenhar marcadores na área limpa
-        drawSignatureMarkersOnCanvas();
-      }
-    }
-    
     // Limpar área de posicionamento se o mouse sair
-    if (mousePosition) {
+    if (lastMousePositionRef.current) {
       const canvas = canvasRef.current;
       if (canvas) {
         const context = canvas.getContext('2d');
-        const clearWidth = 200;
-        const clearHeight = 100;
+        const lastPos = lastMousePositionRef.current;
+        const clearWidth = 130;
+        const clearHeight = 70;
         
         context.clearRect(
-          mousePosition.x - clearWidth/2, 
-          mousePosition.y - clearHeight/2, 
+          lastPos.x - clearWidth/2, 
+          lastPos.y - clearHeight/2, 
           clearWidth, 
           clearHeight
         );
@@ -830,8 +744,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     }
     
     // Limpar referências
-    previewContextRef.current = null;
-    lastPreviewPositionRef.current = null;
+    lastMousePositionRef.current = null;
   };
 
   // Cache do contexto para evitar múltiplos previews
