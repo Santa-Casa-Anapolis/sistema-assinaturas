@@ -514,14 +514,16 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
   // Nova função para desenhar a área de posicionamento da assinatura
   const drawSignatureArea = (context, x, y, signatureWidth = 120, signatureHeight = 60) => {
+    console.log('🎨 Desenhando área de posicionamento:', { x, y, signatureWidth, signatureHeight }); // Debug log
+    
     // Salvar o estado do contexto
     context.save();
     
-    // Configurar estilo para a área de posicionamento
-    context.globalAlpha = 0.8;
+    // Configurar estilo para a área de posicionamento - mais visível
+    context.globalAlpha = 1.0;
     
-    // Desenhar fundo semi-transparente azul
-    context.fillStyle = 'rgba(59, 130, 246, 0.15)'; // Azul claro
+    // Desenhar fundo semi-transparente azul - mais visível
+    context.fillStyle = 'rgba(59, 130, 246, 0.3)'; // Azul mais visível
     context.fillRect(
       x - signatureWidth/2 - 5, 
       y - signatureHeight/2 - 5, 
@@ -529,9 +531,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       signatureHeight + 10
     );
     
-    // Desenhar borda azul sólida
-    context.strokeStyle = '#3B82F6'; // Azul
-    context.lineWidth = 2;
+    // Desenhar borda azul sólida - mais visível
+    context.strokeStyle = '#1E40AF'; // Azul mais escuro
+    context.lineWidth = 3;
     context.setLineDash([8, 4]); // Linha tracejada
     context.strokeRect(
       x - signatureWidth/2 - 5, 
@@ -753,16 +755,20 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     // Desenhar preview da área de assinatura sempre que o mouse se move
     const context = canvas.getContext('2d');
     if (context) {
-      // Limpar área anterior do preview
-      const clearWidth = 200;
-      const clearHeight = 100;
-      context.clearRect(x - clearWidth/2, y - clearHeight/2, clearWidth, clearHeight);
+      console.log('🖱️ Mouse move:', { x, y }); // Debug log
       
-      // Redesenhar marcadores existentes
-      drawSignatureMarkersOnCanvas();
+      // Redesenhar tudo do zero para garantir que funcione
+      renderPage(currentPage);
       
-      // Desenhar área de posicionamento sempre
-      drawSignatureArea(context, x, y);
+      // Pequeno delay para garantir que a página foi renderizada
+      setTimeout(() => {
+        const newContext = canvas.getContext('2d');
+        if (newContext) {
+          // Desenhar área de posicionamento
+          drawSignatureArea(newContext, x, y);
+          console.log('✅ Área de posicionamento desenhada'); // Debug log
+        }
+      }, 50);
     }
   };
 
@@ -1348,6 +1354,26 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                 title={showSignatureArea ? "Desativar área permanente - apenas no hover" : "Ativar área permanente - sempre visível"}
               >
                 {showSignatureArea ? '📍 Área Fixa' : '👁️ Apenas Hover'}
+              </button>
+              
+              {/* Botão de teste temporário */}
+              <button
+                onClick={() => {
+                  const canvas = canvasRef.current;
+                  if (canvas) {
+                    const context = canvas.getContext('2d');
+                    if (context && mousePosition) {
+                      drawSignatureArea(context, mousePosition.x, mousePosition.y);
+                      console.log('🧪 Teste manual - área desenhada em:', mousePosition);
+                    } else {
+                      console.log('❌ Teste falhou - sem contexto ou posição do mouse');
+                    }
+                  }
+                }}
+                className="px-3 py-1 rounded text-sm font-medium bg-red-600 text-white hover:bg-red-700"
+                title="Teste manual - desenhar área na posição atual do mouse"
+              >
+                🧪 Teste
               </button>
             </div>
             
