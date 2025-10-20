@@ -497,35 +497,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     context.shadowOffsetY = 0;
   };
 
-  // Função simplificada para desenhar a área de posicionamento da assinatura
-  const drawSignatureArea = (context, x, y, signatureWidth = 120, signatureHeight = 60) => {
-    // Desenhar apenas um retângulo simples e visível
-    context.fillStyle = 'rgba(59, 130, 246, 0.3)';
-    context.fillRect(
-      x - signatureWidth/2 - 5, 
-      y - signatureHeight/2 - 5, 
-      signatureWidth + 10, 
-      signatureHeight + 10
-    );
-    
-    // Borda simples
-    context.strokeStyle = '#3B82F6';
-    context.lineWidth = 2;
-    context.setLineDash([5, 5]);
-    context.strokeRect(
-      x - signatureWidth/2 - 5, 
-      y - signatureHeight/2 - 5, 
-      signatureWidth + 10, 
-      signatureHeight + 10
-    );
-    context.setLineDash([]);
-    
-    // Ponto central simples
-    context.fillStyle = '#EF4444';
-    context.beginPath();
-    context.arc(x, y, 3, 0, 2 * Math.PI);
-    context.fill();
-  };
   
   const drawSignaturePreview = (context, img, x, y) => {
     const signatureWidth = 120;
@@ -676,13 +647,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const lastMousePositionRef = useRef(null);
   
   const handleMouseMove = (event) => {
-    // Throttle para reduzir a frequência de execução
-    if (mouseMoveThrottleRef.current) return;
-    
-    mouseMoveThrottleRef.current = setTimeout(() => {
-      mouseMoveThrottleRef.current = null;
-    }, 16); // ~60fps
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -692,59 +656,12 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     
     // Atualizar posição do mouse
     setMousePosition({ x, y });
-    
-    // Desenhar área de posicionamento de forma muito mais leve
-    const context = canvas.getContext('2d');
-    if (context) {
-      // Limpar apenas a área anterior (sem redesenhar tudo)
-      if (lastMousePositionRef.current) {
-        const lastPos = lastMousePositionRef.current;
-        const clearWidth = 130;
-        const clearHeight = 70;
-        context.clearRect(
-          lastPos.x - clearWidth/2, 
-          lastPos.y - clearHeight/2, 
-          clearWidth, 
-          clearHeight
-        );
-      }
-      
-      // Desenhar área de posicionamento diretamente
-      drawSignatureArea(context, x, y);
-      
-      // Salvar posição atual
-      lastMousePositionRef.current = { x, y };
-    }
   };
 
   const handleMouseLeave = () => {
     setShowSignaturePreview(false);
     setShowSignatureArea(false);
     setMousePosition(null);
-    
-    // Limpar área de posicionamento se o mouse sair
-    if (lastMousePositionRef.current) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const context = canvas.getContext('2d');
-        const lastPos = lastMousePositionRef.current;
-        const clearWidth = 130;
-        const clearHeight = 70;
-        
-        context.clearRect(
-          lastPos.x - clearWidth/2, 
-          lastPos.y - clearHeight/2, 
-          clearWidth, 
-          clearHeight
-        );
-        
-        // Redesenhar marcadores
-        drawSignatureMarkersOnCanvas();
-      }
-    }
-    
-    // Limpar referências
-    lastMousePositionRef.current = null;
   };
 
   // Cache do contexto para evitar múltiplos previews
@@ -1351,6 +1268,33 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                   width: '100%'
                 }}
               />
+              
+              {/* Área de posicionamento da assinatura - elemento HTML sobreposto */}
+              {mousePosition && (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: mousePosition.x - 65, // 130/2
+                    top: mousePosition.y - 35,  // 70/2
+                    width: '130px',
+                    height: '70px',
+                    border: '3px dashed #3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderRadius: '4px',
+                    zIndex: 10
+                  }}
+                >
+                  {/* Ponto central */}
+                  <div
+                    className="absolute w-2 h-2 bg-red-500 rounded-full"
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  />
+                </div>
+              )}
               {isRendering && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
                   <div className="flex flex-col items-center space-y-2">
