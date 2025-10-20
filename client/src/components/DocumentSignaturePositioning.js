@@ -49,17 +49,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     }
   };
 
-  // Redesenhar marcadores quando showSignatureArea ou mousePosition mudarem
-  useEffect(() => {
-    if (showSignatureArea && mousePosition) {
-      // Pequeno delay para evitar redesenhar muito frequentemente
-      const timeoutId = setTimeout(() => {
-        drawSignatureMarkersOnCanvas();
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [showSignatureArea, mousePosition]);
 
   // Configurar PDF.js
   useEffect(() => {
@@ -454,10 +443,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
       }
     
-    // Se showSignatureArea estiver ativo e temos uma posição do mouse, desenhar área permanente
-    if (showSignatureArea && mousePosition) {
-      drawSignatureArea(context, mousePosition.x, mousePosition.y);
-    }
     
     // Restaurar o estado do canvas
     context.restore();
@@ -514,7 +499,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
   // Nova função para desenhar a área de posicionamento da assinatura
   const drawSignatureArea = (context, x, y, signatureWidth = 120, signatureHeight = 60) => {
-    console.log('🎨 Desenhando área de posicionamento:', { x, y, signatureWidth, signatureHeight }); // Debug log
     
     // Salvar o estado do contexto
     context.save();
@@ -769,36 +753,36 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
-    console.log('🖱️ Mouse move:', { x, y }); // Debug log
-    
     // Atualizar posição do mouse
     setMousePosition({ x, y });
     
-    // Desenhar área de posicionamento diretamente sem re-renderizar
+    // Desenhar área de posicionamento de forma suave
     const context = canvas.getContext('2d');
     if (context) {
-      // Limpar apenas uma pequena área ao redor da posição anterior
-      if (lastMousePositionRef.current) {
-        const lastPos = lastMousePositionRef.current;
-        const clearWidth = 200;
-        const clearHeight = 100;
-        context.clearRect(
-          lastPos.x - clearWidth/2, 
-          lastPos.y - clearHeight/2, 
-          clearWidth, 
-          clearHeight
-        );
+      // Usar requestAnimationFrame para suavizar o desenho
+      requestAnimationFrame(() => {
+        // Limpar área anterior apenas se necessário
+        if (lastMousePositionRef.current) {
+          const lastPos = lastMousePositionRef.current;
+          const clearWidth = 200;
+          const clearHeight = 100;
+          context.clearRect(
+            lastPos.x - clearWidth/2, 
+            lastPos.y - clearHeight/2, 
+            clearWidth, 
+            clearHeight
+          );
+          
+          // Redesenhar marcadores existentes na área limpa
+          drawSignatureMarkersOnCanvas();
+        }
         
-        // Redesenhar marcadores existentes na área limpa
-        drawSignatureMarkersOnCanvas();
-      }
-      
-      // Desenhar área de posicionamento na nova posição
-      drawSignatureArea(context, x, y);
-      console.log('✅ Área de posicionamento desenhada em:', { x, y }); // Debug log
-      
-      // Salvar posição atual
-      lastMousePositionRef.current = { x, y };
+        // Desenhar área de posicionamento na nova posição
+        drawSignatureArea(context, x, y);
+        
+        // Salvar posição atual
+        lastMousePositionRef.current = { x, y };
+      });
     }
   };
 
@@ -1372,40 +1356,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Controle de Visualização da Área */}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowSignatureArea(!showSignatureArea)}
-                className={`px-3 py-1 rounded text-sm font-medium ${
-                  showSignatureArea 
-                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                title={showSignatureArea ? "Desativar área permanente - apenas no hover" : "Ativar área permanente - sempre visível"}
-              >
-                {showSignatureArea ? '📍 Área Fixa' : '👁️ Apenas Hover'}
-              </button>
-              
-              {/* Botão de teste temporário */}
-              <button
-                onClick={() => {
-                  const canvas = canvasRef.current;
-                  if (canvas) {
-                    const context = canvas.getContext('2d');
-                    if (context && mousePosition) {
-                      drawSignatureArea(context, mousePosition.x, mousePosition.y);
-                      console.log('🧪 Teste manual - área desenhada em:', mousePosition);
-                    } else {
-                      console.log('❌ Teste falhou - sem contexto ou posição do mouse');
-                    }
-                  }
-                }}
-                className="px-3 py-1 rounded text-sm font-medium bg-red-600 text-white hover:bg-red-700"
-                title="Teste manual - desenhar área na posição atual do mouse"
-              >
-                🧪 Teste
-              </button>
-            </div>
             
             {/* Controles de Zoom */}
             <div className="flex items-center space-x-2">
@@ -1508,7 +1458,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• <strong>Clique no local desejado</strong> na página para marcar onde a assinatura deve aparecer</li>
             <li>• <strong>Clique novamente</strong> no mesmo local para remover a assinatura</li>
-            <li>• <strong>Use o botão "Mostrar Área"</strong> para visualizar o tamanho exato da assinatura durante o posicionamento</li>
             <li>• <strong>Passe o mouse sobre a página</strong> para ver em tempo real onde a assinatura será posicionada</li>
             <li>• <strong>Use o zoom</strong> para posicionar com mais precisão</li>
             <li>• <strong>Navegue entre as páginas</strong> para assinar em múltiplas páginas se necessário</li>
