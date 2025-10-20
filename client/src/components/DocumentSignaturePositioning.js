@@ -522,13 +522,22 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     // Configurar estilo para a área de posicionamento - mais visível
     context.globalAlpha = 1.0;
     
-    // Desenhar fundo semi-transparente azul - mais visível
-    context.fillStyle = 'rgba(59, 130, 246, 0.3)'; // Azul mais visível
+    // Desenhar fundo semi-transparente azul - MUITO mais visível
+    context.fillStyle = 'rgba(59, 130, 246, 0.5)'; // Azul bem visível
     context.fillRect(
       x - signatureWidth/2 - 5, 
       y - signatureHeight/2 - 5, 
       signatureWidth + 10, 
       signatureHeight + 10
+    );
+    
+    // Adicionar um fundo branco sólido para contraste
+    context.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    context.fillRect(
+      x - signatureWidth/2, 
+      y - signatureHeight/2, 
+      signatureWidth, 
+      signatureHeight
     );
     
     // Desenhar borda azul sólida - mais visível
@@ -588,6 +597,17 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     context.font = '10px Arial';
     context.fillStyle = '#6B7280';
     context.fillText(`${signatureWidth}x${signatureHeight}px`, x, y + 8);
+    
+    // Desenhar um ponto central bem visível
+    context.fillStyle = '#EF4444'; // Vermelho bem visível
+    context.beginPath();
+    context.arc(x, y, 4, 0, 2 * Math.PI);
+    context.fill();
+    
+    // Borda branca no ponto
+    context.strokeStyle = '#FFFFFF';
+    context.lineWidth = 2;
+    context.stroke();
     
     // Restaurar o estado do contexto
     context.restore();
@@ -749,26 +769,36 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
+    console.log('🖱️ Mouse move:', { x, y }); // Debug log
+    
     // Atualizar posição do mouse
     setMousePosition({ x, y });
     
-    // Desenhar preview da área de assinatura sempre que o mouse se move
+    // Desenhar área de posicionamento diretamente sem re-renderizar
     const context = canvas.getContext('2d');
     if (context) {
-      console.log('🖱️ Mouse move:', { x, y }); // Debug log
+      // Limpar apenas uma pequena área ao redor da posição anterior
+      if (lastMousePositionRef.current) {
+        const lastPos = lastMousePositionRef.current;
+        const clearWidth = 200;
+        const clearHeight = 100;
+        context.clearRect(
+          lastPos.x - clearWidth/2, 
+          lastPos.y - clearHeight/2, 
+          clearWidth, 
+          clearHeight
+        );
+        
+        // Redesenhar marcadores existentes na área limpa
+        drawSignatureMarkersOnCanvas();
+      }
       
-      // Redesenhar tudo do zero para garantir que funcione
-      renderPage(currentPage);
+      // Desenhar área de posicionamento na nova posição
+      drawSignatureArea(context, x, y);
+      console.log('✅ Área de posicionamento desenhada em:', { x, y }); // Debug log
       
-      // Pequeno delay para garantir que a página foi renderizada
-      setTimeout(() => {
-        const newContext = canvas.getContext('2d');
-        if (newContext) {
-          // Desenhar área de posicionamento
-          drawSignatureArea(newContext, x, y);
-          console.log('✅ Área de posicionamento desenhada'); // Debug log
-        }
-      }, 50);
+      // Salvar posição atual
+      lastMousePositionRef.current = { x, y };
     }
   };
 
