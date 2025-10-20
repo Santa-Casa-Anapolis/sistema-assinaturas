@@ -1,6 +1,13 @@
-# Dockerfile para o cliente React
+# Dockerfile alternativo para o cliente React - mais robusto
 # Estágio 1: Build
-FROM node:18-slim as build
+FROM node:18 as build
+
+# Instalar dependências do sistema necessárias
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Definir diretório de trabalho
 WORKDIR /app
@@ -22,7 +29,7 @@ ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN npm run build
 
 # Estágio 2: Servir com Nginx
-FROM nginx:alpine
+FROM nginx:latest
 
 # Copiar arquivos buildados para o Nginx
 COPY --from=build /app/build /usr/share/nginx/html

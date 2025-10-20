@@ -71,6 +71,29 @@ pipeline {
             }
         }
         
+        stage('📥 Pré-pull de Imagens Docker') {
+            steps {
+                echo '📥 Fazendo pull das imagens base necessárias...'
+                sh '''
+                    echo "📥 Fazendo pull das imagens base para evitar problemas de registry..."
+                    
+                    echo "📥 Pull da imagem node:18-slim..."
+                    docker pull node:18-slim || echo "⚠️ Falha ao fazer pull do node:18-slim"
+                    
+                    echo "📥 Pull da imagem node:18..."
+                    docker pull node:18 || echo "⚠️ Falha ao fazer pull do node:18"
+                    
+                    echo "📥 Pull da imagem nginx:alpine..."
+                    docker pull nginx:alpine || echo "⚠️ Falha ao fazer pull do nginx:alpine"
+                    
+                    echo "📥 Pull da imagem nginx:latest..."
+                    docker pull nginx:latest || echo "⚠️ Falha ao fazer pull do nginx:latest"
+                    
+                    echo "✅ Pré-pull concluído!"
+                '''
+            }
+        }
+        
         stage('🐳 Build Docker Images') {
             steps {
                 echo '🐳 Fazendo build das imagens Docker...'
@@ -79,7 +102,25 @@ pipeline {
                     docker build -t santacasa/sistema-assinaturas-backend:latest ./server
                     
                     echo "🏗️ Build do Frontend..."
-                    docker build -t santacasa/sistema-assinaturas-frontend:latest ./client
+                    # Tentar build com imagem padrão primeiro
+                    if ! docker build -t santacasa/sistema-assinaturas-frontend:latest ./client; then
+                        echo "⚠️ Build falhou com node:18-slim. Tentando com imagem alternativa..."
+                        
+                        # Tentar com imagem alternativa
+                        if [ -f ./client/Dockerfile.alternative ]; then
+                            echo "🔄 Usando Dockerfile alternativo..."
+                            docker build -f ./client/Dockerfile.alternative -t santacasa/sistema-assinaturas-frontend:latest ./client
+                        else
+                            echo "❌ Dockerfile alternativo não encontrado. Tentando pull manual da imagem..."
+                            
+                            # Tentar fazer pull manual da imagem base
+                            echo "📥 Fazendo pull manual da imagem node:18..."
+                            docker pull node:18 || echo "⚠️ Pull manual falhou"
+                            
+                            # Tentar build novamente
+                            docker build -t santacasa/sistema-assinaturas-frontend:latest ./client
+                        fi
+                    fi
                     
                     echo "✅ Imagens Docker criadas com sucesso!"
                     docker images | grep sistema-assinaturas
