@@ -569,9 +569,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         // Redesenhar marcadores existentes
         drawSignatureMarkersOnCanvas();
-        
-        // Desenhar área de posicionamento
-        drawSignatureArea(context, x, y);
       }
       return;
     }
