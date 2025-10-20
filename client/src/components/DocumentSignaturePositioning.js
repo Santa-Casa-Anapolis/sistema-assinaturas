@@ -49,6 +49,18 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     }
   };
 
+  // Redesenhar marcadores quando showSignatureArea ou mousePosition mudarem
+  useEffect(() => {
+    if (showSignatureArea && mousePosition) {
+      // Pequeno delay para evitar redesenhar muito frequentemente
+      const timeoutId = setTimeout(() => {
+        drawSignatureMarkersOnCanvas();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [showSignatureArea, mousePosition]);
+
   // Configurar PDF.js
   useEffect(() => {
     // Configurar o worker do PDF.js
@@ -442,6 +454,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
       }
     
+    // Se showSignatureArea estiver ativo e temos uma posição do mouse, desenhar área permanente
+    if (showSignatureArea && mousePosition) {
+      drawSignatureArea(context, mousePosition.x, mousePosition.y);
+    }
+    
     // Restaurar o estado do canvas
     context.restore();
   };
@@ -637,7 +654,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       // Mostrar área de posicionamento mesmo sem assinatura
       const context = canvas.getContext('2d');
-      if (context && showSignatureArea) {
+      if (context) {
         // Limpar área anterior
         const clearWidth = 200;
         const clearHeight = 100;
@@ -732,9 +749,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     
     // Atualizar posição do mouse
     setMousePosition({ x, y });
-    setShowSignatureArea(true);
     
-    // Desenhar preview da área de assinatura
+    // Desenhar preview da área de assinatura sempre que o mouse se move
     const context = canvas.getContext('2d');
     if (context) {
       // Limpar área anterior do preview
@@ -745,7 +761,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Redesenhar marcadores existentes
       drawSignatureMarkersOnCanvas();
       
-      // Desenhar área de posicionamento
+      // Desenhar área de posicionamento sempre
       drawSignatureArea(context, x, y);
     }
   };
@@ -1326,12 +1342,12 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                 onClick={() => setShowSignatureArea(!showSignatureArea)}
                 className={`px-3 py-1 rounded text-sm font-medium ${
                   showSignatureArea 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
-                title="Mostrar/Ocultar área de posicionamento da assinatura"
+                title={showSignatureArea ? "Desativar área permanente - apenas no hover" : "Ativar área permanente - sempre visível"}
               >
-                {showSignatureArea ? '👁️ Ocultar Área' : '👁️ Mostrar Área'}
+                {showSignatureArea ? '📍 Área Fixa' : '👁️ Apenas Hover'}
               </button>
             </div>
             
