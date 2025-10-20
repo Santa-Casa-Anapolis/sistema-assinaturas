@@ -119,3 +119,4 @@ docker logs notasfiscais_db
 - Verifique o console do navegador (F12) para ver a URL que está sendo chamada
 
 
+

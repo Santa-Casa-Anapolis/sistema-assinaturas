@@ -19,6 +19,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [showSignaturePreview, setShowSignaturePreview] = useState(false);
   const [showPreview, setShowPreview] = useState(true); // Nova: mostrar prévia primeiro
   const [documentInfo, setDocumentInfo] = useState(null); // Nova: informações do documento
+  const [showSignatureArea, setShowSignatureArea] = useState(false); // Nova: mostrar área de assinatura
   
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
@@ -493,6 +494,85 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     context.shadowOffsetX = 0;
     context.shadowOffsetY = 0;
   };
+
+  // Nova função para desenhar a área de posicionamento da assinatura
+  const drawSignatureArea = (context, x, y, signatureWidth = 120, signatureHeight = 60) => {
+    // Salvar o estado do contexto
+    context.save();
+    
+    // Configurar estilo para a área de posicionamento
+    context.globalAlpha = 0.8;
+    
+    // Desenhar fundo semi-transparente azul
+    context.fillStyle = 'rgba(59, 130, 246, 0.15)'; // Azul claro
+    context.fillRect(
+      x - signatureWidth/2 - 5, 
+      y - signatureHeight/2 - 5, 
+      signatureWidth + 10, 
+      signatureHeight + 10
+    );
+    
+    // Desenhar borda azul sólida
+    context.strokeStyle = '#3B82F6'; // Azul
+    context.lineWidth = 2;
+    context.setLineDash([8, 4]); // Linha tracejada
+    context.strokeRect(
+      x - signatureWidth/2 - 5, 
+      y - signatureHeight/2 - 5, 
+      signatureWidth + 10, 
+      signatureHeight + 10
+    );
+    context.setLineDash([]); // Resetar linha tracejada
+    
+    // Desenhar cantos destacados
+    const cornerSize = 12;
+    context.fillStyle = '#3B82F6';
+    
+    // Canto superior esquerdo
+    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, cornerSize, 3);
+    context.fillRect(x - signatureWidth/2 - 5, y - signatureHeight/2 - 5, 3, cornerSize);
+    
+    // Canto superior direito
+    context.fillRect(x + signatureWidth/2 + 5 - cornerSize, y - signatureHeight/2 - 5, cornerSize, 3);
+    context.fillRect(x + signatureWidth/2 + 5 - 3, y - signatureHeight/2 - 5, 3, cornerSize);
+    
+    // Canto inferior esquerdo
+    context.fillRect(x - signatureWidth/2 - 5, y + signatureHeight/2 + 5 - 3, cornerSize, 3);
+    context.fillRect(x - signatureWidth/2 - 5, y + signatureHeight/2 + 5 - cornerSize, 3, cornerSize);
+    
+    // Canto inferior direito
+    context.fillRect(x + signatureWidth/2 + 5 - cornerSize, y + signatureHeight/2 + 5 - 3, cornerSize, 3);
+    context.fillRect(x + signatureWidth/2 + 5 - 3, y + signatureHeight/2 + 5 - cornerSize, 3, cornerSize);
+    
+    // Desenhar texto descritivo no centro
+    context.fillStyle = '#1E40AF'; // Azul escuro
+    context.font = 'bold 12px Arial';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    
+    // Fundo para o texto
+    const textBgWidth = 100;
+    const textBgHeight = 20;
+    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    context.fillRect(
+      x - textBgWidth/2, 
+      y - textBgHeight/2, 
+      textBgWidth, 
+      textBgHeight
+    );
+    
+    // Texto principal
+    context.fillStyle = '#1E40AF';
+    context.fillText('Área da Assinatura', x, y - 5);
+    
+    // Texto secundário com dimensões
+    context.font = '10px Arial';
+    context.fillStyle = '#6B7280';
+    context.fillText(`${signatureWidth}x${signatureHeight}px`, x, y + 8);
+    
+    // Restaurar o estado do contexto
+    context.restore();
+  };
   
   const drawSignaturePreview = (context, img, x, y) => {
     const signatureWidth = 120;
@@ -546,15 +626,31 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
 
   const handleCanvasClick = (event) => {
-    if (!signatureImage) {
-      toast.warning('Assinatura não encontrada. Entre em contato com o administrador.');
-      return;
-    }
-
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+
+    // Se não há assinatura carregada, mostrar apenas a área de posicionamento
+    if (!signatureImage) {
+      toast.warning('Assinatura não encontrada. Entre em contato com o administrador.');
+      
+      // Mostrar área de posicionamento mesmo sem assinatura
+      const context = canvas.getContext('2d');
+      if (context && showSignatureArea) {
+        // Limpar área anterior
+        const clearWidth = 200;
+        const clearHeight = 100;
+        context.clearRect(x - clearWidth/2, y - clearHeight/2, clearWidth, clearHeight);
+        
+        // Redesenhar marcadores existentes
+        drawSignatureMarkersOnCanvas();
+        
+        // Desenhar área de posicionamento
+        drawSignatureArea(context, x, y);
+      }
+      return;
+    }
 
     // Verificar se já existe uma assinatura nesta página
     const existingPosition = signaturePositions[currentPage];
@@ -567,10 +663,10 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       drawSignatureMarkersOnCanvas();
     } else {
       // Se não existe, adicionar
-    setSignaturePositions(prev => ({
-      ...prev,
-      [currentPage]: { x, y }
-    }));
+      setSignaturePositions(prev => ({
+        ...prev,
+        [currentPage]: { x, y }
+      }));
 
       // Mostrar feedback visual imediato
       showClickFeedback(x, y);
@@ -578,7 +674,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Redesenhar marcadores com pequeno delay para melhor performance
       setTimeout(() => drawSignatureMarkersOnCanvas(), 50);
 
-    toast.success(`Assinatura marcada na página ${currentPage}`);
+      toast.success(`Assinatura marcada na página ${currentPage}`);
     }
   };
 
@@ -627,13 +723,36 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const lastMousePositionRef = useRef(null);
   
   const handleMouseMove = (event) => {
-    // DESABILITADO para melhor performance - preview consome muitos recursos
-    // O usuário verá a assinatura apenas após clicar
-    return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Atualizar posição do mouse
+    setMousePosition({ x, y });
+    setShowSignatureArea(true);
+    
+    // Desenhar preview da área de assinatura
+    const context = canvas.getContext('2d');
+    if (context) {
+      // Limpar área anterior do preview
+      const clearWidth = 200;
+      const clearHeight = 100;
+      context.clearRect(x - clearWidth/2, y - clearHeight/2, clearWidth, clearHeight);
+      
+      // Redesenhar marcadores existentes
+      drawSignatureMarkersOnCanvas();
+      
+      // Desenhar área de posicionamento
+      drawSignatureArea(context, x, y);
+    }
   };
 
   const handleMouseLeave = () => {
     setShowSignaturePreview(false);
+    setShowSignatureArea(false);
     setMousePosition(null);
     
     // Limpar área do preview se existir
@@ -650,6 +769,26 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         context.restore();
         
         // Redesenhar marcadores na área limpa
+        drawSignatureMarkersOnCanvas();
+      }
+    }
+    
+    // Limpar área de posicionamento se o mouse sair
+    if (mousePosition) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const context = canvas.getContext('2d');
+        const clearWidth = 200;
+        const clearHeight = 100;
+        
+        context.clearRect(
+          mousePosition.x - clearWidth/2, 
+          mousePosition.y - clearHeight/2, 
+          clearWidth, 
+          clearHeight
+        );
+        
+        // Redesenhar marcadores
         drawSignatureMarkersOnCanvas();
       }
     }
@@ -1181,6 +1320,21 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           </div>
           
           <div className="flex items-center space-x-4">
+            {/* Controle de Visualização da Área */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowSignatureArea(!showSignatureArea)}
+                className={`px-3 py-1 rounded text-sm font-medium ${
+                  showSignatureArea 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                }`}
+                title="Mostrar/Ocultar área de posicionamento da assinatura"
+              >
+                {showSignatureArea ? '👁️ Ocultar Área' : '👁️ Mostrar Área'}
+              </button>
+            </div>
+            
             {/* Controles de Zoom */}
             <div className="flex items-center space-x-2">
               <button
@@ -1282,6 +1436,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• <strong>Clique no local desejado</strong> na página para marcar onde a assinatura deve aparecer</li>
             <li>• <strong>Clique novamente</strong> no mesmo local para remover a assinatura</li>
+            <li>• <strong>Use o botão "Mostrar Área"</strong> para visualizar o tamanho exato da assinatura durante o posicionamento</li>
+            <li>• <strong>Passe o mouse sobre a página</strong> para ver em tempo real onde a assinatura será posicionada</li>
             <li>• <strong>Use o zoom</strong> para posicionar com mais precisão</li>
             <li>• <strong>Navegue entre as páginas</strong> para assinar em múltiplas páginas se necessário</li>
             <li>• <strong>A assinatura aparecerá apenas nas páginas marcadas</strong> (não se repetirá em todas)</li>
