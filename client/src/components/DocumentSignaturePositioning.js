@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
@@ -1253,45 +1253,78 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
               )}
             </div>
             <div className="relative">
+              {/* Canvas do PDF (camada inferior) - SEM transform para evitar stacking context */}
               <canvas
                 ref={canvasRef}
-                onClick={handleCanvasClick}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={handleMouseLeave}
-                className="border border-gray-300 cursor-crosshair max-w-full h-auto"
+                className="border border-gray-300 max-w-full h-auto block"
                 style={{ 
                   backgroundColor: '#f9f9f9',
                   minHeight: '600px',
-                  width: '100%'
+                  width: '100%',
+                  // NUNCA aplicar transform aqui para evitar stacking context
                 }}
               />
               
-              {/* Área de posicionamento da assinatura - elemento HTML sobreposto */}
-              {mousePosition && (
-                <div
-                  className="absolute pointer-events-none"
-                  style={{
-                    left: mousePosition.x - 65, // 130/2
-                    top: mousePosition.y - 35,  // 70/2
-                    width: '130px',
-                    height: '70px',
-                    border: '3px dashed #3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                    borderRadius: '4px',
-                    zIndex: 10
-                  }}
-                >
-                  {/* Ponto central */}
+              {/* Overlay para assinaturas e área de posicionamento (camada superior) */}
+              <div
+                className="absolute inset-0 cursor-crosshair"
+                style={{ zIndex: 10 }}
+                onClick={handleCanvasClick}
+                onMouseMove={handleMouseMove}
+                onMouseLeave={handleMouseLeave}
+              >
+                {/* Área de posicionamento da assinatura - elemento HTML sobreposto */}
+                {mousePosition && (
                   <div
-                    className="absolute w-2 h-2 bg-red-500 rounded-full"
+                    className="absolute pointer-events-none"
                     style={{
-                      left: '50%',
-                      top: '50%',
-                      transform: 'translate(-50%, -50%)'
+                      left: mousePosition.x - 65, // 130/2
+                      top: mousePosition.y - 35,  // 70/2
+                      width: '130px',
+                      height: '70px',
+                      border: '3px dashed #3B82F6',
+                      backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                      borderRadius: '4px',
+                      zIndex: 15
                     }}
-                  />
-                </div>
-              )}
+                  >
+                    {/* Ponto central */}
+                    <div
+                      className="absolute w-2 h-2 bg-red-500 rounded-full"
+                      style={{
+                        left: '50%',
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)'
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* Assinaturas posicionadas (se houver) */}
+                {signaturePositions[currentPage] && (
+                  <div
+                    className="absolute"
+                    style={{
+                      left: signaturePositions[currentPage].x - 60,
+                      top: signaturePositions[currentPage].y - 30,
+                      width: '120px',
+                      height: '60px',
+                      border: '2px solid #10B981',
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                      borderRadius: '4px',
+                      zIndex: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      color: '#10B981'
+                    }}
+                  >
+                    ✓ Assinatura
+                  </div>
+                )}
+              </div>
               {isRendering && (
                 <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
                   <div className="flex flex-col items-center space-y-2">
