@@ -66,12 +66,35 @@ server/uploads/
     └── temp_1234567890_abc123/
 ```
 
-## 🌐 **Pasta de Rede Final**
+## 🌐 **Pastas de Rede Final por Setor**
 
+### **Estrutura de Pastas:**
 ```
-Y:\TECNOLOGIA DA INFORMAÇÃO\3. Sistemas\Karla\Contabilidade\
-└── doc_1234567890_documento_FINAL_2024-01-15.pdf
+Y:\TECNOLOGIA DA INFORMAÇÃO\3. Sistemas\Karla\
+├── 📂 TI\                    # TECNOLOGIA DA INFORMAÇÃO
+│   └── doc_123_TI_FINAL_2024-01-15.pdf
+├── 📂 RH\                    # RECURSOS HUMANOS
+│   └── doc_124_RH_FINAL_2024-01-15.pdf
+├── 📂 Financeiro\            # FINANCEIRO
+│   └── doc_125_Financeiro_FINAL_2024-01-15.pdf
+├── 📂 Gerencia\              # GERÊNCIA
+│   └── doc_126_Gerencia_FINAL_2024-01-15.pdf
+├── 📂 Diretoria\             # DIRETORIA
+│   └── doc_127_Diretoria_FINAL_2024-01-15.pdf
+├── 📂 Contabilidade\         # CONTABILIDADE
+│   └── doc_128_Contabilidade_FINAL_2024-01-15.pdf
+└── 📂 Geral\                 # GERAL (fallback)
+    └── doc_129_Geral_FINAL_2024-01-15.pdf
 ```
+
+### **Mapeamento de Setores:**
+- **TECNOLOGIA DA INFORMAÇÃO** → `TI`
+- **RECURSOS HUMANOS** → `RH`
+- **FINANCEIRO** → `Financeiro`
+- **GERÊNCIA** → `Gerencia`
+- **DIRETORIA** → `Diretoria`
+- **CONTABILIDADE** → `Contabilidade`
+- **GERAL** → `Geral` (fallback)
 
 ## 🔄 **Movimentação Automática de Arquivos**
 
@@ -236,7 +259,7 @@ dir "Y:\TECNOLOGIA DA INFORMAÇÃO\3. Sistemas\Karla\Contabilidade"
 5. **Aprovação diretoria** → Movido para `/uploads/diretoria/`
 6. **Processamento pagamento** → Movido para `/uploads/payment/`
 7. **Finalização** → Movido para `/uploads/completed/`
-8. **Envio final** → **Copiado para `Y:\TECNOLOGIA DA INFORMAÇÃO\3. Sistemas\Karla\Contabilidade`**
+8. **Envio final** → **Copiado para pasta do setor: `Y:\TECNOLOGIA DA INFORMAÇÃO\3. Sistemas\Karla\[SETOR]`**
 
 ---
 

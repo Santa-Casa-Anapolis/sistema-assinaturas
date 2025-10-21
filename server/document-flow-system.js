@@ -19,8 +19,19 @@ class DocumentFlowSystem {
       completed: path.join(__dirname, 'uploads', 'completed')
     };
 
-    // Pasta final de rede
-    this.finalNetworkPath = 'Y:\\TECNOLOGIA DA INFORMAÇÃO\\3. Sistemas\\Karla\\Contabilidade';
+    // Pasta base de rede
+    this.baseNetworkPath = 'Y:\\TECNOLOGIA DA INFORMAÇÃO\\3. Sistemas\\Karla';
+    
+    // Mapeamento de setores para pastas
+    this.sectorFolders = {
+      'TECNOLOGIA DA INFORMAÇÃO': 'TI',
+      'RECURSOS HUMANOS': 'RH',
+      'FINANCEIRO': 'Financeiro',
+      'GERÊNCIA': 'Gerencia',
+      'DIRETORIA': 'Diretoria',
+      'GERAL': 'Geral',
+      'CONTABILIDADE': 'Contabilidade'
+    };
     
     // Criar todas as pastas se não existirem
     this.createFolders();
@@ -35,16 +46,18 @@ class DocumentFlowSystem {
       }
     });
 
-    // Criar pasta final de rede se não existir
-    if (!fs.existsSync(this.finalNetworkPath)) {
-      try {
-        fs.mkdirSync(this.finalNetworkPath, { recursive: true });
-        console.log(`📁 Pasta final criada: ${this.finalNetworkPath}`);
-      } catch (error) {
-        console.warn(`⚠️ Não foi possível criar pasta de rede: ${error.message}`);
-        console.warn(`⚠️ Verifique se o caminho ${this.finalNetworkPath} está acessível`);
+    // Criar pastas por setor na rede
+    Object.values(this.sectorFolders).forEach(folderName => {
+      const sectorPath = path.join(this.baseNetworkPath, folderName);
+      if (!fs.existsSync(sectorPath)) {
+        try {
+          fs.mkdirSync(sectorPath, { recursive: true });
+          console.log(`📁 Pasta de setor criada: ${sectorPath}`);
+        } catch (error) {
+          console.warn(`⚠️ Não foi possível criar pasta de setor ${folderName}: ${error.message}`);
+        }
       }
-    }
+    });
   }
 
   // Mover documento para próxima etapa
@@ -124,13 +137,18 @@ class DocumentFlowSystem {
     }
   }
 
-  // Mover para pasta final de rede (após todas as aprovações)
+  // Mover para pasta final de rede baseada no setor (após todas as aprovações)
   async moveToFinalNetworkLocation(documentId) {
     try {
       console.log(`🌐 Movendo documento ${documentId} para pasta de rede final`);
 
       const pool = require('./index').pool;
-      const docResult = await pool.query('SELECT * FROM documents WHERE id = $1', [documentId]);
+      const docResult = await pool.query(`
+        SELECT d.*, u.sector as user_sector, u.name as user_name
+        FROM documents d
+        JOIN users u ON d.created_by = u.id
+        WHERE d.id = $1
+      `, [documentId]);
       
       if (docResult.rows.length === 0) {
         throw new Error('Documento não encontrado');
@@ -146,16 +164,34 @@ class DocumentFlowSystem {
         throw new Error(`Arquivo não encontrado: ${currentFullPath}`);
       }
 
+      // Determinar pasta de destino baseada no setor do usuário
+      const userSector = document.user_sector || document.sector || 'GERAL';
+      const sectorFolder = this.sectorFolders[userSector] || this.sectorFolders['GERAL'];
+      const finalSectorPath = path.join(this.baseNetworkPath, sectorFolder);
+
+      // Criar pasta do setor se não existir
+      if (!fs.existsSync(finalSectorPath)) {
+        try {
+          fs.mkdirSync(finalSectorPath, { recursive: true });
+          console.log(`📁 Pasta de setor criada: ${finalSectorPath}`);
+        } catch (error) {
+          console.warn(`⚠️ Não foi possível criar pasta de setor: ${error.message}`);
+          // Usar pasta geral como fallback
+          const generalPath = path.join(this.baseNetworkPath, this.sectorFolders['GERAL']);
+          fs.mkdirSync(generalPath, { recursive: true });
+        }
+      }
+
       // Nome final do arquivo na pasta de rede
       const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       const fileExtension = path.extname(currentFilePath);
       const baseName = path.basename(currentFilePath, fileExtension);
-      const finalFileName = `${baseName}_FINAL_${timestamp}${fileExtension}`;
+      const finalFileName = `${baseName}_${sectorFolder}_FINAL_${timestamp}${fileExtension}`;
 
-      // Caminho final na pasta de rede
-      const finalNetworkPath = path.join(this.finalNetworkPath, finalFileName);
+      // Caminho final na pasta de rede do setor
+      const finalNetworkPath = path.join(finalSectorPath, finalFileName);
 
-      // Copiar arquivo para pasta de rede
+      // Copiar arquivo para pasta de rede do setor
       fs.copyFileSync(currentFullPath, finalNetworkPath);
 
       // Atualizar banco com caminho final
@@ -164,25 +200,28 @@ class DocumentFlowSystem {
         SET 
           final_network_path = $1,
           final_network_filename = $2,
+          final_network_sector = $3,
           status = 'completed',
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
-      `, [finalNetworkPath, finalFileName, documentId]);
+        WHERE id = $4
+      `, [finalNetworkPath, finalFileName, sectorFolder, documentId]);
 
       // Registrar conclusão
       await pool.query(`
         INSERT INTO document_approvals (document_id, user_id, stage, action, comments, created_at)
-        VALUES ($1, $2, 'final', 'completed', 'Documento enviado para pasta de rede final', CURRENT_TIMESTAMP)
+        VALUES ($1, $2, 'final', 'completed', 'Documento enviado para pasta de rede do setor: ${sectorFolder}', CURRENT_TIMESTAMP)
       `, [documentId, document.created_by]);
 
-      console.log(`✅ Documento ${documentId} enviado para pasta de rede: ${finalNetworkPath}`);
+      console.log(`✅ Documento ${documentId} enviado para pasta de rede do setor ${sectorFolder}: ${finalNetworkPath}`);
 
       return {
         success: true,
         finalPath: finalNetworkPath,
         finalFilename: finalFileName,
-        message: 'Documento enviado para pasta de rede final'
+        sectorFolder: sectorFolder,
+        userSector: userSector,
+        message: `Documento enviado para pasta de rede do setor: ${sectorFolder}`
       };
 
     } catch (error) {

@@ -59,33 +59,51 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         return;
       }
       
-    const workerOptions = [
-      `${window.location.origin}/pdf.worker.min.js`,
-      '/pdf.worker.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-      'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
-    ];
-    
+      const workerOptions = [
+        `${window.location.origin}/pdf.worker.min.js`,
+        '/pdf.worker.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+        'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+      ];
+      
+      let workerConfigured = false;
+      
       for (let i = 0; i < workerOptions.length; i++) {
         const workerSrc = workerOptions[i];
         console.log(`🔧 Tentando PDF.js Worker ${i + 1}/${workerOptions.length}:`, workerSrc);
-      
-      try {
-        // Testar se o worker está acessível
-        const response = await fetch(workerSrc, { method: 'HEAD' });
-        if (response.ok) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-          console.log('✅ PDF.js Worker configurado com sucesso:', workerSrc);
-            return; // Sucesso, sair da função
-        }
-      } catch (error) {
+        
+        try {
+          // Testar se o worker está acessível
+          const response = await fetch(workerSrc, { method: 'HEAD' });
+          if (response.ok) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+            console.log('✅ PDF.js Worker configurado com sucesso:', workerSrc);
+            workerConfigured = true;
+            break; // Sucesso, sair do loop
+          }
+        } catch (error) {
           console.warn(`⚠️ Worker ${i + 1} falhou:`, error.message);
-      }
+        }
       }
       
-      // Se chegou aqui, nenhum worker funcionou
-      console.error('❌ Nenhum worker do PDF.js funcionou');
-      toast.error('Erro crítico: PDF.js não pode carregar. Recarregue a página.');
+      // Se nenhum worker funcionou, usar fallback
+      if (!workerConfigured) {
+        console.warn('⚠️ Nenhum worker remoto funcionou, usando fallback local');
+        // Tentar usar o worker do próprio pdfjs-dist
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+          console.log('✅ PDF.js Worker configurado com fallback CDN:', pdfjsLib.GlobalWorkerOptions.workerSrc);
+          workerConfigured = true;
+        } catch (error) {
+          console.error('❌ Fallback também falhou:', error);
+        }
+      }
+      
+      // Se ainda não funcionou, mostrar erro mais amigável
+      if (!workerConfigured) {
+        console.error('❌ Nenhum worker do PDF.js funcionou');
+        toast.error('Erro ao carregar PDF.js. Verifique sua conexão com a internet e recarregue a página.');
+      }
     };
     
     setupPDFWorker();
@@ -169,8 +187,52 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [scale, currentPage, totalPages, isRendering]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Função para configurar PDF.js Worker (extraída para reutilização)
+  const setupPDFWorker = async () => {
+    const workerOptions = [
+      `${window.location.origin}/pdf.worker.min.js`,
+      '/pdf.worker.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+      'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+    ];
+    
+    for (const workerSrc of workerOptions) {
+      try {
+        const response = await fetch(workerSrc, { method: 'HEAD' });
+        if (response.ok) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+          console.log('✅ PDF.js Worker configurado:', workerSrc);
+          return true;
+        }
+      } catch (error) {
+        console.warn(`⚠️ Worker falhou: ${workerSrc}`, error.message);
+      }
+    }
+    
+    // Fallback final
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      console.log('✅ PDF.js Worker configurado com fallback');
+      return true;
+    } catch (error) {
+      console.error('❌ Fallback também falhou:', error);
+      return false;
+    }
+  };
+
   const loadPdf = async () => {
     try {
+      // Verificar se o PDF.js Worker está configurado
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        console.warn('⚠️ PDF.js Worker não configurado, tentando configurar...');
+        // Tentar configurar novamente
+        const workerConfigured = await setupPDFWorker();
+        
+        if (!workerConfigured) {
+          throw new Error('PDF.js Worker não pôde ser configurado');
+        }
+      }
+      
       console.log('🔍 Carregando PDF para documento:', documentId);
       setIsLoading(true);
       const token = localStorage.getItem('token');
@@ -806,7 +868,18 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const pdfDoc = await PDFDocument.load(pdfBytes);
       
       // Converter imagem de assinatura para PNG
-      const signatureImageBytes = await fetch(signatureImage).then(res => res.arrayBuffer());
+      let signatureImageBytes;
+      try {
+        const signatureResponse = await fetch(signatureImage);
+        if (!signatureResponse.ok) {
+          throw new Error(`Erro ao buscar assinatura: ${signatureResponse.status}`);
+        }
+        signatureImageBytes = await signatureResponse.arrayBuffer();
+        console.log('✅ Imagem de assinatura carregada, tamanho:', signatureImageBytes.byteLength);
+      } catch (fetchError) {
+        console.error('❌ Erro ao carregar imagem de assinatura:', fetchError);
+        throw new Error('Não foi possível carregar a imagem de assinatura');
+      }
       
       // Verificar se a imagem é PNG, se não for, converter
       let signaturePngImage;
@@ -817,47 +890,72 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         console.log('⚠️ Imagem não é PNG, convertendo...');
         
         try {
-        // Converter para PNG usando canvas
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
-        await new Promise((resolve, reject) => {
+          // Converter para PNG usando canvas
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          
+          // Configurar timeout para carregamento da imagem
+          const loadPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Timeout ao carregar imagem para conversão'));
+            }, 10000); // 10 segundos timeout
+            
             img.onload = () => {
+              clearTimeout(timeout);
               console.log('✅ Imagem carregada para conversão');
               resolve();
             };
             img.onerror = (err) => {
+              clearTimeout(timeout);
               console.error('❌ Erro ao carregar imagem para conversão:', err);
               reject(err);
             };
-          img.src = signatureImage;
-        });
-        
-        // Criar canvas para conversão
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+            
+            // Tentar carregar a imagem
+            try {
+              img.src = signatureImage;
+            } catch (srcError) {
+              clearTimeout(timeout);
+              reject(srcError);
+            }
+          });
+          
+          await loadPromise;
+          
+          // Criar canvas para conversão
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
           
           if (!ctx) {
             throw new Error('Não foi possível obter contexto do canvas');
           }
           
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        // Desenhar imagem no canvas
-        ctx.drawImage(img, 0, 0);
-        
-        // Converter para PNG
-        const pngDataUrl = canvas.toDataURL('image/png');
-        const pngResponse = await fetch(pngDataUrl);
-        const pngBytes = await pngResponse.arrayBuffer();
-        
-        // Tentar novamente com PNG
-        signaturePngImage = await pdfDoc.embedPng(pngBytes);
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Desenhar imagem no canvas
+          ctx.drawImage(img, 0, 0);
+          
+          // Converter para PNG
+          const pngDataUrl = canvas.toDataURL('image/png');
+          const pngResponse = await fetch(pngDataUrl);
+          const pngBytes = await pngResponse.arrayBuffer();
+          
+          // Tentar novamente com PNG
+          signaturePngImage = await pdfDoc.embedPng(pngBytes);
           console.log('✅ Imagem convertida para PNG com sucesso');
         } catch (conversionError) {
           console.error('❌ Erro na conversão de imagem:', conversionError);
-          throw new Error('Não foi possível converter a imagem de assinatura para PNG');
+          
+          // Tentar fallback: usar imagem original mesmo que não seja PNG
+          try {
+            console.log('🔄 Tentando fallback: usar imagem original...');
+            signaturePngImage = await pdfDoc.embedPng(signatureImageBytes);
+            console.log('✅ Fallback bem-sucedido: imagem original aceita');
+          } catch (fallbackError) {
+            console.error('❌ Fallback também falhou:', fallbackError);
+            throw new Error('Não foi possível processar a imagem de assinatura. Verifique se o arquivo está correto.');
+          }
         }
       }
       
