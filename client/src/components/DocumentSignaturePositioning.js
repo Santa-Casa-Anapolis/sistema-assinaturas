@@ -828,15 +828,29 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const sniffMimeType = async (blob) => {
     const buf = await blob.slice(0, 32).arrayBuffer();
     const bytes = new Uint8Array(buf);
+    
+    // Detectar PNG
     const isPNG = bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47;
+    if (isPNG) return 'image/png';
+    
+    // Detectar JPEG
     const isJPG = bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF;
+    if (isJPG) return 'image/jpeg';
+    
+    // Detectar WebP
     const isRIFF = bytes[0]===0x52 && bytes[1]===0x49 && bytes[2]===0x46 && bytes[3]===0x46 &&
                    bytes[8]===0x57 && bytes[9]===0x45 && bytes[10]===0x42 && bytes[11]===0x50;
-    const isPDF = bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46;
-    if (isPNG) return 'image/png';
-    if (isJPG) return 'image/jpeg';
     if (isRIFF) return 'image/webp';
+    
+    // Detectar PDF
+    const isPDF = bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46;
     if (isPDF) return 'application/pdf';
+    
+    // Detectar PKCS#7 (p7s) - assinatura digital
+    const isP7S = bytes[0]===0x30 && bytes[1]===0x82; // DER encoding
+    if (isP7S) return 'application/pkcs7-signature';
+    
+    // Se não conseguir detectar, usar o tipo reportado pelo blob
     return blob.type || 'application/octet-stream';
   };
 
@@ -944,11 +958,21 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         const signatureBlob = await signatureResponse.blob();
         console.log('✅ Imagem de assinatura carregada, tipo:', signatureBlob.type, 'tamanho:', signatureBlob.size);
         
-        // Helper simples para detectar PDF/p7s
+        // Detectar PDF/p7s usando múltiplas verificações
+        const detectedMime = await sniffMimeType(signatureBlob);
+        console.log('🔍 Detecção de tipo:', {
+          contentType: ct,
+          blobType: signatureBlob.type,
+          detectedMime: detectedMime,
+          size: signatureBlob.size
+        });
+        
         const isPdfLike = (ct && ct.includes('pdf')) || 
                          (ct && ct.includes('pkcs7')) || 
                          signatureBlob.type === 'application/pdf' || 
-                         signatureBlob.type === 'application/pkcs7-signature';
+                         signatureBlob.type === 'application/pkcs7-signature' ||
+                         detectedMime === 'application/pdf' ||
+                         detectedMime === 'application/pkcs7-signature';
 
         if (isPdfLike) {
           console.error('Assinatura inválida (PDF/p7s):', { 
@@ -966,12 +990,24 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           throw new Error('Invalid signature: PDF/p7s');
         }
         
-        // Usar nova função para garantir PNG
-        const pngBlob = await ensureSignaturePNG(signatureBlob);
-        const pngBytes = await pngBlob.arrayBuffer();
-        
-        signaturePngImage = await pdfDoc.embedPng(pngBytes);
-        console.log('✅ Imagem PNG processada com sucesso');
+        // Usar nova função para garantir PNG (apenas se não for PDF/p7s)
+        try {
+          const pngBlob = await ensureSignaturePNG(signatureBlob);
+          const pngBytes = await pngBlob.arrayBuffer();
+          
+          signaturePngImage = await pdfDoc.embedPng(pngBytes);
+          console.log('✅ Imagem PNG processada com sucesso');
+        } catch (conversionError) {
+          // Se a conversão falhar, pode ser que seja um arquivo corrompido ou inválido
+          console.error('❌ Erro na conversão de imagem:', conversionError);
+          
+          setUiError({
+            title: 'Arquivo de assinatura inválido',
+            message: 'A assinatura não pôde ser processada. Por favor, envie uma imagem válida (PNG, JPEG, WEBP ou SVG).',
+          });
+          setShowSignatureReupload(true);
+          throw new Error('Invalid signature: conversion failed');
+        }
       } catch (signatureError) {
         console.error('❌ Erro ao processar imagem de assinatura:', signatureError);
         throw new Error(`Não foi possível processar a imagem de assinatura: ${signatureError.message}`);
