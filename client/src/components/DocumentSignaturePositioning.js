@@ -20,6 +20,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [showPreview, setShowPreview] = useState(true); // Nova: mostrar prévia primeiro
   const [documentInfo, setDocumentInfo] = useState(null); // Nova: informações do documento
   const [showSignatureArea, setShowSignatureArea] = useState(false); // Nova: mostrar área de assinatura
+  const [uiError, setUiError] = useState(null); // Estado para erro de UI
+  const [showSignatureReupload, setShowSignatureReupload] = useState(false); // Estado para reenvio de assinatura
   
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
@@ -931,13 +933,38 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Carregar e processar imagem de assinatura com nova lógica
       let signaturePngImage;
       try {
-        const signatureResponse = await fetch(signatureImage);
+        const signatureResponse = await fetch(signatureImage, { cache: 'no-store' });
+        const ct = signatureResponse.headers.get('Content-Type');
+        console.debug('📦 Content-Type assinatura:', ct);
+        
         if (!signatureResponse.ok) {
           throw new Error(`Erro ao buscar assinatura: ${signatureResponse.status}`);
         }
         
         const signatureBlob = await signatureResponse.blob();
         console.log('✅ Imagem de assinatura carregada, tipo:', signatureBlob.type, 'tamanho:', signatureBlob.size);
+        
+        // Helper simples para detectar PDF/p7s
+        const isPdfLike = (ct && ct.includes('pdf')) || 
+                         (ct && ct.includes('pkcs7')) || 
+                         signatureBlob.type === 'application/pdf' || 
+                         signatureBlob.type === 'application/pkcs7-signature';
+
+        if (isPdfLike) {
+          console.error('Assinatura inválida (PDF/p7s):', { 
+            ct, 
+            type: signatureBlob.type, 
+            size: signatureBlob.size, 
+            docId: documentId 
+          });
+          
+          setUiError({
+            title: 'Arquivo de assinatura inválido',
+            message: 'A assinatura enviada é um PDF/p7s. Por favor, envie uma imagem (PNG, JPEG, WEBP ou SVG) com fundo transparente se possível.',
+          });
+          setShowSignatureReupload(true);
+          throw new Error('Invalid signature: PDF/p7s');
+        }
         
         // Usar nova função para garantir PNG
         const pngBlob = await ensureSignaturePNG(signatureBlob);
@@ -1066,6 +1093,40 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       setCurrentPage(newPage);
       await renderPage(newPage);
     }
+  };
+
+  // Função para lidar com reenvio de assinatura
+  const handleSignatureReupload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Tipo de arquivo inválido. Use PNG, JPEG, WEBP ou SVG.');
+      return;
+    }
+
+    try {
+      // Criar URL temporária para a nova assinatura
+      const newSignatureUrl = URL.createObjectURL(file);
+      setSignatureImage(newSignatureUrl);
+      
+      // Limpar estados de erro
+      setUiError(null);
+      setShowSignatureReupload(false);
+      
+      toast.success('Nova assinatura carregada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao carregar nova assinatura:', error);
+      toast.error('Erro ao carregar nova assinatura.');
+    }
+  };
+
+  // Função para fechar modal de erro
+  const closeErrorModal = () => {
+    setUiError(null);
+    setShowSignatureReupload(false);
   };
 
   if (isLoading && !pdfDocument) {
@@ -1242,6 +1303,51 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         <h2 className="text-2xl font-bold mb-6" style={{color: 'var(--text-primary)'}}>
           Posicionar Assinaturas no Documento
         </h2>
+
+        {/* Modal de Erro para Assinatura Inválida */}
+        {uiError && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-gray-900">{uiError.title}</h3>
+                </div>
+              </div>
+              <div className="mb-4">
+                <p className="text-sm text-gray-700">{uiError.message}</p>
+              </div>
+              
+              {/* Input para reenvio de assinatura */}
+              {showSignatureReupload && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Envie uma nova assinatura:
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                    onChange={handleSignatureReupload}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeErrorModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Status da Assinatura */}
         <div className="mb-6">
