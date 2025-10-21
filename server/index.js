@@ -139,6 +139,15 @@ const upload = multer({
         console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
         cb(new Error('Tipo de arquivo não permitido'), false);
       }
+    } else if (file.fieldname === 'signedPdf') {
+      // Para PDFs assinados, permitir apenas PDF
+      if (file.mimetype === 'application/pdf') {
+        console.log('✅ PDF assinado aceito');
+        cb(null, true);
+      } else {
+        console.log('❌ PDF assinado rejeitado - não é PDF:', file.mimetype);
+        cb(new Error('Apenas arquivos PDF são permitidos para PDFs assinados'), false);
+      }
     } else {
       console.log('❌ Campo não reconhecido:', file.fieldname);
       cb(new Error('Campo de arquivo não reconhecido'), false);
@@ -173,6 +182,15 @@ const uploadWithFields = multer({
       } else {
         console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
         cb(new Error('Tipo de arquivo não permitido'), false);
+      }
+    } else if (file.fieldname === 'signedPdf') {
+      // Para PDFs assinados, permitir apenas PDF
+      if (file.mimetype === 'application/pdf') {
+        console.log('✅ PDF assinado aceito');
+        cb(null, true);
+      } else {
+        console.log('❌ PDF assinado rejeitado - não é PDF:', file.mimetype);
+        cb(new Error('Apenas arquivos PDF são permitidos para PDFs assinados'), false);
       }
     } else {
       console.log('❌ Campo não reconhecido:', file.fieldname);
@@ -2311,32 +2329,59 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     const signedFilename = `signed_${timestamp}_${req.file.originalname}`;
     const signedPath = path.join(__dirname, 'uploads', signedFilename);
 
+    console.log(`📁 Salvando PDF assinado: ${signedFilename}`);
+    console.log(`📁 Caminho original: ${req.file.path}`);
+    console.log(`📁 Caminho destino: ${signedPath}`);
+
+    // Verificar se o diretório de uploads existe
+    const uploadsDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      console.log('📁 Criando diretório uploads...');
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
     // Mover arquivo para o local correto
-    fs.renameSync(req.file.path, signedPath);
+    try {
+      fs.renameSync(req.file.path, signedPath);
+      console.log('✅ Arquivo movido com sucesso');
+    } catch (moveError) {
+      console.error('❌ Erro ao mover arquivo:', moveError);
+      throw new Error(`Erro ao mover arquivo: ${moveError.message}`);
+    }
 
     // Atualizar documento com o arquivo assinado
-    // Check if columns exist before updating
-    const columnCheck = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'documents' AND column_name IN ('signed_file_path', 'signed_filename', 'signed_at')
-    `);
+    console.log('💾 Atualizando banco de dados...');
     
-    const hasSignedColumns = columnCheck.rows.length > 0;
-    
-    if (hasSignedColumns) {
-      await pool.query(`
-        UPDATE documents 
-        SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
-      `, [signedPath, signedFilename, documentId]);
-    } else {
-      // Fallback: update with basic columns
-      await pool.query(`
-        UPDATE documents 
-        SET file_path = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [signedPath, documentId]);
+    try {
+      // Check if columns exist before updating
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'documents' AND column_name IN ('signed_file_path', 'signed_filename', 'signed_at')
+      `);
+      
+      const hasSignedColumns = columnCheck.rows.length > 0;
+      console.log(`📊 Colunas de assinatura encontradas: ${hasSignedColumns}`);
+      
+      if (hasSignedColumns) {
+        await pool.query(`
+          UPDATE documents 
+          SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3
+        `, [signedPath, signedFilename, documentId]);
+        console.log('✅ Documento atualizado com colunas de assinatura');
+      } else {
+        // Fallback: update with basic columns
+        await pool.query(`
+          UPDATE documents 
+          SET file_path = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [signedPath, documentId]);
+        console.log('✅ Documento atualizado com colunas básicas');
+      }
+    } catch (dbError) {
+      console.error('❌ Erro ao atualizar banco de dados:', dbError);
+      throw new Error(`Erro ao atualizar banco de dados: ${dbError.message}`);
     }
 
     // Registrar na auditoria
@@ -2350,8 +2395,24 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     });
 
   } catch (error) {
-    console.error('Erro ao salvar PDF assinado:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
+    console.error('❌ Erro ao salvar PDF assinado:', error);
+    console.error('❌ Stack trace:', error.stack);
+    
+    // Limpar arquivo temporário se existir
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('🧹 Arquivo temporário removido');
+      } catch (cleanupError) {
+        console.error('❌ Erro ao limpar arquivo temporário:', cleanupError);
+      }
+    }
+    
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
