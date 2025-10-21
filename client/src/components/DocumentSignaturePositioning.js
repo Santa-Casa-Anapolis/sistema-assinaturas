@@ -1100,7 +1100,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Validar tipo de arquivo
+    // Validar tipo de arquivo no frontend
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
     if (!validTypes.includes(file.type)) {
       toast.error('Tipo de arquivo inválido. Use PNG, JPEG, WEBP ou SVG.');
@@ -1108,18 +1108,59 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     }
 
     try {
-      // Criar URL temporária para a nova assinatura
-      const newSignatureUrl = URL.createObjectURL(file);
-      setSignatureImage(newSignatureUrl);
+      setIsLoading(true);
+      
+      // Obter ID do usuário atual (assumindo que está disponível no contexto)
+      const token = localStorage.getItem('token');
+      const userResponse = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!userResponse.ok) {
+        throw new Error('Erro ao obter informações do usuário');
+      }
+      
+      const userData = await userResponse.json();
+      const userId = userData.id;
+      
+      // Criar FormData para upload
+      const formData = new FormData();
+      formData.append('signature', file);
+      
+      // Enviar para o endpoint de atualização
+      const uploadResponse = await fetch(`/api/signatures/${userId}/update`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const uploadResult = await uploadResponse.json();
+      
+      if (!uploadResponse.ok) {
+        if (uploadResponse.status === 415) {
+          toast.error(uploadResult.message || 'Tipo de arquivo não suportado');
+        } else {
+          toast.error(uploadResult.message || 'Erro ao atualizar assinatura');
+        }
+        return;
+      }
+      
+      // Recarregar a assinatura do usuário
+      await loadUserSignature();
       
       // Limpar estados de erro
       setUiError(null);
       setShowSignatureReupload(false);
       
       toast.success('Nova assinatura carregada com sucesso!');
+      
     } catch (error) {
       console.error('Erro ao carregar nova assinatura:', error);
       toast.error('Erro ao carregar nova assinatura.');
+    } finally {
+      setIsLoading(false);
     }
   };
 

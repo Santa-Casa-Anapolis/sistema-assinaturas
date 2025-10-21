@@ -11,6 +11,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { pool, initDatabase } = require('./database');
 const { authenticateLDAP } = require('./ldap-auth');
+const { fileTypeFromBuffer } = require('file-type');
 require('dotenv').config();
 
 // ==================== MAPEAMENTO DE GRUPOS AD ====================
@@ -556,6 +557,73 @@ app.post('/api/users/:id/signature', authenticateToken, upload.single('signature
       return res.status(400).json({ error: 'Arquivo de assinatura é obrigatório' });
     }
 
+    // ============ VALIDAÇÃO ROBUSTA DE TIPO DE ARQUIVO ============
+    try {
+      console.log('🔍 Validando tipo de arquivo com file-type...');
+      
+      // Ler o buffer do arquivo para análise
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileType = await fileTypeFromBuffer(fileBuffer);
+      
+      console.log('📦 Detecção file-type:', {
+        detected: fileType,
+        reported: file.mimetype,
+        originalname: file.originalname,
+        size: file.size
+      });
+      
+      // Determinar o MIME type correto
+      const actualMime = fileType?.mime || file.mimetype;
+      
+      // Tipos permitidos para assinatura visual
+      const allowedMimes = [
+        'image/png',
+        'image/jpeg', 
+        'image/webp',
+        'image/svg+xml'
+      ];
+      
+      // Verificar se é um tipo permitido
+      if (!allowedMimes.includes(actualMime)) {
+        console.error('❌ Tipo de arquivo não permitido:', {
+          actualMime,
+          reportedMime: file.mimetype,
+          detectedExt: fileType?.ext,
+          originalname: file.originalname,
+          size: file.size,
+          userId
+        });
+        
+        // Remover arquivo temporário
+        fs.unlinkSync(file.path);
+        
+        return res.status(415).json({
+          error: 'unsupported_media_type',
+          message: 'Envie PNG, JPEG, WEBP ou SVG. PDF/p7s não são aceitos para a assinatura visual.',
+          detected: {
+            mime: actualMime,
+            ext: fileType?.ext,
+            originalMime: file.mimetype
+          }
+        });
+      }
+      
+      console.log('✅ Tipo de arquivo validado:', actualMime);
+      
+    } catch (validationError) {
+      console.error('❌ Erro na validação de arquivo:', validationError);
+      
+      // Remover arquivo temporário em caso de erro
+      if (file.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+      
+      return res.status(400).json({
+        error: 'validation_error',
+        message: 'Erro ao validar o arquivo. Verifique se é uma imagem válida.'
+      });
+    }
+
     // Verificar se o usuário tem permissão (admin principal ou o próprio usuário)
     const isAdmin = await isMainAdmin(req.user.id);
     if (!isAdmin && req.user.id != userId) {
@@ -593,6 +661,127 @@ app.post('/api/users/:id/signature', authenticateToken, upload.single('signature
 
   } catch (error) {
     console.error('Erro ao salvar assinatura:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Endpoint específico para atualização de assinatura (usado pelo frontend para reenvio)
+app.post('/api/signatures/:id/update', authenticateToken, upload.single('signature'), async (req, res) => {
+  try {
+    console.log('🔄 Atualização de assinatura iniciada');
+    
+    const userId = req.params.id;
+    const file = req.file;
+    
+    if (!file) {
+      return res.status(400).json({ error: 'Arquivo de assinatura é obrigatório' });
+    }
+
+    // ============ VALIDAÇÃO ROBUSTA DE TIPO DE ARQUIVO ============
+    try {
+      console.log('🔍 Validando tipo de arquivo para atualização...');
+      
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileType = await fileTypeFromBuffer(fileBuffer);
+      
+      console.log('📦 Detecção file-type (atualização):', {
+        detected: fileType,
+        reported: file.mimetype,
+        originalname: file.originalname,
+        size: file.size,
+        userId
+      });
+      
+      const actualMime = fileType?.mime || file.mimetype;
+      
+      const allowedMimes = [
+        'image/png',
+        'image/jpeg', 
+        'image/webp',
+        'image/svg+xml'
+      ];
+      
+      if (!allowedMimes.includes(actualMime)) {
+        console.error('❌ Tipo de arquivo não permitido (atualização):', {
+          actualMime,
+          reportedMime: file.mimetype,
+          detectedExt: fileType?.ext,
+          originalname: file.originalname,
+          size: file.size,
+          userId
+        });
+        
+        fs.unlinkSync(file.path);
+        
+        return res.status(415).json({
+          error: 'unsupported_media_type',
+          message: 'Envie PNG, JPEG, WEBP ou SVG. PDF/p7s não são aceitos para a assinatura visual.',
+          detected: {
+            mime: actualMime,
+            ext: fileType?.ext,
+            originalMime: file.mimetype
+          }
+        });
+      }
+      
+      console.log('✅ Tipo de arquivo validado para atualização:', actualMime);
+      
+    } catch (validationError) {
+      console.error('❌ Erro na validação de arquivo (atualização):', validationError);
+      
+      if (file.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+      
+      return res.status(400).json({
+        error: 'validation_error',
+        message: 'Erro ao validar o arquivo. Verifique se é uma imagem válida.'
+      });
+    }
+
+    // Verificar se o usuário tem permissão
+    const isAdmin = await isMainAdmin(req.user.id);
+    if (!isAdmin && req.user.id != userId) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Verificar se o usuário existe
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Remover assinatura anterior se existir
+    const existingSignature = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
+    if (existingSignature.rows.length > 0) {
+      const oldFilePath = path.join(__dirname, 'uploads', existingSignature.rows[0].signature_file);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+
+    // Atualizar ou criar nova assinatura
+    if (existingSignature.rows.length > 0) {
+      await pool.query(
+        'UPDATE user_signatures SET signature_file = $1, original_filename = $2, updated_at = CURRENT_TIMESTAMP WHERE user_id = $3',
+        [file.filename, file.originalname, userId]
+      );
+    } else {
+      await pool.query(
+        'INSERT INTO user_signatures (user_id, signature_file, original_filename) VALUES ($1, $2, $3)',
+        [userId, file.filename, file.originalname]
+      );
+    }
+
+    res.json({ 
+      message: 'Assinatura atualizada com sucesso',
+      signatureFile: file.filename,
+      originalFilename: file.originalname,
+      success: true
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar assinatura:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
