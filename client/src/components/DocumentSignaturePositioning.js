@@ -822,6 +822,67 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     toast.info(`Assinatura removida da página ${page}`);
   };
 
+  // Utils: detectar tipo real e converter qualquer imagem em PNG
+  const sniffMimeType = async (blob) => {
+    const buf = await blob.slice(0, 32).arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const isPNG = bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47;
+    const isJPG = bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF;
+    const isRIFF = bytes[0]===0x52 && bytes[1]===0x49 && bytes[2]===0x46 && bytes[3]===0x46 &&
+                   bytes[8]===0x57 && bytes[9]===0x45 && bytes[10]===0x42 && bytes[11]===0x50;
+    const isPDF = bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46;
+    if (isPNG) return 'image/png';
+    if (isJPG) return 'image/jpeg';
+    if (isRIFF) return 'image/webp';
+    if (isPDF) return 'application/pdf';
+    return blob.type || 'application/octet-stream';
+  };
+
+  const loadImageBitmapFromBlob = async (blob) => {
+    try {
+      return await createImageBitmap(blob);
+    } catch {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+        img.src = url;
+      });
+    }
+  };
+
+  const convertAnyImageToPNGBlob = async (blob) => {
+    const mime = await sniffMimeType(blob);
+    if (mime === 'application/pdf' || mime === 'application/octet-stream') {
+      throw new Error('A assinatura não é uma imagem válida (PDF/p7s detectado).');
+    }
+    if (mime === 'image/png') return blob;
+
+    const bmp = await loadImageBitmapFromBlob(blob);
+    const w = bmp.width || bmp.naturalWidth;
+    const h = bmp.height || bmp.naturalHeight;
+
+    const canvas = typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(w, h)
+      : (() => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; })();
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, w, h);
+
+    if (canvas.convertToBlob) return await canvas.convertToBlob({ type: 'image/png' });
+    return await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
+  };
+
+  const ensureSignaturePNG = async (signatureBlob) => {
+    try {
+      return await convertAnyImageToPNGBlob(signatureBlob);
+    } catch (err) {
+      console.error('❌ Falha ao converter assinatura:', err);
+      throw err;
+    }
+  };
+
   const applySignatures = async () => {
     if (!signatureImage) {
       toast.error('Assinatura não encontrada. Entre em contato com o administrador.');
@@ -867,96 +928,26 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Carregar PDF com PDF-lib
       const pdfDoc = await PDFDocument.load(pdfBytes);
       
-      // Converter imagem de assinatura para PNG
-      let signatureImageBytes;
+      // Carregar e processar imagem de assinatura com nova lógica
+      let signaturePngImage;
       try {
         const signatureResponse = await fetch(signatureImage);
         if (!signatureResponse.ok) {
           throw new Error(`Erro ao buscar assinatura: ${signatureResponse.status}`);
         }
-        signatureImageBytes = await signatureResponse.arrayBuffer();
-        console.log('✅ Imagem de assinatura carregada, tamanho:', signatureImageBytes.byteLength);
-      } catch (fetchError) {
-        console.error('❌ Erro ao carregar imagem de assinatura:', fetchError);
-        throw new Error('Não foi possível carregar a imagem de assinatura');
-      }
-      
-      // Verificar se a imagem é PNG, se não for, converter
-      let signaturePngImage;
-      try {
-        signaturePngImage = await pdfDoc.embedPng(signatureImageBytes);
-        console.log('✅ Imagem PNG carregada com sucesso');
-      } catch (error) {
-        console.log('⚠️ Imagem não é PNG, convertendo...');
         
-        try {
-          // Converter para PNG usando canvas
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          
-          // Configurar timeout para carregamento da imagem
-          const loadPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error('Timeout ao carregar imagem para conversão'));
-            }, 10000); // 10 segundos timeout
-            
-            img.onload = () => {
-              clearTimeout(timeout);
-              console.log('✅ Imagem carregada para conversão');
-              resolve();
-            };
-            img.onerror = (err) => {
-              clearTimeout(timeout);
-              console.error('❌ Erro ao carregar imagem para conversão:', err);
-              reject(err);
-            };
-            
-            // Tentar carregar a imagem
-            try {
-              img.src = signatureImage;
-            } catch (srcError) {
-              clearTimeout(timeout);
-              reject(srcError);
-            }
-          });
-          
-          await loadPromise;
-          
-          // Criar canvas para conversão
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          if (!ctx) {
-            throw new Error('Não foi possível obter contexto do canvas');
-          }
-          
-          canvas.width = img.width;
-          canvas.height = img.height;
-          
-          // Desenhar imagem no canvas
-          ctx.drawImage(img, 0, 0);
-          
-          // Converter para PNG
-          const pngDataUrl = canvas.toDataURL('image/png');
-          const pngResponse = await fetch(pngDataUrl);
-          const pngBytes = await pngResponse.arrayBuffer();
-          
-          // Tentar novamente com PNG
-          signaturePngImage = await pdfDoc.embedPng(pngBytes);
-          console.log('✅ Imagem convertida para PNG com sucesso');
-        } catch (conversionError) {
-          console.error('❌ Erro na conversão de imagem:', conversionError);
-          
-          // Tentar fallback: usar imagem original mesmo que não seja PNG
-          try {
-            console.log('🔄 Tentando fallback: usar imagem original...');
-            signaturePngImage = await pdfDoc.embedPng(signatureImageBytes);
-            console.log('✅ Fallback bem-sucedido: imagem original aceita');
-          } catch (fallbackError) {
-            console.error('❌ Fallback também falhou:', fallbackError);
-            throw new Error('Não foi possível processar a imagem de assinatura. Verifique se o arquivo está correto.');
-          }
-        }
+        const signatureBlob = await signatureResponse.blob();
+        console.log('✅ Imagem de assinatura carregada, tipo:', signatureBlob.type, 'tamanho:', signatureBlob.size);
+        
+        // Usar nova função para garantir PNG
+        const pngBlob = await ensureSignaturePNG(signatureBlob);
+        const pngBytes = await pngBlob.arrayBuffer();
+        
+        signaturePngImage = await pdfDoc.embedPng(pngBytes);
+        console.log('✅ Imagem PNG processada com sucesso');
+      } catch (signatureError) {
+        console.error('❌ Erro ao processar imagem de assinatura:', signatureError);
+        throw new Error(`Não foi possível processar a imagem de assinatura: ${signatureError.message}`);
       }
       
       // Obter dimensões do canvas uma vez só
