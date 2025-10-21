@@ -1969,8 +1969,12 @@ app.get('/api/documents', authenticateToken, async (req, res) => {
   }
 });
 
-// Criar novo documento
-app.post('/api/documents', authenticateToken, upload.array('documents', 10), async (req, res) => {
+// Importar sistemas de documentos
+const documentValidation = require('./document-validation-system');
+const documentFlow = require('./document-flow-system');
+
+// Upload temporário de documento (antes da assinatura)
+app.post('/api/documents/temp-upload', authenticateToken, upload.array('documents', 10), async (req, res) => {
   try {
     const { title, description, amount, sector, signatureMode, govSignature } = req.body;
     const userId = req.user.id;
@@ -2044,40 +2048,153 @@ app.post('/api/documents', authenticateToken, upload.array('documents', 10), asy
       } : 'Nenhum arquivo'
     });
 
-    // Inserir documento principal (usando o primeiro arquivo como file_path principal)
-    const result = await pool.query(`
-      INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
-      RETURNING id
-    `, [
-      title,
-      description,
-      files[0].filename || files[0].path || files[0].originalname, // Fallback para filename
-      files[0].originalname,
-      userId,
-      userId, // supervisor_id
-      sector || req.user.sector,
-      amount || 0
-    ]);
-
-    const documentId = result.rows[0].id;
-
-    // Arquivos já foram salvos pelo multer
-
-    // Processar assinatura textual se fornecida
-    if (signatureMode === 'text' && govSignature) {
-      console.log(`✅ Documento ${documentId} assinado textualmente pelo supervisor ${req.user.username}`);
+    // Salvar documentos temporariamente
+    const tempIds = [];
+    for (const file of files) {
+      const tempId = await documentValidation.saveTempDocument(file, {
+        title,
+        description,
+        amount: amount || 0,
+        sector: sector || req.user.sector,
+        signatureMode,
+        govSignature,
+        userId,
+        userRole,
+        originalFilename: file.originalname
+      });
+      tempIds.push(tempId);
     }
 
+    console.log(`📄 Documentos salvos temporariamente: ${tempIds.join(', ')}`);
+
     res.json({ 
-      message: 'Documento criado com sucesso',
-      documentId: documentId,
+      message: 'Documentos salvos temporariamente. Complete a assinatura para salvar definitivamente.',
+      tempIds: tempIds,
       filesCount: files.length,
-      signatureMode: signatureMode
+      signatureMode: signatureMode,
+      requiresSignature: true
     });
   } catch (error) {
     console.error('Erro ao criar documento:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Confirmar assinatura e salvar documento definitivamente
+app.post('/api/documents/confirm-signature', authenticateToken, async (req, res) => {
+  try {
+    const { tempIds, signatureData } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (!tempIds || !Array.isArray(tempIds) || tempIds.length === 0) {
+      return res.status(400).json({ error: 'IDs temporários são obrigatórios' });
+    }
+
+    console.log(`🔐 Confirmando assinatura para documentos temporários: ${tempIds.join(', ')}`);
+
+    // Validar assinatura para cada documento temporário
+    const validatedDocs = [];
+    for (const tempId of tempIds) {
+      const validation = await documentValidation.validateDocumentSignature(tempId, userId);
+      if (validation.valid) {
+        validatedDocs.push({
+          tempId,
+          metadata: validation.metadata,
+          tempPath: validation.tempPath
+        });
+      }
+    }
+
+    if (validatedDocs.length === 0) {
+      return res.status(400).json({ error: 'Nenhum documento temporário válido encontrado' });
+    }
+
+    // Salvar documentos definitivamente no banco
+    const documentIds = [];
+    for (const doc of validatedDocs) {
+      const { metadata } = doc;
+      
+      // Criar nome único para o arquivo final
+      const timestamp = Date.now();
+      const finalFilename = `doc_${timestamp}_${metadata.originalFilename}`;
+      const finalPath = path.join(__dirname, 'uploads', finalFilename);
+      
+      // Mover arquivo para pasta inicial (pending)
+      const pendingPath = path.join(__dirname, 'uploads', 'pending', finalFilename);
+      await documentValidation.moveToFinalLocation(doc.tempId, pendingPath);
+      
+      // Inserir no banco de dados
+      const result = await pool.query(`
+        INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status, current_stage, signature_mode, gov_signature)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'pending', $9, $10)
+        RETURNING id
+      `, [
+        metadata.title,
+        metadata.description,
+        finalFilename,
+        metadata.originalFilename,
+        userId,
+        userId, // supervisor_id
+        metadata.sector,
+        metadata.amount,
+        metadata.signatureMode,
+        metadata.govSignature
+      ]);
+
+      const documentId = result.rows[0].id;
+      documentIds.push(documentId);
+      
+      console.log(`✅ Documento ${documentId} salvo definitivamente`);
+    }
+
+    // Registrar na auditoria
+    await logAudit(userId, 'DOCUMENT_SIGNED', documentIds.join(','), `Documentos assinados e salvos definitivamente`, req.ip);
+
+    res.json({ 
+      message: 'Documentos assinados e salvos com sucesso',
+      documentIds: documentIds,
+      filesCount: validatedDocs.length,
+      signatureConfirmed: true
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao confirmar assinatura:', error);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      details: error.message 
+    });
+  }
+});
+
+// Cancelar documentos temporários (limpar se não assinados)
+app.post('/api/documents/cancel-temp', authenticateToken, async (req, res) => {
+  try {
+    const { tempIds } = req.body;
+    const userId = req.user.id;
+
+    if (!tempIds || !Array.isArray(tempIds) || tempIds.length === 0) {
+      return res.status(400).json({ error: 'IDs temporários são obrigatórios' });
+    }
+
+    console.log(`🗑️ Cancelando documentos temporários: ${tempIds.join(', ')}`);
+
+    // Limpar documentos temporários
+    for (const tempId of tempIds) {
+      await documentValidation.cleanupTempDocument(tempId);
+    }
+
+    res.json({ 
+      message: 'Documentos temporários cancelados com sucesso',
+      tempIds: tempIds
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao cancelar documentos temporários:', error);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      details: error.message 
+    });
   }
 });
 
