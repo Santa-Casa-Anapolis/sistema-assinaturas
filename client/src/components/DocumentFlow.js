@@ -230,8 +230,7 @@ const DocumentFlow = () => {
       const pdfResponse = await fetch(`/api/documents/${document.id}/view`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/pdf'
+          'Authorization': `Bearer ${token}`
         }
       });
       

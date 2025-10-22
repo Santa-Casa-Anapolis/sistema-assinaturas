@@ -72,8 +72,7 @@ const PendingSignatures = () => {
         const pdfResponse = await fetch(`/api/documents/${documentId}/view`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/pdf'
+            'Authorization': `Bearer ${token}`
           }
         });
         

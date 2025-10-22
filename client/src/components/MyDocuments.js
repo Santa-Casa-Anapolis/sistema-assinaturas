@@ -109,36 +109,52 @@ const MyDocuments = () => {
         console.log('Documento encontrado:', document);
         
         // Buscar o arquivo PDF com autenticação Bearer
+        console.log('🔍 Fazendo fetch para PDF...');
         const pdfResponse = await fetch(`/api/documents/${documentId}/view`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/pdf'
+            'Authorization': `Bearer ${token}`
           }
         });
         
+        console.log('📊 Resposta do fetch:', {
+          status: pdfResponse.status,
+          statusText: pdfResponse.statusText,
+          headers: Object.fromEntries(pdfResponse.headers.entries())
+        });
+        
         if (pdfResponse.ok) {
+          console.log('✅ PDF carregado com sucesso');
           // Converter resposta para Blob
           const pdfBlob = await pdfResponse.blob();
+          console.log('📊 Blob criado:', {
+            size: pdfBlob.size,
+            type: pdfBlob.type
+          });
           
           // Criar URL do Blob
           const pdfUrl = URL.createObjectURL(pdfBlob);
+          console.log('🔗 URL do Blob criada:', pdfUrl);
           
           // Abrir PDF em nova aba
           const newWindow = window.open(pdfUrl, '_blank');
           
           // Verificar se a janela foi bloqueada
           if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+            console.log('❌ Popup bloqueado');
             toast.error('Popup bloqueado. Permita popups para este site.');
             // Limpar URL do Blob se popup foi bloqueado
             URL.revokeObjectURL(pdfUrl);
           } else {
+            console.log('✅ PDF aberto em nova aba');
             // Limpar URL do Blob após um tempo (para liberar memória)
             setTimeout(() => {
               URL.revokeObjectURL(pdfUrl);
+              console.log('🧹 URL do Blob limpa');
             }, 10000); // 10 segundos
           }
         } else {
+          console.log('❌ Erro HTTP:', pdfResponse.status, pdfResponse.statusText);
           throw new Error(`Erro HTTP: ${pdfResponse.status}`);
         }
       }
