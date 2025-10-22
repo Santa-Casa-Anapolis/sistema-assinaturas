@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import api from '../config/api';
+import AuthTest from './AuthTest';
 import { 
   FileText, 
   Clock, 
@@ -29,11 +30,11 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       // Buscar documentos pendentes
-      const pendingResponse = await axios.get('/api/documents/pending');
+      const pendingResponse = await api.get('/documents/pending');
       const pendingCount = pendingResponse.data.length;
 
       // Buscar documentos do usuário
-      const myDocsResponse = await axios.get('/api/documents/my-documents');
+      const myDocsResponse = await api.get('/documents/my-documents');
       const myDocs = myDocsResponse.data;
       const completedCount = myDocs.filter(doc => doc.status === 'completed').length;
       const totalCount = myDocs.length;
@@ -171,6 +172,10 @@ const Dashboard = () => {
 
       </div>
 
+      {/* Componente de Teste de Autenticação */}
+      <div className="mt-8">
+        <AuthTest />
+      </div>
 
       {/* Informações do usuário */}
       <div className="mt-8 card rounded-lg p-6" style={{background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)'}}>

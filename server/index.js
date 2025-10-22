@@ -93,7 +93,15 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware de segurança
 app.use(helmet());
-app.use(cors());
+
+// Configuração CORS mais específica
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://172.16.0.219:3000', 'http://172.16.0.219'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
 app.use(express.json());
 app.use(express.static('uploads'));
 
@@ -213,14 +221,20 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log('🔐 Auth middleware - Header:', authHeader);
+  console.log('🔐 Auth middleware - Token:', token ? 'presente' : 'ausente');
+
   if (!token) {
+    console.log('❌ Token ausente');
     return res.status(401).json({ error: 'Token de acesso requerido' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
     if (err) {
+      console.log('❌ Token inválido:', err.message);
       return res.status(403).json({ error: 'Token inválido' });
     }
+    console.log('✅ Token válido para usuário:', user.username);
     req.user = user;
     next();
   });
