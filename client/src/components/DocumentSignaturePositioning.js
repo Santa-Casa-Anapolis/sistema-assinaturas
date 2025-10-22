@@ -304,8 +304,15 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       console.log('🔍 Carregando assinatura do usuário:', user);
       
+      if (!token) {
+        console.log('❌ Token não encontrado - usuário não está logado');
+        toast.warning('Você precisa fazer login para carregar a assinatura');
+        return;
+      }
+      
       if (!user || !user.id) {
         console.log('❌ Usuário não encontrado no localStorage');
+        toast.warning('Dados do usuário não encontrados - faça login novamente');
         return;
       }
 
@@ -370,6 +377,15 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           setSignatureImage(null);
           toast.error('Erro ao carregar arquivo da assinatura.');
         }
+      } else if (response.status === 401) {
+        console.log('⚠️ Token inválido ou expirado');
+        setSignatureImage(null);
+        toast.error('Sessão expirada. Faça login novamente.');
+        // Limpar dados de autenticação
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        // Redirecionar para login
+        window.location.href = '/login';
       } else if (response.status === 404) {
         console.log('⚠️ Usuário não possui assinatura cadastrada');
         setSignatureImage(null);
@@ -377,6 +393,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       } else {
         console.error('❌ Erro ao carregar assinatura:', response.status);
         setSignatureImage(null);
+        toast.error('Erro ao carregar assinatura do usuário.');
       }
     } catch (error) {
       console.error('❌ Erro ao carregar assinatura do usuário:', error);
