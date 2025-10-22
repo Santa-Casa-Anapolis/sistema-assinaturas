@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { Lock, Eye, EyeOff, Shield, Clock, Users } from 'lucide-react';
+import api from '../config/api';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -24,16 +25,31 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    const result = await login(username, password);
-    
-    if (result.success) {
+    try {
+      const response = await api.post('/auth/login', { 
+        username, 
+        password 
+      });
+      
+      const { token, user: userData } = response.data;
+      
+      if (!token) {
+        throw new Error('Token ausente na resposta');
+      }
+
+      // Salvar token e usuário usando o novo AuthContext
+      login(token, userData);
+      
       toast.success('Login realizado com sucesso!');
       navigate('/');
-    } else {
-      toast.error(result.error);
+      
+    } catch (error) {
+      console.error('Erro no login:', error);
+      const errorMessage = error.response?.data?.error || 'Erro ao fazer login';
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   // Mostrar loading enquanto verifica autenticação

@@ -53,60 +53,16 @@ const PendingSignatures = () => {
 
   const handleViewDocument = async (documentId) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Token de autenticação não encontrado');
-        return;
-      }
-      
-      // Primeiroodo existe
-      const checkResponse = await axios.get(`/api/documents/${documentId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (checkResponse.status === 200) {
-        const document = checkResponse.data;
-        console.log('Documento encontrado:', document);
-        
-        // Buscar o arquivo PDF com autenticação Bearer
-        const pdfResponse = await fetch(`/api/documents/${documentId}/view`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (pdfResponse.ok) {
-          // Converter resposta para Blob
-          const pdfBlob = await pdfResponse.blob();
-          
-          // Criar URL do Blob
-          const pdfUrl = URL.createObjectURL(pdfBlob);
-          
-          // Abrir PDF em nova aba
-          const newWindow = window.open(pdfUrl, '_blank');
-          
-          // Verificar se a janela foi bloqueada
-          if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-            toast.error('Popup bloqueado. Permita popups para este site.');
-            // Limpar URL do Blob se popup foi bloqueado
-            URL.revokeObjectURL(pdfUrl);
-          } else {
-            // Limpar URL do Blob após um tempo (para liberar memória)
-            setTimeout(() => {
-              URL.revokeObjectURL(pdfUrl);
-            }, 10000); // 10 segundos
-          }
-        } else {
-          throw new Error(`Erro HTTP: ${pdfResponse.status}`);
-        }
-      }
-      
+      // Usar a nova função openPdf
+      const { openPdf } = await import('../utils/openPdf');
+      await openPdf(documentId);
     } catch (error) {
       console.error('Erro ao visualizar documento:', error);
-      if (error.response?.status === 404) {
+      if (error.message.includes('Sem token')) {
+        toast.error('Token de autenticação não encontrado. Faça login novamente.');
+      } else if (error.message.includes('404')) {
         toast.error('Documento não encontrado.');
-      } else if (error.response?.status === 401) {
+      } else if (error.message.includes('401')) {
         toast.error('Token de autenticação inválido. Faça login novamente.');
       } else {
         toast.error('Erro ao abrir documento. Tente fazer o download.');

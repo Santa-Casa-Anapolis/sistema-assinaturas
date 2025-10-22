@@ -220,43 +220,9 @@ const DocumentFlow = () => {
   // Função para visualizar documento online em nova aba
   const handleViewDocumentOnline = async (document) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Token de autenticação não encontrado');
-        return;
-      }
-      
-      // Buscar o arquivo PDF com autenticação Bearer
-      const pdfResponse = await fetch(`/api/documents/${document.id}/view`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (pdfResponse.ok) {
-        // Converter resposta para Blob
-        const pdfBlob = await pdfResponse.blob();
-        
-        // Criar URL do Blob
-        const pdfUrl = URL.createObjectURL(pdfBlob);
-        
-        // Abrir PDF em nova aba
-        const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-        
-        if (!newWindow) {
-          alert('Por favor, permita pop-ups para este site para visualizar documentos.');
-          // Limpar URL do Blob se popup foi bloqueado
-          URL.revokeObjectURL(pdfUrl);
-        } else {
-          // Limpar URL do Blob após um tempo (para liberar memória)
-          setTimeout(() => {
-            URL.revokeObjectURL(pdfUrl);
-          }, 10000); // 10 segundos
-        }
-      } else {
-        throw new Error(`Erro HTTP: ${pdfResponse.status}`);
-      }
+      // Usar a nova função openPdf
+      const { openPdf } = await import('../utils/openPdf');
+      await openPdf(document.id);
     } catch (error) {
       console.error('Erro ao visualizar documento:', error);
       alert('Erro ao abrir documento. Verifique sua conexão.');

@@ -6,7 +6,7 @@ import './App.css';
 import './styles/dark-mode.css';
 
 // Context
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 // Hooks
@@ -26,17 +26,12 @@ import DocumentFlow from './components/DocumentFlow';
 import Header from './components/Header';
 import ThemeToggle from './components/ThemeToggle';
 import InactivityWarning from './components/InactivityWarning';
-
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
-};
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Admin Protected Route Component
 const AdminRoute = ({ children }) => {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" />;
+  const { user, token } = useAuth();
+  if (!token || !user) return <Navigate to="/login" />;
   if (user.role !== 'admin' && !user.is_admin) return <Navigate to="/" />;
   return children;
 };
