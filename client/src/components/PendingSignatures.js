@@ -59,7 +59,7 @@ const PendingSignatures = () => {
         return;
       }
       
-      // Primeiro verificar se o documento existe
+      // Primeiroodo existe
       const checkResponse = await axios.get(`/api/documents/${documentId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -68,13 +68,38 @@ const PendingSignatures = () => {
         const document = checkResponse.data;
         console.log('Documento encontrado:', document);
         
-        // Abrir documento em nova aba (URL absoluta para evitar interceptação do React Router)
-        const viewUrl = `/api/documents/${documentId}/view?token=${token}`;
-        const newWindow = window.open(viewUrl, '_blank');
+        // Buscar o arquivo PDF com autenticação Bearer
+        const pdfResponse = await fetch(`/api/documents/${documentId}/view`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/pdf'
+          }
+        });
         
-        // Verificar se a janela foi bloqueada
-        if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-          toast.error('Popup bloqueado. Permita popups para este site.');
+        if (pdfResponse.ok) {
+          // Converter resposta para Blob
+          const pdfBlob = await pdfResponse.blob();
+          
+          // Criar URL do Blob
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          
+          // Abrir PDF em nova aba
+          const newWindow = window.open(pdfUrl, '_blank');
+          
+          // Verificar se a janela foi bloqueada
+          if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+            toast.error('Popup bloqueado. Permita popups para este site.');
+            // Limpar URL do Blob se popup foi bloqueado
+            URL.revokeObjectURL(pdfUrl);
+          } else {
+            // Limpar URL do Blob após um tempo (para liberar memória)
+            setTimeout(() => {
+              URL.revokeObjectURL(pdfUrl);
+            }, 10000); // 10 segundos
+          }
+        } else {
+          throw new Error(`Erro HTTP: ${pdfResponse.status}`);
         }
       }
       

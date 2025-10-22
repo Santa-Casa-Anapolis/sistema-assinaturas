@@ -32,5 +32,30 @@ if (API_URL) {
   console.log('🔧 Usando proxy (NGINX em produção, React Dev Server em desenvolvimento)');
 }
 
+// Interceptor para tratar erros 401 (apenas para rotas de autenticação)
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Tratar apenas erros 401 em rotas específicas
+    if (error.response?.status === 401) {
+      const url = error.config?.url || '';
+      
+      // Se for rota de autenticação, não fazer logout automático
+      if (url.includes('/api/auth/') || url.includes('/api/signatures/')) {
+        console.log('🔐 Erro 401 em rota de autenticação, não fazendo logout automático');
+        return Promise.reject(error);
+      }
+      
+      // Para outras rotas, fazer logout
+      console.log('🔐 Erro 401, fazendo logout automático');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 export default axios;
 

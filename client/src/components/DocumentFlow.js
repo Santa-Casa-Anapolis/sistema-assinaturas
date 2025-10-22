@@ -220,15 +220,43 @@ const DocumentFlow = () => {
   // Função para visualizar documento online em nova aba
   const handleViewDocumentOnline = async (document) => {
     try {
-      // Criar URL direta para o documento com token de autenticação
       const token = localStorage.getItem('token');
-      const documentUrl = `/api/documents/${document.id}/view?token=${token}`;
+      if (!token) {
+        alert('Token de autenticação não encontrado');
+        return;
+      }
       
-      // Abrir em nova aba com configurações de segurança
-      const newWindow = window.open(documentUrl, '_blank', 'noopener,noreferrer');
+      // Buscar o arquivo PDF com autenticação Bearer
+      const pdfResponse = await fetch(`/api/documents/${document.id}/view`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/pdf'
+        }
+      });
       
-      if (!newWindow) {
-        alert('Por favor, permita pop-ups para este site para visualizar documentos.');
+      if (pdfResponse.ok) {
+        // Converter resposta para Blob
+        const pdfBlob = await pdfResponse.blob();
+        
+        // Criar URL do Blob
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        
+        // Abrir PDF em nova aba
+        const newWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+        
+        if (!newWindow) {
+          alert('Por favor, permita pop-ups para este site para visualizar documentos.');
+          // Limpar URL do Blob se popup foi bloqueado
+          URL.revokeObjectURL(pdfUrl);
+        } else {
+          // Limpar URL do Blob após um tempo (para liberar memória)
+          setTimeout(() => {
+            URL.revokeObjectURL(pdfUrl);
+          }, 10000); // 10 segundos
+        }
+      } else {
+        throw new Error(`Erro HTTP: ${pdfResponse.status}`);
       }
     } catch (error) {
       console.error('Erro ao visualizar documento:', error);
