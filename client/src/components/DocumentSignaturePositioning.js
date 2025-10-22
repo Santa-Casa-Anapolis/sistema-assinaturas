@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
+import { validateSignatureFile, convertToPNG, ERROR_MESSAGES } from '../utils/signatureValidation';
+import { setupPDFWorker, initializePDFJS } from '../utils/pdfWorkerSetup';
+import SignatureUpload from './SignatureUpload';
+import SignatureErrorModal from './SignatureErrorModal';
 
 const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -22,6 +26,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [showSignatureArea, setShowSignatureArea] = useState(false); // Nova: mostrar área de assinatura
   const [uiError, setUiError] = useState(null); // Estado para erro de UI
   const [showSignatureReupload, setShowSignatureReupload] = useState(false); // Estado para reenvio de assinatura
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
@@ -190,34 +196,14 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   }, [scale, currentPage, totalPages, isRendering]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Função para configurar PDF.js Worker (extraída para reutilização)
-  const setupPDFWorker = async () => {
-    const workerOptions = [
-      `${window.location.origin}/pdf.worker.min.js`,
-      '/pdf.worker.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-      'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
-    ];
-    
-    for (const workerSrc of workerOptions) {
-      try {
-        const response = await fetch(workerSrc, { method: 'HEAD' });
-        if (response.ok) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-          console.log('✅ PDF.js Worker configurado:', workerSrc);
-          return true;
-        }
-      } catch (error) {
-        console.warn(`⚠️ Worker falhou: ${workerSrc}`, error.message);
-      }
-    }
-    
-    // Fallback final
+  // Função para configurar o PDF.js Worker (usando utilitário)
+  const setupPDFWorkerLocal = async () => {
     try {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-      console.log('✅ PDF.js Worker configurado com fallback');
+      await setupPDFWorker();
+      console.log('✅ PDF.js Worker configurado com sucesso');
       return true;
     } catch (error) {
-      console.error('❌ Fallback também falhou:', error);
+      console.error('❌ Erro ao configurar PDF.js Worker:', error);
       return false;
     }
   };
@@ -228,7 +214,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
         console.warn('⚠️ PDF.js Worker não configurado, tentando configurar...');
         // Tentar configurar novamente
-        const workerConfigured = await setupPDFWorker();
+        const workerConfigured = await setupPDFWorkerLocal();
         
         if (!workerConfigured) {
           throw new Error('PDF.js Worker não pôde ser configurado');
@@ -958,54 +944,31 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         const signatureBlob = await signatureResponse.blob();
         console.log('✅ Imagem de assinatura carregada, tipo:', signatureBlob.type, 'tamanho:', signatureBlob.size);
         
-        // Detectar PDF/p7s usando múltiplas verificações
-        const detectedMime = await sniffMimeType(signatureBlob);
-        console.log('🔍 Detecção de tipo:', {
-          contentType: ct,
-          blobType: signatureBlob.type,
-          detectedMime: detectedMime,
-          size: signatureBlob.size
-        });
+        // Validar assinatura usando nova função
+        const validation = await validateSignatureFile(signatureBlob);
         
-        const isPdfLike = (ct && ct.includes('pdf')) || 
-                         (ct && ct.includes('pkcs7')) || 
-                         signatureBlob.type === 'application/pdf' || 
-                         signatureBlob.type === 'application/pkcs7-signature' ||
-                         detectedMime === 'application/pdf' ||
-                         detectedMime === 'application/pkcs7-signature';
-
-        if (isPdfLike) {
-          console.error('Assinatura inválida (PDF/p7s):', { 
-            ct, 
-            type: signatureBlob.type, 
-            size: signatureBlob.size, 
-            docId: documentId 
-          });
+        if (!validation.valid) {
+          console.error('❌ Assinatura inválida:', validation.error);
           
-          setUiError({
-            title: 'Arquivo de assinatura inválido',
-            message: 'A assinatura enviada é um PDF/p7s. Por favor, envie uma imagem (PNG, JPEG, WEBP ou SVG) com fundo transparente se possível.',
-          });
-          setShowSignatureReupload(true);
-          throw new Error('Invalid signature: PDF/p7s');
+          setErrorMessage(validation.error);
+          setShowErrorModal(true);
+          throw new Error(`Invalid signature: ${validation.error}`);
         }
         
-        // Usar nova função para garantir PNG (apenas se não for PDF/p7s)
+        console.log('✅ Assinatura válida:', validation.detectedType);
+        
+        // Converter para PNG usando nova função
         try {
-          const pngBlob = await ensureSignaturePNG(signatureBlob);
+          const pngBlob = await convertToPNG(signatureBlob);
           const pngBytes = await pngBlob.arrayBuffer();
           
           signaturePngImage = await pdfDoc.embedPng(pngBytes);
           console.log('✅ Imagem PNG processada com sucesso');
         } catch (conversionError) {
-          // Se a conversão falhar, pode ser que seja um arquivo corrompido ou inválido
           console.error('❌ Erro na conversão de imagem:', conversionError);
           
-          setUiError({
-            title: 'Arquivo de assinatura inválido',
-            message: 'A assinatura não pôde ser processada. Por favor, envie uma imagem válida (PNG, JPEG, WEBP ou SVG).',
-          });
-          setShowSignatureReupload(true);
+          setErrorMessage(ERROR_MESSAGES.CONVERSION_FAILED);
+          setShowErrorModal(true);
           throw new Error('Invalid signature: conversion failed');
         }
       } catch (signatureError) {
@@ -1204,6 +1167,15 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const closeErrorModal = () => {
     setUiError(null);
     setShowSignatureReupload(false);
+    setShowErrorModal(false);
+    setErrorMessage('');
+  };
+
+  const handleSignatureReuploadModal = () => {
+    setShowErrorModal(false);
+    setErrorMessage('');
+    // Aqui você pode adicionar lógica para reenviar assinatura
+    toast.info('Por favor, envie uma nova assinatura válida');
   };
 
   if (isLoading && !pdfDocument) {
@@ -1734,6 +1706,14 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           </div>
         </div>
       </div>
+      
+      {/* Modal de erro para assinatura inválida */}
+      <SignatureErrorModal
+        isOpen={showErrorModal}
+        onClose={closeErrorModal}
+        error={errorMessage}
+        onRetry={handleSignatureReuploadModal}
+      />
     </div>
   );
 };
