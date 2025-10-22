@@ -68,29 +68,29 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         return;
       }
       
-      const workerOptions = [
-        `${window.location.origin}/pdf.worker.min.js`,
-        '/pdf.worker.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-        'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
-      ];
-      
+    const workerOptions = [
+      `${window.location.origin}/pdf.worker.min.js`,
+      '/pdf.worker.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+      'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
+    ];
+    
       let workerConfigured = false;
       
       for (let i = 0; i < workerOptions.length; i++) {
         const workerSrc = workerOptions[i];
         console.log(`🔧 Tentando PDF.js Worker ${i + 1}/${workerOptions.length}:`, workerSrc);
-        
-        try {
-          // Testar se o worker está acessível
-          const response = await fetch(workerSrc, { method: 'HEAD' });
-          if (response.ok) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-            console.log('✅ PDF.js Worker configurado com sucesso:', workerSrc);
+      
+      try {
+        // Testar se o worker está acessível
+        const response = await fetch(workerSrc, { method: 'HEAD' });
+        if (response.ok) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+          console.log('✅ PDF.js Worker configurado com sucesso:', workerSrc);
             workerConfigured = true;
             break; // Sucesso, sair do loop
-          }
-        } catch (error) {
+        }
+      } catch (error) {
           console.warn(`⚠️ Worker ${i + 1} falhou:`, error.message);
         }
       }
@@ -360,9 +360,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
             }
             
             logFileInfo(signatureBlob, 'Assinatura carregada');
-            const signatureUrl = URL.createObjectURL(signatureBlob);
-            setSignatureImage(signatureUrl);
-            toast.success('Assinatura carregada automaticamente!');
+          const signatureUrl = URL.createObjectURL(signatureBlob);
+          setSignatureImage(signatureUrl);
+          toast.success('Assinatura carregada automaticamente!');
           } else {
             console.error('❌ Arquivo de assinatura não é uma imagem:', contentType);
             setSignatureImage(null);
@@ -1004,7 +1004,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           const pngBlob = await convertToPNG(signatureBlob);
           const pngBytes = await pngBlob.arrayBuffer();
           
-          signaturePngImage = await pdfDoc.embedPng(pngBytes);
+        signaturePngImage = await pdfDoc.embedPng(pngBytes);
           console.log('✅ Imagem PNG processada com sucesso');
         } catch (conversionError) {
           console.error('❌ Erro na conversão de imagem:', conversionError);
@@ -1543,7 +1543,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
         {/* Canvas para o PDF */}
         <div className="mb-6">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
             <div className="mb-4">
               <p className="text-gray-600 mb-2">
               {signatureImage 
@@ -1558,7 +1557,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                 </div>
               )}
             </div>
-            <div className="relative">
+          
+          {/* Container do documento com scroll */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-auto" style={{ maxHeight: '70vh', minHeight: '500px' }}>
+            <div className="p-4 text-center">
+              <div className="relative inline-block">
               {/* Canvas do PDF (camada inferior) - SEM transform para evitar stacking context */}
               <canvas
                 ref={canvasRef}
@@ -1639,6 +1642,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
