@@ -16,7 +16,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
   // const [pdfUrl, setPdfUrl] = useState(''); // Removido para evitar warning
   const [pdfDocument, setPdfDocument] = useState(null);
-  const [scale, setScale] = useState(1.0); // Iniciar em 100% para melhor visualização
+  const [scale, setScale] = useState(0.75); // Iniciar em 75% para melhor visualização
   const [isRendering, setIsRendering] = useState(false); // Estado para mostrar quando está renderizando
   // eslint-disable-next-line no-unused-vars
   const [mousePosition, setMousePosition] = useState(null);
