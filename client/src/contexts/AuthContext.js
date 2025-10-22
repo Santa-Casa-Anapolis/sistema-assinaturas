@@ -80,28 +80,26 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Limpar dados quando a aba for fechada
+  // Limpar dados quando a aba for fechada (apenas quando realmente fechando a aba)
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      console.log('🔐 Aba sendo fechada, limpando dados de autenticação...');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+    const handleBeforeUnload = (event) => {
+      // Só limpar se for realmente o fechamento da aba, não navegação interna
+      if (event.type === 'beforeunload') {
+        console.log('🔐 Aba sendo fechada, limpando dados de autenticação...');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     };
 
-    const handlePageHide = () => {
-      console.log('🔐 Página sendo ocultada, limpando dados de autenticação...');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    };
+    // Remover o listener de pagehide que estava causando logout indevido
+    // O pagehide é disparado durante navegação interna também
 
-    // Adicionar listeners para detectar fechamento da aba
+    // Adicionar apenas o listener para beforeunload (fechamento real da aba)
     window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handlePageHide);
 
     // Cleanup dos listeners
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handlePageHide);
     };
   }, []);
 
