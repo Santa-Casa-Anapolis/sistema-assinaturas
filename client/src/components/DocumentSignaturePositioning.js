@@ -310,7 +310,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       }
 
       console.log('📡 Buscando dados da assinatura...');
-      const response = await fetch(`/api/users/${user.id}/signature`, {
+      const response = await fetch(`/api/signatures/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -324,7 +324,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         // Buscar o arquivo de assinatura
         console.log('📡 Buscando arquivo da assinatura...');
-        const signatureResponse = await fetch(`/api/users/${user.id}/signature/file`, {
+        const signatureResponse = await fetch(`/api/signatures/me/file`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -344,6 +344,14 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           
           // Validar se é realmente uma imagem
           if (contentType && contentType.startsWith('image/')) {
+            // Validação adicional: verificar se não é PDF disfarçado
+            if (contentType === 'application/pdf' || signatureBlob.type === 'application/pdf') {
+              console.error('❌ Arquivo de assinatura é PDF (bloqueado):', contentType);
+              setSignatureImage(null);
+              toast.error('Arquivo de assinatura inválido: PDF detectado. Envie apenas imagens (PNG, JPEG, WEBP, SVG).');
+              return;
+            }
+            
             logFileInfo(signatureBlob, 'Assinatura carregada');
             const signatureUrl = URL.createObjectURL(signatureBlob);
             setSignatureImage(signatureUrl);
@@ -1144,8 +1152,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       formData.append('signature', file);
       
       // Enviar para o endpoint de atualização
-      const uploadResponse = await fetch(`/api/signatures/${userId}/update`, {
-        method: 'POST',
+      const uploadResponse = await fetch(`/api/signatures/${userId}`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
         },

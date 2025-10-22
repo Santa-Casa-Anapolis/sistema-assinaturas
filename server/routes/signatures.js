@@ -117,6 +117,110 @@ router.post('/:userId', authenticateToken, signatureUpload.single('signature'), 
 });
 
 /**
+ * Obter assinatura do usuário atual
+ * GET /api/signatures/me
+ */
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log('🔍 Buscando assinatura do usuário atual:', userId);
+    
+    const result = await pool.query(
+      'SELECT * FROM signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'signature_not_found',
+        message: 'Assinatura não encontrada para este usuário.'
+      });
+    }
+
+    const signature = result.rows[0];
+    
+    res.status(200).json({
+      success: true,
+      signature: {
+        id: signature.id,
+        filename: signature.filename,
+        originalName: signature.original_name,
+        mimetype: signature.mimetype,
+        size: signature.size,
+        createdAt: signature.created_at
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao buscar assinatura:', error);
+    res.status(500).json({
+      error: 'database_error',
+      message: 'Erro interno do servidor.'
+    });
+  }
+});
+
+/**
+ * Obter arquivo de assinatura do usuário atual
+ * GET /api/signatures/me/file
+ */
+router.get('/me/file', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    console.log('📁 Servindo arquivo de assinatura para usuário atual:', userId);
+    
+    const result = await pool.query(
+      'SELECT * FROM signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'signature_not_found',
+        message: 'Arquivo de assinatura não encontrado.'
+      });
+    }
+
+    const signature = result.rows[0];
+    const filePath = signature.file_path;
+
+    // Verificar se o arquivo existe
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        error: 'file_not_found',
+        message: 'Arquivo de assinatura não encontrado no sistema de arquivos.'
+      });
+    }
+
+    // Determinar Content-Type correto
+    const contentType = signature.mimetype || 'image/png';
+    
+    console.log('📤 Enviando arquivo de assinatura:', {
+      filename: signature.filename,
+      contentType,
+      size: signature.size
+    });
+
+    // Definir headers corretos
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${signature.original_name}"`);
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+
+    // Enviar arquivo
+    res.sendFile(path.resolve(filePath));
+
+  } catch (error) {
+    console.error('❌ Erro ao servir arquivo de assinatura:', error);
+    res.status(500).json({
+      error: 'file_serve_error',
+      message: 'Erro interno do servidor ao servir arquivo.'
+    });
+  }
+});
+
+/**
  * Obter assinatura do usuário
  * GET /api/signatures/:userId
  */
