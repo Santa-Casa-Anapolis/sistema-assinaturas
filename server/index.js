@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const { pool, initDatabase } = require('./database');
 const { authenticateLDAP } = require('./ldap-auth');
 const fileType = require('file-type');
+const signatureRoutes = require('./routes/signatures');
 require('dotenv').config();
 
 // ==================== MAPEAMENTO DE GRUPOS AD ====================
@@ -2726,6 +2727,9 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Sistema de Assinaturas funcionando' });
 });
+
+// Rotas de assinatura
+app.use('/api/signatures', signatureRoutes);
 
 // Middleware de tratamento de erros do multer
 app.use((error, req, res, next) => {

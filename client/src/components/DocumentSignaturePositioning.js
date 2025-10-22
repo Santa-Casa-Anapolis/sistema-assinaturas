@@ -4,6 +4,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
 import { validateSignatureFile, convertToPNG, ERROR_MESSAGES } from '../utils/signatureValidation';
 import { setupPDFWorker, initializePDFJS } from '../utils/pdfWorkerSetup';
+import { validateSignatureFile as validateFile, isPdfOrP7s, isValidSignatureImage, logFileInfo } from '../utils/fileValidation';
 import SignatureUpload from './SignatureUpload';
 import SignatureErrorModal from './SignatureErrorModal';
 
@@ -332,11 +333,26 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         console.log('📡 Resposta do arquivo:', signatureResponse.status);
 
         if (signatureResponse.ok) {
+          const contentType = signatureResponse.headers.get('Content-Type');
           const signatureBlob = await signatureResponse.blob();
-          const signatureUrl = URL.createObjectURL(signatureBlob);
-          console.log('✅ Assinatura carregada:', signatureUrl);
-          setSignatureImage(signatureUrl);
-          toast.success('Assinatura carregada automaticamente!');
+          
+          console.log('✅ Assinatura carregada:', {
+            contentType,
+            size: signatureBlob.size,
+            type: signatureBlob.type
+          });
+          
+          // Validar se é realmente uma imagem
+          if (contentType && contentType.startsWith('image/')) {
+            logFileInfo(signatureBlob, 'Assinatura carregada');
+            const signatureUrl = URL.createObjectURL(signatureBlob);
+            setSignatureImage(signatureUrl);
+            toast.success('Assinatura carregada automaticamente!');
+          } else {
+            console.error('❌ Arquivo de assinatura não é uma imagem:', contentType);
+            setSignatureImage(null);
+            toast.error('Arquivo de assinatura não é uma imagem válida.');
+          }
         } else if (signatureResponse.status === 404) {
           console.log('⚠️ Arquivo de assinatura não encontrado (404)');
           setSignatureImage(null);
@@ -344,6 +360,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         } else {
           console.error('❌ Erro ao carregar arquivo da assinatura:', signatureResponse.status);
           setSignatureImage(null);
+          toast.error('Erro ao carregar arquivo da assinatura.');
         }
       } else if (response.status === 404) {
         console.log('⚠️ Usuário não possui assinatura cadastrada');
