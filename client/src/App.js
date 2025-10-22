@@ -6,7 +6,7 @@ import './App.css';
 import './styles/dark-mode.css';
 
 // Context
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 // Hooks
