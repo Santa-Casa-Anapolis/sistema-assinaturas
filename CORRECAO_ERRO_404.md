@@ -122,3 +122,5 @@ docker logs notasfiscais_db
 
 
 
+
+
