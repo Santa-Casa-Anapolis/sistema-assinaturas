@@ -11,7 +11,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { pool, initDatabase } = require('./database');
 const { authenticateLDAP } = require('./ldap-auth');
-const { fileTypeFromBuffer } = require('file-type');
+const fileType = require('file-type');
 require('dotenv').config();
 
 // ==================== MAPEAMENTO DE GRUPOS AD ====================
@@ -563,17 +563,17 @@ app.post('/api/users/:id/signature', authenticateToken, upload.single('signature
       
       // Ler o buffer do arquivo para análise
       const fileBuffer = fs.readFileSync(file.path);
-      const fileType = await fileTypeFromBuffer(fileBuffer);
+      const fileTypeResult = await fileType.fromBuffer(fileBuffer);
       
       console.log('📦 Detecção file-type:', {
-        detected: fileType,
+        detected: fileTypeResult,
         reported: file.mimetype,
         originalname: file.originalname,
         size: file.size
       });
       
       // Determinar o MIME type correto
-      const actualMime = fileType?.mime || file.mimetype;
+      const actualMime = fileTypeResult?.mime || file.mimetype;
       
       // Tipos permitidos para assinatura visual
       const allowedMimes = [
@@ -588,7 +588,7 @@ app.post('/api/users/:id/signature', authenticateToken, upload.single('signature
         console.error('❌ Tipo de arquivo não permitido:', {
           actualMime,
           reportedMime: file.mimetype,
-          detectedExt: fileType?.ext,
+          detectedExt: fileTypeResult?.ext,
           originalname: file.originalname,
           size: file.size,
           userId
@@ -602,7 +602,7 @@ app.post('/api/users/:id/signature', authenticateToken, upload.single('signature
           message: 'Envie PNG, JPEG, WEBP ou SVG. PDF/p7s não são aceitos para a assinatura visual.',
           detected: {
             mime: actualMime,
-            ext: fileType?.ext,
+            ext: fileTypeResult?.ext,
             originalMime: file.mimetype
           }
         });
@@ -682,7 +682,7 @@ app.post('/api/signatures/:id/update', authenticateToken, upload.single('signatu
       console.log('🔍 Validando tipo de arquivo para atualização...');
       
       const fileBuffer = fs.readFileSync(file.path);
-      const fileType = await fileTypeFromBuffer(fileBuffer);
+      const fileTypeResult = await fileType.fromBuffer(fileBuffer);
       
       console.log('📦 Detecção file-type (atualização):', {
         detected: fileType,
@@ -718,7 +718,7 @@ app.post('/api/signatures/:id/update', authenticateToken, upload.single('signatu
           message: 'Envie PNG, JPEG, WEBP ou SVG. PDF/p7s não são aceitos para a assinatura visual.',
           detected: {
             mime: actualMime,
-            ext: fileType?.ext,
+            ext: fileTypeResult?.ext,
             originalMime: file.mimetype
           }
         });
@@ -2314,24 +2314,24 @@ app.post('/api/documents/confirm-signature', authenticateToken, async (req, res)
       await documentValidation.moveToFinalLocation(doc.tempId, pendingPath);
       
       // Inserir no banco de dados
-      const result = await pool.query(`
+    const result = await pool.query(`
         INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status, current_stage, signature_mode, gov_signature)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'pending', $9, $10)
-        RETURNING id
-      `, [
+      RETURNING id
+    `, [
         metadata.title,
         metadata.description,
         finalFilename,
         metadata.originalFilename,
-        userId,
-        userId, // supervisor_id
+      userId,
+      userId, // supervisor_id
         metadata.sector,
         metadata.amount,
         metadata.signatureMode,
         metadata.govSignature
-      ]);
+    ]);
 
-      const documentId = result.rows[0].id;
+    const documentId = result.rows[0].id;
       documentIds.push(documentId);
       
       console.log(`✅ Documento ${documentId} salvo definitivamente`);
@@ -2648,7 +2648,7 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
 
     // Mover arquivo para o local correto
     try {
-      fs.renameSync(req.file.path, signedPath);
+    fs.renameSync(req.file.path, signedPath);
       console.log('✅ Arquivo movido com sucesso');
     } catch (moveError) {
       console.error('❌ Erro ao mover arquivo:', moveError);
@@ -2659,30 +2659,30 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     console.log('💾 Atualizando banco de dados...');
     
     try {
-      // Check if columns exist before updating
-      const columnCheck = await pool.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'documents' AND column_name IN ('signed_file_path', 'signed_filename', 'signed_at')
-      `);
-      
-      const hasSignedColumns = columnCheck.rows.length > 0;
+    // Check if columns exist before updating
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'documents' AND column_name IN ('signed_file_path', 'signed_filename', 'signed_at')
+    `);
+    
+    const hasSignedColumns = columnCheck.rows.length > 0;
       console.log(`📊 Colunas de assinatura encontradas: ${hasSignedColumns}`);
-      
-      if (hasSignedColumns) {
-        await pool.query(`
-          UPDATE documents 
-          SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $3
-        `, [signedPath, signedFilename, documentId]);
+    
+    if (hasSignedColumns) {
+      await pool.query(`
+        UPDATE documents 
+        SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+      `, [signedPath, signedFilename, documentId]);
         console.log('✅ Documento atualizado com colunas de assinatura');
-      } else {
-        // Fallback: update with basic columns
-        await pool.query(`
-          UPDATE documents 
-          SET file_path = $1, updated_at = CURRENT_TIMESTAMP
-          WHERE id = $2
-        `, [signedPath, documentId]);
+    } else {
+      // Fallback: update with basic columns
+      await pool.query(`
+        UPDATE documents 
+        SET file_path = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [signedPath, documentId]);
         console.log('✅ Documento atualizado com colunas básicas');
       }
     } catch (dbError) {
