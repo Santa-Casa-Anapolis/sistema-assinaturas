@@ -23,6 +23,8 @@ services:
       DB_NAME: notasfiscais_db   # Use o mesmo nome do banco configurado no PostgreSQL
       DB_USER: postgres
       DB_PASSWORD: postgres
+      # JWT Secret (Chave segura para produção)
+      JWT_SECRET: sua-chave-secreta-muito-segura-aqui-para-producao-2024-santacasa
       LDAP_URL: ldap://santacasa.org:389
       LDAP_BASE_DN: DC=santacasa,DC=org
       LDAP_BIND_DN: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
