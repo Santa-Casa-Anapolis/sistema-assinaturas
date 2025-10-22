@@ -21,7 +21,7 @@ const signatureStorage = multer.diskStorage({
 const signatureUpload = multer({
   storage: signatureStorage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 10 * 1024 * 1024, // 10MB
   },
   fileFilter: (req, file, cb) => {
     console.log('🔍 Validando arquivo de assinatura:', {

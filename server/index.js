@@ -117,7 +117,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
+    fileSize: 100 * 1024 * 1024 // 100MB
   },
   fileFilter: (req, file, cb) => {
     console.log('🔍 Multer fileFilter - Campo:', file.fieldname, 'Mimetype:', file.mimetype, 'Originalname:', file.originalname);
@@ -161,7 +161,7 @@ const upload = multer({
 const uploadWithFields = multer({ 
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB
+    fileSize: 100 * 1024 * 1024 // 100MB
   },
   fileFilter: (req, file, cb) => {
     console.log('🔍 Multer fileFilter - Campo:', file.fieldname, 'Mimetype:', file.mimetype, 'Originalname:', file.originalname);
