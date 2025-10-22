@@ -11,7 +11,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { pool, initDatabase } = require('./database');
 const { authenticateLDAP } = require('./ldap-auth');
-const { fileTypeFromBuffer } = require('file-type');
+const fileType = require('file-type');
 require('dotenv').config();
 
 // ==================== MAPEAMENTO DE GRUPOS AD ====================
@@ -563,7 +563,7 @@ app.post('/api/users/:id/signature', authenticateToken, upload.single('signature
       
       // Ler o buffer do arquivo para análise
       const fileBuffer = fs.readFileSync(file.path);
-      const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
+      const fileTypeResult = await fileType.fromBuffer(fileBuffer);
       
       console.log('📦 Detecção file-type:', {
         detected: fileTypeResult,
@@ -682,7 +682,7 @@ app.post('/api/signatures/:id/update', authenticateToken, upload.single('signatu
       console.log('🔍 Validando tipo de arquivo para atualização...');
       
       const fileBuffer = fs.readFileSync(file.path);
-      const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
+      const fileTypeResult = await fileType.fromBuffer(fileBuffer);
       
       console.log('📦 Detecção file-type (atualização):', {
         detected: fileTypeResult,
