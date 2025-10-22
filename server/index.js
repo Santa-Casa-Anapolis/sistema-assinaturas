@@ -693,7 +693,7 @@ app.post('/api/signatures/:id/update', authenticateToken, upload.single('signatu
         userId
       });
       
-      const actualMime = fileType?.mime || file.mimetype;
+      const actualMime = fileTypeResult?.mime || file.mimetype;
       
       const allowedMimes = [
         'image/png',
@@ -706,7 +706,7 @@ app.post('/api/signatures/:id/update', authenticateToken, upload.single('signatu
         console.error('❌ Tipo de arquivo não permitido (atualização):', {
           actualMime,
           reportedMime: file.mimetype,
-          detectedExt: fileType?.ext,
+          detectedExt: fileTypeResult?.ext,
           originalname: file.originalname,
           size: file.size,
           userId
