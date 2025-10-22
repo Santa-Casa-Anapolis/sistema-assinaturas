@@ -1344,7 +1344,7 @@ app.get('/api/documents/:id/view', async (req, res) => {
       return res.status(404).json({ error: 'Documento não encontrado' });
     }
 
-    console.log('📁 Filename do documento:', document.filename);
+    console.log('📁 File path do documento:', document.file_path);
     console.log('📁 Original filename:', document.original_filename);
     
     // Verificar se há arquivo assinado primeiro
@@ -1356,9 +1356,9 @@ app.get('/api/documents/:id/view', async (req, res) => {
       fileName = document.signed_filename;
       console.log('📁 Usando arquivo assinado:', fileName);
     }
-    // Se não há arquivo assinado, usar o original
-    else if (document.filename && fs.existsSync(path.join(__dirname, 'uploads', document.filename))) {
-      fileName = document.filename;
+    // Se não há arquivo assinado, usar o file_path
+    else if (document.file_path && fs.existsSync(path.join(__dirname, 'uploads', document.file_path))) {
+      fileName = document.file_path;
       console.log('📁 Usando arquivo original:', fileName);
     }
     // Fallback para original_filename
@@ -1421,7 +1421,7 @@ app.get('/api/documents/:id/view', async (req, res) => {
       const alternativeFile = allFiles.find(file => 
         file.includes(documentId.toString()) || 
         file.includes(document.original_filename?.replace(/\s+/g, '')) ||
-        file.includes(document.filename?.replace(/\s+/g, ''))
+        file.includes(document.file_path?.replace(/\s+/g, ''))
       );
       
       if (alternativeFile) {
@@ -1472,7 +1472,7 @@ app.get('/api/documents/:id/view', async (req, res) => {
     console.log('✅ Arquivo encontrado no sistema de arquivos');
 
     // Determinar o tipo de conteúdo
-    const ext = path.extname(document.original_filename || document.filename).toLowerCase();
+    const ext = path.extname(document.original_filename || document.file_path).toLowerCase();
     let contentType = 'application/octet-stream';
     
     if (ext === '.pdf') {
@@ -1492,7 +1492,7 @@ app.get('/api/documents/:id/view', async (req, res) => {
 
     // Configurar headers para visualização inline
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${document.original_filename || document.filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${document.original_filename || document.file_path}"`);
     
     console.log('📤 Enviando arquivo...');
     // Enviar arquivo

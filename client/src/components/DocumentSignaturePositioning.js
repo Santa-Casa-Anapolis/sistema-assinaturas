@@ -226,8 +226,20 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
+      // Limpar estados anteriores
+      setPdfDocument(null);
+      setSignaturePositions({});
+      setCurrentPage(1);
+      
       console.log('📡 Fazendo requisição para visualizar documento...');
-      const response = await fetch(`/api/documents/${documentId}/view?token=${token}`);
+      const response = await fetch(`/api/documents/${documentId}/view?token=${token}&t=${Date.now()}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       
       console.log('📡 Resposta do documento:', response.status);
       
