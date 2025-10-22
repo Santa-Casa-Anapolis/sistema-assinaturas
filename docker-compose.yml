@@ -33,6 +33,7 @@ services:
       AD_BASE_DN: DC=santacasa,DC=org
       AD_USERNAME: CN=glpi,OU=USUARIOS,OU=SERVIDORES,DC=santacasa,DC=org
       AD_PASSWORD: Dke-Pp!]CXp1P}h2GTy[
+      AUTH_MODE: ad
       PORT: 5000
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
