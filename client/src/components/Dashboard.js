@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
 import AuthTest from './AuthTest';
+import TokenDebug from './TokenDebug';
 import { 
   FileText, 
   Clock, 
@@ -175,6 +176,11 @@ const Dashboard = () => {
       {/* Componente de Teste de Autenticação */}
       <div className="mt-8">
         <AuthTest />
+      </div>
+
+      {/* Componente de Debug do Token */}
+      <div className="mt-8">
+        <TokenDebug />
       </div>
 
       {/* Informações do usuário */}
