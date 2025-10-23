@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../config/api';
 import { 
   Download, 
   Clock,
@@ -21,7 +21,7 @@ const DocumentSign = () => {
 
   const fetchDocument = useCallback(async () => {
     try {
-      const response = await axios.get(`/api/documents/${id}`);
+      const response = await api.get(`/documents/${id}`);
       setDocument(response.data);
     } catch (error) {
       toast.error('Erro ao carregar documento');
@@ -37,7 +37,7 @@ const DocumentSign = () => {
 
   const handleDownload = async () => {
     try {
-      const response = await axios.get(`/api/documents/${id}/download`, {
+      const response = await api.get(`/documents/${id}/download`, {
         responseType: 'blob'
       });
       

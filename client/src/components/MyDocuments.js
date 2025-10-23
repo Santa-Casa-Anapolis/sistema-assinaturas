@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../config/api';
 import { 
   FileText, 
   Download, 
@@ -20,7 +20,7 @@ const MyDocuments = () => {
 
   const fetchMyDocuments = async () => {
     try {
-      const response = await axios.get('/api/documents/my-documents');
+      const response = await api.get('/documents/my-documents');
       setDocuments(response.data);
     } catch (error) {
       toast.error('Erro ao carregar documentos');
@@ -72,7 +72,7 @@ const MyDocuments = () => {
 
   const handleDownload = async (documentId, filename) => {
     try {
-      const response = await axios.get(`/api/documents/${documentId}/download`, {
+      const response = await api.get(`/documents/${documentId}/download`, {
         responseType: 'blob'
       });
       

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../config/api';
 import { 
   Users, 
   Building, 
@@ -59,7 +59,7 @@ const AdminConfig = () => {
 
   const fetchSupervisors = async () => {
     try {
-      const response = await axios.get('/api/users/by-role/supervisor');
+      const response = await api.get('/users/by-role/supervisor');
       setSupervisors(response.data);
     } catch (error) {
       toast.error('Erro ao carregar usuários');
@@ -79,7 +79,7 @@ const AdminConfig = () => {
 
     setSaving(true);
     try {
-      await axios.post('/api/admin/supervisors', newSupervisor);
+      await api.post('/admin/supervisors', newSupervisor);
       toast.success('Usuário adicionado com sucesso!');
       setNewSupervisor({ name: '', username: '', email: '', password: '', sector: '', profile: 'supervisor' });
       fetchSupervisors();
@@ -106,7 +106,7 @@ const AdminConfig = () => {
   const handleUpdateSupervisor = async () => {
     setSaving(true);
     try {
-      await axios.put(`/api/admin/supervisors/${editingId}`, editingUser);
+      await api.put(`/admin/supervisors/${editingId}`, editingUser);
       toast.success('Usuário atualizado com sucesso!');
       setEditingId(null);
       setEditingUser({ name: '', username: '', email: '', sector: '', profile: 'supervisor' });
@@ -126,7 +126,7 @@ const AdminConfig = () => {
 
     setSaving(true);
     try {
-      await axios.post(`/api/admin/reset-password/${id}`);
+      await api.post(`/admin/reset-password/${id}`);
       toast.success('Senha resetada com sucesso! Nova senha: 123456');
       fetchSupervisors();
     } catch (error) {
@@ -144,7 +144,7 @@ const AdminConfig = () => {
 
     setSaving(true);
     try {
-      await axios.delete(`/api/admin/supervisors/${id}`);
+      await api.delete(`/admin/supervisors/${id}`);
       toast.success('Usuário removido com sucesso!');
       fetchSupervisors();
     } catch (error) {
