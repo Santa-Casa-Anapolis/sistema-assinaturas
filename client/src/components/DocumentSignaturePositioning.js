@@ -67,6 +67,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
     const workerOptions = [
       `${window.location.origin}/pdf.worker.min.js`,
+      'http://172.16.0.219:5000/pdf.worker.min.js',
       '/pdf.worker.min.js',
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
       'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
