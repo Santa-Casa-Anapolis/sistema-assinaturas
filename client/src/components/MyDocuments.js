@@ -121,7 +121,7 @@ const MyDocuments = () => {
         return;
       }
       
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       if (!token) {
         toast.error('Token de autenticação não encontrado');
         return;

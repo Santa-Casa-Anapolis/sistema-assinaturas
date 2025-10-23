@@ -68,7 +68,7 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
 
   const loadUserSignature = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       const user = JSON.parse(localStorage.getItem('user'));
       
       if (!user || !user.id) return;

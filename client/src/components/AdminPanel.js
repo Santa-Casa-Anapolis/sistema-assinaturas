@@ -78,7 +78,7 @@ const AdminPanel = () => {
       console.log('🔍 Buscando usuários no AdminPanel...');
       const response = await axios.get('/api/admin/users', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
       
@@ -105,7 +105,7 @@ const AdminPanel = () => {
       console.log('🔍 Buscando grupos...');
       const response = await axios.get('/api/admin/groups', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
       
@@ -133,7 +133,7 @@ const AdminPanel = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify(newUser)
       });
@@ -164,7 +164,7 @@ const AdminPanel = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify(newGroup)
       });
@@ -189,7 +189,7 @@ const AdminPanel = () => {
         const response = await fetch(`/api/admin/users/${userId}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
           }
         });
 
@@ -220,7 +220,7 @@ const AdminPanel = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify(editUserData)
       });
@@ -243,7 +243,7 @@ const AdminPanel = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify({ userId, groupId })
       });

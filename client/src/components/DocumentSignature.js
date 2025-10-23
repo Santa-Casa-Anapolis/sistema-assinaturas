@@ -19,7 +19,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
     try {
       const response = await fetch(`/api/users/${user.id}/signature`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
 
@@ -39,7 +39,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
     try {
       const response = await fetch(`/api/documents/${documentId}/signatures`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
 
@@ -76,7 +76,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify({
           stage: stage,
@@ -112,7 +112,7 @@ const DocumentSignature = ({ documentId, stage, onSignatureComplete }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify({
           stage: stage,

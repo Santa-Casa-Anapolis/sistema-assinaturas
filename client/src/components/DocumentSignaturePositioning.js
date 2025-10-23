@@ -38,7 +38,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const loadDocumentInfo = async () => {
     try {
       console.log('📋 Carregando informações do documento:', documentId);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       
       const response = await fetch(`/api/documents/${documentId}`, {
         headers: {
@@ -224,7 +224,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       console.log('🔍 Carregando PDF para documento:', documentId);
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       
       // Limpar estados anteriores
       setPdfDocument(null);
@@ -311,7 +311,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
 
   const loadUserSignature = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       const user = JSON.parse(localStorage.getItem('user'));
       
       console.log('🔍 Carregando assinatura do usuário:', user);
@@ -954,7 +954,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       setIsLoading(true);
       
       // Carregar o PDF original
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       const response = await fetch(`/api/documents/${documentId}/view?token=${token}`);
       
       if (!response.ok) {
@@ -1164,7 +1164,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       setIsLoading(true);
       
       // Obter ID do usuário atual (assumindo que está disponível no contexto)
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('sa.token');
       const userResponse = await fetch('/api/auth/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });

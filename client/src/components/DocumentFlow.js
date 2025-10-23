@@ -91,7 +91,7 @@ const DocumentFlow = () => {
       }, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
 
@@ -122,7 +122,7 @@ const DocumentFlow = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: JSON.stringify({
           action: 'approve',
@@ -178,7 +178,7 @@ const DocumentFlow = () => {
       const response = await fetch(`/api/documents/${documentId}/payment`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: formData
       });
@@ -233,7 +233,7 @@ const DocumentFlow = () => {
     try {
       const response = await fetch(`/api/documents/${document.id}/download`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
 

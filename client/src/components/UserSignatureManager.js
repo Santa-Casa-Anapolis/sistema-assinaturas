@@ -20,7 +20,7 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
       setLoading(true);
       const response = await fetch(`/api/users/${userId}/signature`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
 
@@ -105,7 +105,7 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
       const response = await fetch(`/api/users/${userId}/signature`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
 
