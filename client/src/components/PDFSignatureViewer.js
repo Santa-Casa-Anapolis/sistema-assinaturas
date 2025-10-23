@@ -15,7 +15,6 @@ const setupPDFWorker = async () => {
       const response = await fetch(workerSrc, { method: 'HEAD' });
       if (response.ok) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-        console.log('✅ PDF.js Worker configurado:', workerSrc);
         return;
       }
     } catch (error) {
@@ -75,7 +74,6 @@ const PDFSignatureViewer = ({ pdfUrl, onExport }) => {
   // Carregar PDF
   const loadPDF = useCallback(async () => {
     try {
-      console.log('📄 Carregando PDF...');
       const loadingTask = pdfjsLib.getDocument(pdfUrl);
       const pdf = await loadingTask.promise;
       
@@ -83,7 +81,6 @@ const PDFSignatureViewer = ({ pdfUrl, onExport }) => {
       setTotalPages(pdf.numPages);
       setCurrentPage(1);
       
-      console.log(`✅ PDF carregado: ${pdf.numPages} páginas`);
     } catch (error) {
       console.error('❌ Erro ao carregar PDF:', error);
     }
@@ -118,7 +115,6 @@ const PDFSignatureViewer = ({ pdfUrl, onExport }) => {
       };
 
       await page.render(renderContext).promise;
-      console.log(`✅ Página ${pageNumber} renderizada`);
     } catch (error) {
       console.error(`❌ Erro ao renderizar página ${pageNumber}:`, error);
     }
@@ -294,7 +290,6 @@ const PDFSignatureViewer = ({ pdfUrl, onExport }) => {
     if (!pdfDocument) return;
 
     try {
-      console.log('📤 Exportando PDF com assinaturas...');
       
       // Criar novo PDF com pdf-lib
       const pdfBytes = await fetch(pdfUrl).then(res => res.arrayBuffer());
@@ -346,7 +341,6 @@ const PDFSignatureViewer = ({ pdfUrl, onExport }) => {
       a.click();
       URL.revokeObjectURL(url);
       
-      console.log('✅ PDF exportado com sucesso');
       if (onExport) onExport(pdfBytesFinal);
     } catch (error) {
       console.error('❌ Erro ao exportar PDF:', error);

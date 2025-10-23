@@ -237,7 +237,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
         
-        console.log('📄 Carregando PDF com PDF.js (otimizado)...');
         // Carregar PDF com PDF.js - configurações otimizadas
         const pdf = await pdfjsLib.getDocument({ 
           data: arrayBuffer,
@@ -460,7 +459,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     } catch (error) {
       // Ignorar erros de cancelamento de renderização
       if (error.name === 'RenderingCancelledException') {
-        console.log('Renderização cancelada (comportamento normal)');
         return;
       }
       console.error('Erro ao renderizar página:', error);
@@ -1067,7 +1065,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const blob = new Blob([pdfBytesModified], { type: 'application/pdf' });
       formData.append('signedPdf', blob, 'documento_assinado.pdf');
       
-      console.log('📤 Enviando PDF assinado para o servidor...');
       const uploadResponse = await fetch(`/api/documents/${documentId}/upload-signed`, {
         method: 'POST',
         headers: {

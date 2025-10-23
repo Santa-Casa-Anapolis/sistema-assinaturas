@@ -47,7 +47,6 @@ const DocumentSignatureFlow = ({ documentId, onSignatureComplete }) => {
         const response = await fetch(workerSrc, { method: 'HEAD' });
         if (response.ok) {
           pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-          console.log('✅ PDF.js Worker configurado:', workerSrc);
         } else {
           throw new Error('Worker não acessível');
         }
