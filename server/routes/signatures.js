@@ -127,7 +127,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     console.log('🔍 Buscando assinatura do usuário atual:', userId);
     
     const result = await pool.query(
-      'SELECT * FROM signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      'SELECT * FROM user_signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
       [userId]
     );
 
@@ -172,7 +172,7 @@ router.get('/me/file', authenticateToken, async (req, res) => {
     console.log('📁 Servindo arquivo de assinatura para usuário atual:', userId);
     
     const result = await pool.query(
-      'SELECT * FROM signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      'SELECT * FROM user_signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
       [userId]
     );
 
@@ -184,7 +184,7 @@ router.get('/me/file', authenticateToken, async (req, res) => {
     }
 
     const signature = result.rows[0];
-    const filePath = signature.file_path;
+    const filePath = path.join(__dirname, '..', 'uploads', signature.signature_file);
 
     // Verificar se o arquivo existe
     if (!fs.existsSync(filePath)) {
@@ -288,7 +288,7 @@ router.get('/:userId/file', authenticateToken, async (req, res) => {
     }
 
     const signature = result.rows[0];
-    const filePath = signature.file_path;
+    const filePath = path.join(__dirname, '..', 'uploads', signature.signature_file);
 
     // Verificar se o arquivo existe
     if (!fs.existsSync(filePath)) {
