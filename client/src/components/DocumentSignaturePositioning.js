@@ -331,11 +331,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           const contentType = signatureResponse.headers.get('Content-Type');
           const signatureBlob = await signatureResponse.blob();
           
-            contentType,
-            size: signatureBlob.size,
-            type: signatureBlob.type
-          });
-          
           // Validar se é realmente uma imagem
           if (contentType && contentType.startsWith('image/')) {
             // Validação adicional: verificar se não é PDF disfarçado

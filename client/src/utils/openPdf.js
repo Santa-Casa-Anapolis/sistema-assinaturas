@@ -22,9 +22,6 @@ export async function openPdf(docId) {
     
     // Converter resposta para Blob
     const blob = await response.blob();
-      size: blob.size,
-      type: blob.type
-    });
 
     // Criar URL do Blob
     const url = URL.createObjectURL(blob);
