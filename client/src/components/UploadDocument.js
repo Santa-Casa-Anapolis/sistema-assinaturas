@@ -95,10 +95,14 @@ const UploadDocument = () => {
         formData.append('document', selectedFiles[0]);
       }
 
+      const token = localStorage.getItem('sa.token');
+      console.log('🔐 UploadDocument - Token:', token ? 'presente' : 'ausente');
+      console.log('🔐 UploadDocument - Token value:', token);
+      
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });

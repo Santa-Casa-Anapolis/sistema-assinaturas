@@ -498,11 +498,20 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     // Gerar token JWT
+    console.log('🔐 Gerando token JWT para usuário:', {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      authMode: userAuthMode
+    });
+    
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '24h' }
     );
+    
+    console.log('✅ Token JWT gerado com sucesso:', token.substring(0, 50) + '...');
 
     // Log de auditoria
     await logAudit(user.id, 'LOGIN', null, `Login realizado com sucesso (${authMode})`, req.ip);
