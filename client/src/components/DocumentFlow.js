@@ -48,7 +48,7 @@ const DocumentFlow = () => {
     try {
       const response = await axios.get('/api/documents', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
       

@@ -70,7 +70,7 @@ const UserSignatureManager = ({ userId, userName, onSignatureChange }) => {
       const response = await fetch(`/api/users/${userId}/signature`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: formData
       });

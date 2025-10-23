@@ -98,7 +98,7 @@ const UploadDocument = () => {
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         },
         body: formData
       });
