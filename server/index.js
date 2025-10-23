@@ -221,6 +221,8 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log('🔐 Auth middleware - URL:', req.url);
+  console.log('🔐 Auth middleware - Method:', req.method);
   console.log('🔐 Auth middleware - Header:', authHeader);
   console.log('🔐 Auth middleware - Token:', token ? 'presente' : 'ausente');
 
@@ -232,7 +234,8 @@ const authenticateToken = (req, res, next) => {
   jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
     if (err) {
       console.log('❌ Token inválido:', err.message);
-      return res.status(403).json({ error: 'Token inválido' });
+      console.log('❌ Erro completo:', err);
+      return res.status(403).json({ error: 'Token inválido', details: err.message });
     }
     console.log('✅ Token válido para usuário:', user.username);
     req.user = user;

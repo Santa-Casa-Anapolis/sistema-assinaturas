@@ -33,13 +33,14 @@ api.interceptors.request.use((config) => {
 // Interceptor para tratar erros de resposta
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Response interceptor - Status:', response.status);
+    console.log('✅ Response interceptor - Status:', response.status, response.config?.url);
     return response;
   },
   (error) => {
     console.log('❌ Response interceptor - Erro:', error.response?.status, error.config?.url);
+    console.log('❌ Response interceptor - Detalhes:', error.response?.data);
     
-    // Tratar apenas erros 401 em rotas críticas
+    // Tratar erros 401 e 403
     if (error.response?.status === 401) {
       const url = error.config?.url || '';
       
@@ -51,6 +52,20 @@ api.interceptors.response.use(
         window.location.href = '/login';
       } else {
         console.log('🔐 Erro 401 não-crítico, não fazendo logout');
+      }
+    }
+    
+    if (error.response?.status === 403) {
+      console.log('🔐 Erro 403 - Token inválido ou sem permissão');
+      console.log('🔐 Token atual:', localStorage.getItem(STORAGE_KEY) ? 'presente' : 'ausente');
+      
+      // Se for erro 403, pode ser token inválido
+      const url = error.config?.url || '';
+      if (url.includes('/api/auth/me') || url.includes('/api/auth/refresh')) {
+        console.log('🔐 Erro 403 crítico, fazendo logout automático');
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('sa.user');
+        window.location.href = '/login';
       }
     }
     
