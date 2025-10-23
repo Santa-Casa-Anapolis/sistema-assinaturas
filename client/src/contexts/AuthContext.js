@@ -33,9 +33,9 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
           console.error('Erro ao parsear usuário salvo:', error);
           localStorage.removeItem('sa.user');
-        }
-      }
-    } catch (error) {
+            }
+          }
+        } catch (error) {
       console.error('Erro ao hidratar token:', error);
     } finally {
       setLoading(false);
