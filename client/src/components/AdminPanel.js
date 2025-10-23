@@ -75,19 +75,14 @@ const AdminPanel = () => {
 
   const fetchUsers = async () => {
     try {
-      console.log('🔍 Buscando usuários no AdminPanel...');
-      const response = await axios.get('/api/admin/users', {
+      const response = await axios.get('/admin/users', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
       
-      console.log('📊 Status da resposta:', response.status);
-      console.log('📦 Tipo de dados recebidos:', typeof response.data);
-      console.log('📋 Dados recebidos:', response.data);
       
       if (Array.isArray(response.data)) {
-        console.log('✅ Usuários carregados:', response.data.length);
         setUsers(response.data);
       } else {
         console.error('❌ Dados não são um array:', response.data);
@@ -102,19 +97,14 @@ const AdminPanel = () => {
 
   const fetchGroups = async () => {
     try {
-      console.log('🔍 Buscando grupos...');
-      const response = await axios.get('/api/admin/groups', {
+      const response = await axios.get('/admin/groups', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('sa.token')}`
         }
       });
       
-      console.log('📊 Status da resposta de grupos:', response.status);
-      console.log('📦 Tipo de dados recebidos:', typeof response.data);
-      console.log('📋 Grupos recebidos:', response.data);
       
       if (Array.isArray(response.data)) {
-        console.log('✅ Grupos carregados:', response.data.length);
         setGroups(response.data);
       } else {
         console.error('❌ Dados de grupos não são um array:', response.data);

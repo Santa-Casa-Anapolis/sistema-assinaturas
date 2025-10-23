@@ -45,15 +45,12 @@ const testWorkerUrl = async (url) => {
 export const setupPDFWorker = async () => {
   // Se já está configurado, não fazer nada
   if (pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    console.log('✅ PDF.js Worker já configurado:', pdfjsLib.GlobalWorkerOptions.workerSrc);
     return true;
   }
 
-  console.log('🔧 Configurando PDF.js Worker...');
 
   for (let i = 0; i < WORKER_URLS.length; i++) {
     const url = WORKER_URLS[i];
-    console.log(`🔧 Tentando PDF.js Worker ${i + 1}/${WORKER_URLS.length}: ${url}`);
 
     try {
       // Testar se a URL está acessível
@@ -62,7 +59,6 @@ export const setupPDFWorker = async () => {
       if (isAccessible) {
         // Configurar o worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = url;
-        console.log(`✅ PDF.js Worker configurado com sucesso: ${url}`);
         return true;
       }
     } catch (error) {
@@ -86,7 +82,6 @@ export const verifyPDFWorker = async () => {
     // Tentar carregar um PDF simples para testar o worker
     const testPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // "%PDF"
     await pdfjsLib.getDocument({ data: testPdf }).promise;
-    console.log('✅ PDF.js Worker funcionando corretamente');
     return true;
   } catch (error) {
     console.error('❌ PDF.js Worker não está funcionando:', error.message);
@@ -112,7 +107,6 @@ export const initializePDFJS = async () => {
     // Configurações de renderização
     pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
     
-    console.log('✅ PDF.js inicializado com sucesso');
     return true;
   } catch (error) {
     console.error('❌ Erro ao inicializar PDF.js:', error);

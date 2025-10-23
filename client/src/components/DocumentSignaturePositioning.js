@@ -37,7 +37,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   // Função para carregar informações do documento
   const loadDocumentInfo = async () => {
     try {
-      console.log('📋 Carregando informações do documento:', documentId);
       const token = localStorage.getItem('sa.token');
       
       const response = await fetch(`/api/documents/${documentId}`, {
@@ -48,7 +47,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       if (response.ok) {
         const docInfo = await response.json();
-        console.log('✅ Informações do documento carregadas:', docInfo);
         setDocumentInfo(docInfo);
       } else {
         console.error('❌ Erro ao carregar informações do documento:', response.status);
@@ -64,7 +62,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
     const setupPDFWorker = async () => {
       // Verificar se já está configurado
       if (pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        console.log('✅ PDF.js Worker já configurado:', pdfjsLib.GlobalWorkerOptions.workerSrc);
         return;
       }
       
@@ -79,14 +76,12 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       
       for (let i = 0; i < workerOptions.length; i++) {
         const workerSrc = workerOptions[i];
-        console.log(`🔧 Tentando PDF.js Worker ${i + 1}/${workerOptions.length}:`, workerSrc);
       
       try {
         // Testar se o worker está acessível
         const response = await fetch(workerSrc, { method: 'HEAD' });
         if (response.ok) {
           pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-          console.log('✅ PDF.js Worker configurado com sucesso:', workerSrc);
             workerConfigured = true;
             break; // Sucesso, sair do loop
         }
@@ -101,7 +96,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         // Tentar usar o worker do próprio pdfjs-dist
         try {
           pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          console.log('✅ PDF.js Worker configurado com fallback CDN:', pdfjsLib.GlobalWorkerOptions.workerSrc);
           workerConfigured = true;
         } catch (error) {
           console.error('❌ Fallback também falhou:', error);
@@ -201,7 +195,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const setupPDFWorkerLocal = async () => {
     try {
       await setupPDFWorker();
-      console.log('✅ PDF.js Worker configurado com sucesso');
       return true;
     } catch (error) {
       console.error('❌ Erro ao configurar PDF.js Worker:', error);
@@ -222,7 +215,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
       }
       
-      console.log('🔍 Carregando PDF para documento:', documentId);
       setIsLoading(true);
       const token = localStorage.getItem('sa.token');
       
@@ -231,7 +223,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       setSignaturePositions({});
       setCurrentPage(1);
       
-      console.log('📡 Fazendo requisição para visualizar documento...');
       const response = await fetch(`/api/documents/${documentId}/view?token=${token}&t=${Date.now()}`, {
         cache: 'no-cache',
         headers: {
@@ -241,11 +232,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
       });
       
-      console.log('📡 Resposta do documento:', response.status);
       
       if (response.ok) {
         const blob = await response.blob();
-        console.log('✅ Blob recebido, tamanho:', blob.size);
         const arrayBuffer = await blob.arrayBuffer();
         
         console.log('📄 Carregando PDF com PDF.js (otimizado)...');
@@ -260,13 +249,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           renderInteractiveForms: false,
           enableWebGL: false
         }).promise;
-        console.log('✅ PDF carregado, páginas:', pdf.numPages);
         
         setPdfDocument(pdf);
         setTotalPages(pdf.numPages);
         
         // Renderizar primeira página
-        console.log('🎨 Renderizando primeira página...');
         await renderPage(1);
         
         toast.success('PDF carregado com sucesso!');
@@ -275,12 +262,10 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         
         if (response.status === 404) {
           toast.error('Documento não encontrado. Verifique se o documento existe e se você tem permissão para acessá-lo.');
-          console.log('🔍 Tentando carregar documento alternativo...');
           // Tentar carregar documento alternativo
           try {
             const altResponse = await fetch(`/api/documents/${documentId}/download?token=${token}`);
             if (altResponse.ok) {
-              console.log('✅ Documento encontrado via endpoint alternativo');
               const blob = await altResponse.blob();
               const arrayBuffer = await blob.arrayBuffer();
               const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -314,48 +299,39 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       const token = localStorage.getItem('sa.token');
       const user = JSON.parse(localStorage.getItem('user'));
       
-      console.log('🔍 Carregando assinatura do usuário:', user);
       
       if (!token) {
-        console.log('❌ Token não encontrado - usuário não está logado');
         toast.warning('Você precisa fazer login para carregar a assinatura');
         return;
       }
       
       if (!user || !user.id) {
-        console.log('❌ Usuário não encontrado no localStorage');
         toast.warning('Dados do usuário não encontrados - faça login novamente');
         return;
       }
 
-      console.log('📡 Buscando dados da assinatura...');
       const response = await fetch(`/api/signatures/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
-      console.log('📡 Resposta da assinatura:', response.status);
 
       if (response.ok) {
         const signatureData = await response.json();
-        console.log('✅ Dados da assinatura:', signatureData);
         
         // Buscar o arquivo de assinatura
-        console.log('📡 Buscando arquivo da assinatura...');
         const signatureResponse = await fetch(`/api/signatures/me/file`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        console.log('📡 Resposta do arquivo:', signatureResponse.status);
 
         if (signatureResponse.ok) {
           const contentType = signatureResponse.headers.get('Content-Type');
           const signatureBlob = await signatureResponse.blob();
           
-          console.log('✅ Assinatura carregada:', {
             contentType,
             size: signatureBlob.size,
             type: signatureBlob.type
@@ -381,7 +357,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
             toast.error('Arquivo de assinatura não é uma imagem válida.');
           }
         } else if (signatureResponse.status === 404) {
-          console.log('⚠️ Arquivo de assinatura não encontrado (404)');
           setSignatureImage(null);
           toast.info('Arquivo de assinatura não encontrado. Entre em contato com o administrador.');
         } else {
@@ -390,7 +365,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           toast.error('Erro ao carregar arquivo da assinatura.');
         }
       } else if (response.status === 401) {
-        console.log('⚠️ Token inválido ou expirado');
         setSignatureImage(null);
         toast.error('Sessão expirada. Faça login novamente.');
         // Limpar dados de autenticação
@@ -399,7 +373,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         // Redirecionar para login
         window.location.href = '/login';
       } else if (response.status === 404) {
-        console.log('⚠️ Usuário não possui assinatura cadastrada');
         setSignatureImage(null);
         toast.info('Nenhuma assinatura cadastrada. Entre em contato com o administrador.');
       } else {
@@ -979,7 +952,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         throw new Error('Arquivo não é um PDF válido. O arquivo deve ter o cabeçalho PDF correto.');
       }
       
-      console.log('✅ Arquivo PDF válido detectado, processando...');
       
       // Carregar PDF com PDF-lib
       const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -996,7 +968,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         }
         
         const signatureBlob = await signatureResponse.blob();
-        console.log('✅ Imagem de assinatura carregada, tipo:', signatureBlob.type, 'tamanho:', signatureBlob.size);
         
         // Validar assinatura usando nova função
         const validation = await validateSignatureFile(signatureBlob);
@@ -1009,7 +980,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           throw new Error(`Invalid signature: ${validation.error}`);
         }
         
-        console.log('✅ Assinatura válida:', validation.detectedType);
         
         // Converter para PNG usando nova função
         try {
@@ -1017,7 +987,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           const pngBytes = await pngBlob.arrayBuffer();
           
         signaturePngImage = await pdfDoc.embedPng(pngBytes);
-          console.log('✅ Imagem PNG processada com sucesso');
         } catch (conversionError) {
           console.error('❌ Erro na conversão de imagem:', conversionError);
           
@@ -1107,11 +1076,9 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         body: formData
       });
       
-      console.log('📡 Resposta do servidor:', uploadResponse.status);
       
       if (uploadResponse.ok) {
         const result = await uploadResponse.json();
-        console.log('✅ PDF assinado salvo com sucesso:', result);
         toast.success('Assinaturas aplicadas com sucesso!');
         
         // Chamar callback para notificar que a assinatura foi concluída

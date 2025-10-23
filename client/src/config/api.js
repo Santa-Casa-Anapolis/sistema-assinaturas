@@ -9,7 +9,6 @@ const api = axios.create({
   timeout: 10000,
 });
 
-console.log('🔧 API configurada para:', '/api');
 
 // Interceptor para injetar Authorization sempre que houver token salvo
 api.interceptors.request.use((config) => {
