@@ -43,15 +43,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (newToken, userData) => {
-    console.log('🔐 Login - Salvando token:', newToken ? 'presente' : 'ausente');
-    console.log('🔐 Login - Salvando usuário:', userData);
-    
     localStorage.setItem(STORAGE_KEY, newToken);
     localStorage.setItem('sa.user', JSON.stringify(userData));
     setToken(newToken);
     setUser(userData);
-    
-    console.log('✅ Login - Token e usuário salvos com sucesso');
   };
 
   const logout = () => {

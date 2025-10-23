@@ -96,8 +96,6 @@ const UploadDocument = () => {
       }
 
       const token = localStorage.getItem('sa.token');
-      console.log('🔐 UploadDocument - Token:', token ? 'presente' : 'ausente');
-      console.log('🔐 UploadDocument - Token value:', token);
       
       const response = await fetch('/api/documents/upload', {
         method: 'POST',

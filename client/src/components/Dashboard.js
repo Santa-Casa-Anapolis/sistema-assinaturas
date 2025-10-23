@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
-import AuthTest from './AuthTest';
-import TokenDebug from './TokenDebug';
 import { 
   FileText, 
   Clock, 
@@ -173,15 +171,6 @@ const Dashboard = () => {
 
       </div>
 
-      {/* Componente de Teste de Autenticação */}
-      <div className="mt-8">
-        <AuthTest />
-      </div>
-
-      {/* Componente de Debug do Token */}
-      <div className="mt-8">
-        <TokenDebug />
-      </div>
 
       {/* Informações do usuário */}
       <div className="mt-8 card rounded-lg p-6" style={{background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)'}}>
