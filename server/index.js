@@ -1325,10 +1325,14 @@ app.get('/api/documents/:id/view', async (req, res) => {
   console.log('🔍 === VISUALIZAÇÃO DE DOCUMENTO ===');
   console.log('📅 Timestamp:', new Date().toISOString());
   console.log('🆔 Document ID:', req.params.id);
+  console.log('📝 Headers recebidos:', req.headers);
+  console.log('📝 Query params:', req.query);
   
   // Verificar autenticação via query parameter ou header
   const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
   console.log('🔑 Token presente:', token ? 'Sim' : 'Não');
+  console.log('🔑 Token length:', token?.length);
+  console.log('🔑 Token preview:', token ? token.substring(0, 20) + '...' : 'N/A');
   
   if (!token) {
     console.log('❌ Token ausente');
