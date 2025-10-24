@@ -5,7 +5,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { signatureUpload, validateSignatureFile } = require('../middleware/validateSignatureUpload');
+const { signatureUpload, getStorageKey, getFileUrl, UPLOAD_DIR } = require('../config/upload');
 const { pool } = require('../database');
 const authenticateToken = require('../middleware/auth');
 
@@ -29,7 +29,7 @@ ensureSignaturesDirectory();
  * Upload de assinatura para usuário
  * POST /api/signatures/:userId
  */
-router.post('/:userId', authenticateToken, signatureUpload.single('signature'), validateSignatureFile, async (req, res) => {
+router.post('/:userId', authenticateToken, signatureUpload.single('signature'), async (req, res) => {
   try {
     const { userId } = req.params;
     
@@ -53,20 +53,35 @@ router.post('/:userId', authenticateToken, signatureUpload.single('signature'), 
       });
     }
 
+    // Gerar storage key e file URL
+    const storageKey = getStorageKey(req.file.path);
+    const fileUrl = getFileUrl(storageKey);
+    
+    console.log('📁 Storage key:', storageKey);
+    console.log('🔗 File URL:', fileUrl);
+
     // Salvar informações da assinatura no banco (usando user_signatures)
     const signatureResult = await pool.query(
-      `INSERT INTO user_signatures (user_id, signature_file, original_filename, created_at)
-       VALUES ($1, $2, $3, NOW())
+      `INSERT INTO user_signatures (user_id, signature_file, original_filename, storage_key, file_url, mimetype, size, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        ON CONFLICT (user_id) 
        DO UPDATE SET 
          signature_file = EXCLUDED.signature_file,
          original_filename = EXCLUDED.original_filename,
+         storage_key = EXCLUDED.storage_key,
+         file_url = EXCLUDED.file_url,
+         mimetype = EXCLUDED.mimetype,
+         size = EXCLUDED.size,
          updated_at = NOW()
        RETURNING *`,
       [
         userId,
         req.file.filename,
-        req.file.originalname
+        req.file.originalname,
+        storageKey,
+        fileUrl,
+        req.file.mimetype,
+        req.file.size
       ]
     );
 
@@ -85,6 +100,10 @@ router.post('/:userId', authenticateToken, signatureUpload.single('signature'), 
         id: signature.id,
         filename: signature.signature_file,
         originalName: signature.original_filename,
+        storageKey: signature.storage_key,
+        fileUrl: signature.file_url,
+        mimetype: signature.mimetype,
+        size: signature.size,
         createdAt: signature.created_at
       }
     });
@@ -171,18 +190,26 @@ router.get('/me/file', authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         error: 'signature_not_found',
-        message: 'Arquivo de assinatura não encontrado.'
+        message: 'Nenhuma assinatura ativa encontrada para este usuário.'
       });
     }
 
     const signature = result.rows[0];
-    const filePath = path.join(__dirname, '..', 'uploads', signature.signature_file);
+    
+    // Usar storage_key se disponível, senão fallback para signature_file
+    const storageKey = signature.storage_key || signature.signature_file;
+    const filePath = path.join(UPLOAD_DIR, storageKey);
+
+    console.log('📁 Caminho do arquivo:', filePath);
+    console.log('📁 Storage key:', storageKey);
 
     // Verificar se o arquivo existe
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        error: 'file_not_found',
-        message: 'Arquivo de assinatura não encontrado no sistema de arquivos.'
+      console.log('❌ Arquivo não encontrado no sistema de arquivos');
+      return res.status(410).json({
+        error: 'file_missing',
+        message: 'Arquivo de assinatura ausente no disco.',
+        storageKey: storageKey
       });
     }
 
@@ -190,14 +217,15 @@ router.get('/me/file', authenticateToken, async (req, res) => {
     const contentType = signature.mimetype || 'image/png';
     
     console.log('📤 Enviando arquivo de assinatura:', {
-      filename: signature.filename,
+      filename: signature.signature_file,
       contentType,
-      size: signature.size
+      size: signature.size,
+      storageKey
     });
 
     // Definir headers corretos
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${signature.original_name}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${signature.original_filename}"`);
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
 
     // Enviar arquivo

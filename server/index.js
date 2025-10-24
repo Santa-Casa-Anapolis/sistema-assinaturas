@@ -105,109 +105,20 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static('uploads'));
 
+// Servir arquivos de uploads via rota /uploads
+app.use('/uploads', express.static(UPLOAD_DIR));
+
 // Configurar trust proxy para rate limiting
 app.set('trust proxy', 1);
 
-// Configuração do multer para upload de documentos
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    console.log('📁 Multer destination - Campo:', file.fieldname, 'Originalname:', file.originalname);
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const filename = file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname);
-    console.log('📁 Multer filename - Campo:', file.fieldname, 'Filename gerado:', filename);
-    cb(null, filename);
-  }
-});
+// Importar configuração de upload
+const { documentUpload, UPLOAD_DIR } = require('./config/upload');
 
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB
-  },
-  fileFilter: (req, file, cb) => {
-    console.log('🔍 Multer fileFilter - Campo:', file.fieldname, 'Mimetype:', file.mimetype, 'Originalname:', file.originalname);
-    
-    // Permitir apenas imagens para assinaturas
-    if (file.fieldname === 'signature') {
-      if (file.mimetype.startsWith('image/')) {
-        console.log('✅ Assinatura aceita');
-        cb(null, true);
-      } else {
-        console.log('❌ Assinatura rejeitada - não é imagem');
-        cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
-      }
-    } else if (file.fieldname === 'document') {
-      // Para documentos, permitir PDF e imagens
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      if (allowedTypes.includes(file.mimetype)) {
-        console.log('✅ Documento aceito');
-        cb(null, true);
-      } else {
-        console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
-        cb(new Error('Tipo de arquivo não permitido'), false);
-      }
-    } else if (file.fieldname === 'signedPdf') {
-      // Para PDFs assinados, permitir apenas PDF
-      if (file.mimetype === 'application/pdf') {
-        console.log('✅ PDF assinado aceito');
-        cb(null, true);
-      } else {
-        console.log('❌ PDF assinado rejeitado - não é PDF:', file.mimetype);
-        cb(new Error('Apenas arquivos PDF são permitidos para PDFs assinados'), false);
-      }
-    } else {
-      console.log('❌ Campo não reconhecido:', file.fieldname);
-      cb(new Error('Campo de arquivo não reconhecido'), false);
-    }
-  }
-});
+// Usar configuração de upload para documentos
+const upload = documentUpload;
 
-// Configurar multer para aceitar campos adicionais
-const uploadWithFields = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB
-  },
-  fileFilter: (req, file, cb) => {
-    console.log('🔍 Multer fileFilter - Campo:', file.fieldname, 'Mimetype:', file.mimetype, 'Originalname:', file.originalname);
-    
-    // Permitir apenas imagens para assinaturas
-    if (file.fieldname === 'signature') {
-      if (file.mimetype.startsWith('image/')) {
-        console.log('✅ Assinatura aceita');
-        cb(null, true);
-      } else {
-        console.log('❌ Assinatura rejeitada - não é imagem');
-        cb(new Error('Apenas arquivos de imagem são permitidos para assinaturas'), false);
-      }
-    } else if (file.fieldname === 'document') {
-      // Para documentos, permitir PDF e imagens
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      if (allowedTypes.includes(file.mimetype)) {
-        console.log('✅ Documento aceito');
-        cb(null, true);
-      } else {
-        console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
-        cb(new Error('Tipo de arquivo não permitido'), false);
-      }
-    } else if (file.fieldname === 'signedPdf') {
-      // Para PDFs assinados, permitir apenas PDF
-      if (file.mimetype === 'application/pdf') {
-        console.log('✅ PDF assinado aceito');
-        cb(null, true);
-      } else {
-        console.log('❌ PDF assinado rejeitado - não é PDF:', file.mimetype);
-        cb(new Error('Apenas arquivos PDF são permitidos para PDFs assinados'), false);
-      }
-    } else {
-      console.log('❌ Campo não reconhecido:', file.fieldname);
-      cb(new Error('Campo de arquivo não reconhecido'), false);
-    }
-  }
-});
+// Configurar multer para aceitar campos adicionais (usar documentUpload)
+const uploadWithFields = documentUpload;
 
 // Rate limiting
 const limiter = rateLimit({
