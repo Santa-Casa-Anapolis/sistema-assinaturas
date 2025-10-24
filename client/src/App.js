@@ -36,8 +36,8 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
-// Componente wrapper para aplicar inatividade apenas quando logado
-const AuthenticatedApp = ({ children }) => {
+// Layout para rotas protegidas
+const ProtectedLayout = ({ children }) => {
   const { user } = useAuth();
   
   // Aplicar hook de inatividade apenas se o usuário estiver logado
@@ -45,7 +45,10 @@ const AuthenticatedApp = ({ children }) => {
   
   return (
     <>
-      {children}
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        {children}
+      </main>
       {showWarning && (
         <InactivityWarning
           onExtend={handleExtendSession}
@@ -55,6 +58,11 @@ const AuthenticatedApp = ({ children }) => {
       )}
     </>
   );
+};
+
+// Componente wrapper para aplicar inatividade apenas quando logado
+const AuthenticatedApp = ({ children }) => {
+  return children;
 };
 
 function App() {
@@ -67,59 +75,68 @@ function App() {
             <AuthenticatedApp>
               <Routes>
                 <Route path="/login" element={<Login />} />
-                <Route path="/*" element={
-                  <>
-                    <Header />
-                    <main className="container mx-auto px-4 py-8">
-                      <Routes>
-                        <Route path="/" element={
-                          <ProtectedRoute>
-                            <Dashboard />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/upload" element={
-                          <ProtectedRoute>
-                            <UploadDocument />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/pending" element={
-                          <ProtectedRoute>
-                            <PendingSignatures />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/my-documents" element={
-                          <ProtectedRoute>
-                            <MyDocuments />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/sign/:id" element={
-                          <ProtectedRoute>
-                            <DocumentSign />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/audit/:id" element={
-                          <ProtectedRoute>
-                            <AuditLog />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/admin" element={
-                          <ProtectedRoute>
-                            <AdminConfig />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/admin-panel" element={
-                          <AdminRoute>
-                            <AdminPanel />
-                          </AdminRoute>
-                        } />
-                        <Route path="/flow" element={
-                          <ProtectedRoute>
-                            <DocumentFlow />
-                          </ProtectedRoute>
-                        } />
-                      </Routes>
-                    </main>
-                  </>
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <Dashboard />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/upload" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <UploadDocument />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/pending" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <PendingSignatures />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/my-documents" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <MyDocuments />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/sign/:id" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <DocumentSign />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/audit/:id" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <AuditLog />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <AdminConfig />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin-panel" element={
+                  <AdminRoute>
+                    <ProtectedLayout>
+                      <AdminPanel />
+                    </ProtectedLayout>
+                  </AdminRoute>
+                } />
+                <Route path="/flow" element={
+                  <ProtectedRoute>
+                    <ProtectedLayout>
+                      <DocumentFlow />
+                    </ProtectedLayout>
+                  </ProtectedRoute>
                 } />
               </Routes>
             </AuthenticatedApp>
