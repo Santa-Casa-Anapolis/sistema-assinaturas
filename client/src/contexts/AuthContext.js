@@ -51,10 +51,19 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (newToken, userData) => {
+    console.log('🔐 AuthContext - Fazendo login:', {
+      hasToken: !!newToken,
+      tokenLength: newToken?.length,
+      hasUser: !!userData,
+      username: userData?.username
+    });
+    
     localStorage.setItem(STORAGE_KEY, newToken);
     localStorage.setItem('sa.user', JSON.stringify(userData));
     setToken(newToken);
     setUser(userData);
+    
+    console.log('🔐 AuthContext - Login concluído, dados salvos no localStorage');
   };
 
   const logout = () => {
