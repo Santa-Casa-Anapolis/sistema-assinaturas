@@ -23,19 +23,27 @@ export const AuthProvider = ({ children }) => {
       const savedToken = localStorage.getItem(STORAGE_KEY);
       const savedUser = localStorage.getItem('sa.user');
       
+      console.log('🔐 AuthContext - Hidratando dados:', {
+        hasToken: !!savedToken,
+        hasUser: !!savedUser,
+        tokenLength: savedToken?.length
+      });
+      
       if (savedToken) {
         setToken(savedToken);
       }
       
       if (savedUser) {
         try {
-          setUser(JSON.parse(savedUser));
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
+          console.log('🔐 AuthContext - Usuário carregado:', userData.username);
         } catch (error) {
           console.error('Erro ao parsear usuário salvo:', error);
           localStorage.removeItem('sa.user');
-            }
-          }
-        } catch (error) {
+        }
+      }
+    } catch (error) {
       console.error('Erro ao hidratar token:', error);
     } finally {
       setLoading(false);

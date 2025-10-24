@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 export const ProtectedRoute = ({ children }) => {
   const { token, loading } = useAuth();
 
+  console.log('🔐 ProtectedRoute - Estado:', { token: !!token, loading });
+
   // Mostrar loading enquanto hidrata o token
   if (loading) {
     return (
@@ -17,8 +19,10 @@ export const ProtectedRoute = ({ children }) => {
 
   // Só redireciona se não houver token após a hidratação
   if (!token) {
+    console.log('🔐 ProtectedRoute - Redirecionando para login (sem token)');
     return <Navigate to="/login" replace />;
   }
 
+  console.log('🔐 ProtectedRoute - Acesso permitido');
   return <>{children}</>;
 };
