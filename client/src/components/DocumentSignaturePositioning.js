@@ -297,7 +297,7 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
   const loadUserSignature = async () => {
     try {
       const token = localStorage.getItem('sa.token');
-      const user = JSON.parse(localStorage.getItem('user'));
+      const user = JSON.parse(localStorage.getItem('sa.user'));
       
       
       if (!token) {
@@ -363,8 +363,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         setSignatureImage(null);
         toast.error('Sessão expirada. Faça login novamente.');
         // Limpar dados de autenticação
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem('sa.token');
+        localStorage.removeItem('sa.user');
         // Redirecionar para login
         window.location.href = '/login';
       } else if (response.status === 404) {

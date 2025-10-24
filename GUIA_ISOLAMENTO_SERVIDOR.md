@@ -314,3 +314,7 @@ docker exec notasfiscais_db pg_isready -U postgres
 
 
 
+
+
+
+
