@@ -1529,7 +1529,11 @@ app.get('/api/audit/:documentId', authenticateToken, async (req, res) => {
     const { documentId } = req.params;
 
     const result = await pool.query(`
-      SELECT al.*, u.name as user_name
+      SELECT al.*, 
+             CASE 
+               WHEN al.user_id IS NULL THEN 'Sistema'
+               ELSE COALESCE(u.name, 'Usuário removido')
+             END as user_name
       FROM audit_log al
       LEFT JOIN users u ON al.user_id = u.id
       WHERE al.document_id = $1

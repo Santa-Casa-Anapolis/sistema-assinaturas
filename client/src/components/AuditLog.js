@@ -209,7 +209,7 @@ const AuditLog = () => {
                           {getActionText(log.action)}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {log.user_name || 'Usuário não identificado'}
+                          {log.user_name || 'Sistema'}
                         </p>
                       </div>
                       
