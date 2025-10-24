@@ -1320,7 +1320,105 @@ app.get('/api/documents/:id/files/:fileId/download', authenticateToken, async (r
   }
 });
 
-// Visualização do documento (abre no navegador)
+// Nova rota de stream para PDF (usando Authorization header)
+app.get('/api/documents/:id/stream', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('🔍 === STREAM DE DOCUMENTO ===');
+    console.log('📅 Timestamp:', new Date().toISOString());
+    console.log('🆔 Document ID:', id);
+    console.log('👤 Usuário autenticado:', req.user.username);
+
+    const result = await pool.query('SELECT * FROM documents WHERE id = $1', [id]);
+    const document = result.rows[0];
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Documento não encontrado' });
+    }
+
+    // Verificar se há arquivo assinado primeiro
+    let fileName = null;
+    let filePath = null;
+    
+    // Primeiro, tentar arquivo assinado se existir
+    if (document.signed_filename && fs.existsSync(path.join(__dirname, 'uploads', document.signed_filename))) {
+      fileName = document.signed_filename;
+      console.log('📁 Usando arquivo assinado:', fileName);
+    }
+    // Se não há arquivo assinado, usar o file_path
+    else if (document.file_path && fs.existsSync(path.join(__dirname, 'uploads', document.file_path))) {
+      fileName = document.file_path;
+      console.log('📁 Usando arquivo original:', fileName);
+    }
+    // Fallback para original_filename
+    else if (document.original_filename && fs.existsSync(path.join(__dirname, 'uploads', document.original_filename))) {
+      fileName = document.original_filename;
+      console.log('📁 Usando original_filename:', fileName);
+    }
+    
+    if (!fileName) {
+      console.log('❌ Nenhum arquivo válido encontrado');
+      return res.status(404).json({ error: 'Arquivo não encontrado no sistema' });
+    }
+    
+    filePath = path.join(__dirname, 'uploads', fileName);
+    console.log('📂 Caminho completo do arquivo:', filePath);
+    
+    if (!fs.existsSync(filePath)) {
+      console.log('❌ Arquivo não encontrado no sistema de arquivos');
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+
+    console.log('✅ Arquivo encontrado no sistema de arquivos');
+
+    // Determinar o tipo de conteúdo
+    const ext = path.extname(document.original_filename || document.file_path).toLowerCase();
+    let contentType = 'application/octet-stream';
+    
+    if (ext === '.pdf') {
+      contentType = 'application/pdf';
+    } else if (ext === '.docx') {
+      contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    } else if (ext === '.doc') {
+      contentType = 'application/msword';
+    } else if (ext === '.jpg' || ext === '.jpeg') {
+      contentType = 'image/jpeg';
+    } else if (ext === '.png') {
+      contentType = 'image/png';
+    }
+
+    console.log('📄 Extensão do arquivo:', ext);
+    console.log('📄 Content-Type:', contentType);
+
+    // Configurar headers para visualização inline
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${document.original_filename || document.file_path}"`);
+    
+    console.log('📤 Enviando arquivo via stream...');
+    // Enviar arquivo via stream
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+    fileStream.on('end', () => {
+      console.log('✅ Arquivo enviado com sucesso via stream');
+    });
+    
+    fileStream.on('error', (err) => {
+      console.error('❌ Erro no stream do arquivo:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Erro ao enviar arquivo' });
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Erro no stream do documento:', error);
+    console.error('❌ Document ID:', req.params.id);
+    console.error('❌ User:', req.user);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Visualização do documento (abre no navegador) - MANTIDA PARA COMPATIBILIDADE
 app.get('/api/documents/:id/view', async (req, res) => {
   console.log('🔍 === VISUALIZAÇÃO DE DOCUMENTO ===');
   console.log('📅 Timestamp:', new Date().toISOString());

@@ -1,46 +1,115 @@
-const STORAGE_KEY = 'sa.token';
+import api from '../config/api';
 
-export async function openPdf(docId) {
-  const token = localStorage.getItem(STORAGE_KEY);
-  if (!token) {
-    throw new Error('Sem token — usuário não autenticado');
-  }
-
+/**
+ * Abre um PDF em uma nova aba usando a rota de stream
+ * @param {number} documentId - ID do documento
+ */
+export const openPdf = async (documentId) => {
   try {
+    console.log('🔍 Abrindo PDF para documento ID:', documentId);
     
-    const response = await fetch(`/api/documents/${docId}/view`, {
-      method: 'GET',
+    // Verificar se há token
+    const token = localStorage.getItem('sa.token');
+    if (!token) {
+      throw new Error('Sem token de autenticação');
+    }
+    
+    // Fazer requisição para a rota de stream
+    const response = await api.get(`/documents/${documentId}/stream`, {
+      responseType: 'blob'
+    });
+    
+    console.log('✅ PDF recebido via stream');
+    
+    // Criar blob URL
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(blob);
+    
+    console.log('🔗 Blob URL criada:', blobUrl);
+    
+    // Abrir em nova aba
+    const newWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    
+    if (!newWindow) {
+      throw new Error('Popup bloqueado pelo navegador');
+    }
+    
+    // Limpar blob URL após um tempo (opcional)
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl);
+      console.log('🧹 Blob URL limpa');
+    }, 60000); // 1 minuto
+    
+    console.log('✅ PDF aberto com sucesso');
+    
+  } catch (error) {
+    console.error('❌ Erro ao abrir PDF:', error);
+    
+    if (error.response?.status === 401) {
+      throw new Error('Token de autenticação inválido');
+    } else if (error.response?.status === 404) {
+      throw new Error('Documento não encontrado');
+    } else if (error.response?.status === 403) {
+      throw new Error('Acesso negado ao documento');
+    } else {
+      throw new Error(`Erro ao abrir PDF: ${error.message}`);
+    }
+  }
+};
+
+/**
+ * Abre um PDF usando fetch diretamente (fallback)
+ * @param {number} documentId - ID do documento
+ */
+export const openPdfWithFetch = async (documentId) => {
+  try {
+    console.log('🔍 Abrindo PDF com fetch para documento ID:', documentId);
+    
+    const token = localStorage.getItem('sa.token');
+    if (!token) {
+      throw new Error('Sem token de autenticação');
+    }
+    
+    const response = await fetch(`/api/documents/${documentId}/stream`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
-
-    if (!response.ok) {
-      throw new Error(`Falha ao carregar PDF: ${response.status} ${response.statusText}`);
-    }
-
     
-    // Converter resposta para Blob
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Token de autenticação inválido');
+      } else if (response.status === 404) {
+        throw new Error('Documento não encontrado');
+      } else if (response.status === 403) {
+        throw new Error('Acesso negado ao documento');
+      } else {
+        throw new Error(`Erro HTTP ${response.status}`);
+      }
+    }
+    
     const blob = await response.blob();
-
-    // Criar URL do Blob
-    const url = URL.createObjectURL(blob);
-
-    // Abrir PDF em nova aba
-    const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    const blobUrl = URL.createObjectURL(blob);
+    
+    console.log('🔗 Blob URL criada via fetch:', blobUrl);
+    
+    // Abrir em nova aba
+    const newWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
     
     if (!newWindow) {
-      throw new Error('Popup bloqueado. Permita popups para este site.');
+      throw new Error('Popup bloqueado pelo navegador');
     }
-
-
-    // Limpar URL do Blob após um tempo (para liberar memória)
+    
+    // Limpar blob URL após um tempo
     setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 10000); // 10 segundos
-
+      URL.revokeObjectURL(blobUrl);
+      console.log('🧹 Blob URL limpa');
+    }, 60000);
+    
+    console.log('✅ PDF aberto com sucesso via fetch');
+    
   } catch (error) {
-    console.error('❌ Erro ao abrir PDF:', error);
+    console.error('❌ Erro ao abrir PDF com fetch:', error);
     throw error;
   }
-}
+};
