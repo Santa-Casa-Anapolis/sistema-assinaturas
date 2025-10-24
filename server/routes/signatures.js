@@ -53,26 +53,20 @@ router.post('/:userId', authenticateToken, signatureUpload.single('signature'), 
       });
     }
 
-    // Salvar informações da assinatura no banco
+    // Salvar informações da assinatura no banco (usando user_signatures)
     const signatureResult = await pool.query(
-      `INSERT INTO signatures (user_id, filename, original_name, mimetype, size, file_path, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `INSERT INTO user_signatures (user_id, signature_file, original_filename, created_at)
+       VALUES ($1, $2, $3, NOW())
        ON CONFLICT (user_id) 
        DO UPDATE SET 
-         filename = EXCLUDED.filename,
-         original_name = EXCLUDED.original_name,
-         mimetype = EXCLUDED.mimetype,
-         size = EXCLUDED.size,
-         file_path = EXCLUDED.file_path,
+         signature_file = EXCLUDED.signature_file,
+         original_filename = EXCLUDED.original_filename,
          updated_at = NOW()
        RETURNING *`,
       [
         userId,
         req.file.filename,
-        req.file.originalname,
-        req.file.mimetype,
-        req.file.size,
-        req.file.path
+        req.file.originalname
       ]
     );
 
@@ -80,8 +74,8 @@ router.post('/:userId', authenticateToken, signatureUpload.single('signature'), 
     
     console.log('✅ Assinatura salva com sucesso:', {
       userId,
-      filename: signature.filename,
-      size: signature.size
+      filename: signature.signature_file,
+      originalName: signature.original_filename
     });
 
     res.status(200).json({
@@ -89,10 +83,8 @@ router.post('/:userId', authenticateToken, signatureUpload.single('signature'), 
       message: 'Assinatura enviada com sucesso!',
       signature: {
         id: signature.id,
-        filename: signature.filename,
-        originalName: signature.original_name,
-        mimetype: signature.mimetype,
-        size: signature.size,
+        filename: signature.signature_file,
+        originalName: signature.original_filename,
         createdAt: signature.created_at
       }
     });
