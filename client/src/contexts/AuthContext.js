@@ -17,6 +17,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+  console.log('🔐 AuthProvider - Renderizando AuthProvider');
+
   // Hidratar no primeiro render
   useEffect(() => {
     try {
@@ -67,6 +69,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    console.log('🔐 AuthContext - Fazendo logout');
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('sa.user');
     setToken(null);
