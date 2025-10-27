@@ -21,12 +21,14 @@ if (!fs.existsSync(UPLOAD_DIR)) {
  */
 const signatureStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const userId = req.user?.id || 'anon';
+    // Usar req.params.id para o usuário de destino, não req.user.id
+    const userId = req.params?.id || req.user?.id || 'anon';
     const dir = path.join(UPLOAD_DIR, 'signatures', String(userId));
     
     // Criar diretório se não existir
     fs.mkdirSync(dir, { recursive: true });
     console.log('📁 Multer signature destination:', dir);
+    console.log('📁 User ID usado:', userId, '(params.id:', req.params?.id, ', user.id:', req.user?.id, ')');
     
     cb(null, dir);
   },
