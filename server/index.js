@@ -105,14 +105,14 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static('uploads'));
 
+// Importar configuração de upload
+const { documentUpload, UPLOAD_DIR } = require('./config/upload');
+
 // Servir arquivos de uploads via rota /uploads
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 // Configurar trust proxy para rate limiting
 app.set('trust proxy', 1);
-
-// Importar configuração de upload
-const { documentUpload, UPLOAD_DIR } = require('./config/upload');
 
 // Usar configuração de upload para documentos
 const upload = documentUpload;
