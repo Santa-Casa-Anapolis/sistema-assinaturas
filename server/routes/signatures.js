@@ -196,22 +196,81 @@ router.get('/me/file', authenticateToken, async (req, res) => {
 
     const signature = result.rows[0];
     
-    // Usar storage_key se disponível, senão fallback para signature_file
-    const storageKey = signature.storage_key || signature.signature_file;
-    const filePath = path.join(UPLOAD_DIR, storageKey);
+    // Tentar diferentes caminhos para encontrar o arquivo
+    let filePath = null;
+    const triedPaths = [];
 
-    console.log('📁 Caminho do arquivo:', filePath);
-    console.log('📁 Storage key:', storageKey);
+    // 1. Tentar storage_key primeiro (caminho novo)
+    if (signature.storage_key) {
+      filePath = path.join(UPLOAD_DIR, signature.storage_key);
+      triedPaths.push(filePath);
+      console.log('📁 Tentando storage_key:', filePath);
+      
+      if (fs.existsSync(filePath)) {
+        console.log('✅ Arquivo encontrado via storage_key');
+      } else {
+        filePath = null;
+      }
+    }
 
-    // Verificar se o arquivo existe
-    if (!fs.existsSync(filePath)) {
-      console.log('❌ Arquivo não encontrado no sistema de arquivos');
-      return res.status(410).json({
-        error: 'file_missing',
-        message: 'Arquivo de assinatura ausente no disco.',
-        storageKey: storageKey
+    // 2. Se não encontrou, tentar caminho novo padrão
+    if (!filePath) {
+      const newPath = path.join(UPLOAD_DIR, 'signatures', String(userId), 'signature.png');
+      triedPaths.push(newPath);
+      console.log('📁 Tentando caminho novo padrão:', newPath);
+      
+      if (fs.existsSync(newPath)) {
+        filePath = newPath;
+        console.log('✅ Arquivo encontrado no caminho novo padrão');
+      }
+    }
+
+    // 3. Se ainda não encontrou, tentar signature_file (caminho antigo)
+    if (!filePath && signature.signature_file) {
+      const oldPath = path.join(UPLOAD_DIR, signature.signature_file);
+      triedPaths.push(oldPath);
+      console.log('📁 Tentando signature_file (caminho antigo):', oldPath);
+      
+      if (fs.existsSync(oldPath)) {
+        filePath = oldPath;
+        console.log('✅ Arquivo encontrado no caminho antigo');
+      }
+    }
+
+    // 4. Se ainda não encontrou, tentar com diferentes extensões
+    if (!filePath) {
+      const extensions = ['.png', '.jpg', '.jpeg', '.svg'];
+      for (const ext of extensions) {
+        const altPath = path.join(UPLOAD_DIR, 'signatures', String(userId), `signature${ext}`);
+        triedPaths.push(altPath);
+        console.log('📁 Tentando com extensão', ext, ':', altPath);
+        
+        if (fs.existsSync(altPath)) {
+          filePath = altPath;
+          console.log('✅ Arquivo encontrado com extensão', ext);
+          break;
+        }
+      }
+    }
+
+    // Se não encontrou em nenhum lugar
+    if (!filePath) {
+      console.log('❌ Arquivo não encontrado em nenhum caminho testado');
+      return res.status(404).json({
+        error: 'file_not_found',
+        message: 'Arquivo de assinatura não encontrado no sistema de arquivos.',
+        debug: {
+          tried_paths: triedPaths,
+          signature_data: {
+            signature_file: signature.signature_file,
+            storage_key: signature.storage_key,
+            user_id: userId
+          }
+        }
       });
     }
+
+    console.log('📂 Caminho final do arquivo:', filePath);
 
     // Determinar Content-Type correto
     const contentType = signature.mimetype || 'image/png';
