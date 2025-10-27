@@ -102,6 +102,16 @@ const documentFileFilter = (req, file, cb) => {
       console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
       cb(new Error('Tipo de arquivo não permitido'), false);
     }
+  } else if (file.fieldname === 'signature') {
+    // Aceitar assinaturas também no filtro de documentos (compatibilidade)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      console.log('✅ Assinatura aceita no filtro de documentos');
+      cb(null, true);
+    } else {
+      console.log('❌ Assinatura rejeitada - tipo não permitido:', file.mimetype);
+      cb(new Error('Tipo de arquivo não permitido para assinatura'), false);
+    }
   } else {
     console.log('❌ Campo não reconhecido:', file.fieldname);
     cb(new Error('Campo de arquivo não reconhecido'), false);

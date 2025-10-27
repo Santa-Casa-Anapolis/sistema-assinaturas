@@ -106,7 +106,7 @@ app.use(express.json());
 app.use(express.static('uploads'));
 
 // Importar configuração de upload
-const { documentUpload, UPLOAD_DIR } = require('./config/upload');
+const { documentUpload, signatureUpload, UPLOAD_DIR } = require('./config/upload');
 
 // Servir arquivos de uploads via rota /uploads
 app.use('/uploads', express.static(UPLOAD_DIR));
@@ -455,7 +455,7 @@ app.get('/api/users/by-role/:role', authenticateToken, async (req, res) => {
 });
 
 // Upload de assinatura do usuário
-app.post('/api/users/:id/signature', authenticateToken, upload.single('signature'), async (req, res) => {
+app.post('/api/users/:id/signature', authenticateToken, signatureUpload.single('signature'), async (req, res) => {
   try {
     console.log('🔍 Upload de assinatura iniciado');
     console.log('📝 Headers recebidos:', req.headers);
