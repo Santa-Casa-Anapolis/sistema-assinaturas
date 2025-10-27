@@ -348,7 +348,7 @@ router.get('/:userId/file', authenticateToken, async (req, res) => {
  * Atualizar assinatura do usuário
  * PUT /api/signatures/:userId
  */
-router.put('/:userId', authenticateToken, signatureUpload.single('signature'), validateSignatureFile, async (req, res) => {
+router.put('/:userId', authenticateToken, signatureUpload.single('signature'), async (req, res) => {
   try {
     const { userId } = req.params;
     
