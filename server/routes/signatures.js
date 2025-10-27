@@ -279,7 +279,7 @@ router.get('/me/file', authenticateToken, async (req, res) => {
       filename: signature.signature_file,
       contentType,
       size: signature.size,
-      storageKey
+      filePath: filePath
     });
 
     // Definir headers corretos
