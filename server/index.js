@@ -138,6 +138,11 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, user) => {
     if (err) {
+      console.warn('Token inválido recebido:', {
+        url: req.originalUrl,
+        tokenPrefix: token ? token.substring(0, 10) + '...' : null,
+        error: err.message
+      });
       return res.status(403).json({ error: 'Token inválido' });
     }
     req.user = user;
@@ -246,7 +251,8 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Erro na verificação do token:', error);
+    console.warn('Falha ao verificar token:', error.message);
+    console.error('Erro completo na verificação do token:', error);
     res.status(401).json({ valid: false, error: 'Token inválido' });
   }
 });

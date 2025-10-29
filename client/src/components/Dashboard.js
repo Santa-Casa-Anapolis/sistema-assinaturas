@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../config/api';
+import { toast } from 'react-toastify';
 import { 
   FileText, 
   Clock, 
@@ -46,6 +47,11 @@ const Dashboard = () => {
 
     } catch (error) {
       console.error('Erro ao carregar dados do dashboard:', error);
+      
+      if (error.response?.status === 403) {
+        toast.error('Você não tem acesso a este recurso ou a sessão expirou. Faça login novamente.');
+        return;
+      }
     } finally {
       setLoading(false);
     }

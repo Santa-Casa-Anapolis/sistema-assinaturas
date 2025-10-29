@@ -355,9 +355,13 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           setSignatureImage(null);
           toast.info('Arquivo de assinatura não encontrado. Entre em contato com o administrador.');
         } else {
-          console.error('❌ Erro ao carregar arquivo da assinatura:', signatureResponse.status);
+          if (signatureResponse.status === 410) {
+            toast.error('Sua assinatura não está disponível no servidor. Envie uma nova assinatura em seu perfil.');
+          } else {
+            console.error('❌ Erro ao carregar arquivo da assinatura:', signatureResponse.status);
+            toast.error('Erro ao carregar arquivo da assinatura.');
+          }
           setSignatureImage(null);
-          toast.error('Erro ao carregar arquivo da assinatura.');
         }
       } else if (response.status === 401) {
         setSignatureImage(null);
@@ -376,7 +380,11 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
         toast.error('Erro ao carregar assinatura do usuário.');
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar assinatura do usuário:', error);
+      if (error.response?.status === 410) {
+        toast.error('Sua assinatura não está disponível no servidor. Envie uma nova assinatura em seu perfil.');
+      } else {
+        console.error('❌ Erro ao carregar assinatura do usuário:', error);
+      }
       setSignatureImage(null);
     }
   };

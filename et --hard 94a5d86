@@ -1,0 +1,20 @@
+d5447cc 2025-10-29 fix: adicionar arquivo config/database.js para resolver import do pool
+b44aac0 2025-10-29 ci: pular stages Docker quando Docker ausente
+1e74bec 2025-10-29 🔧 Fix: Correção do sistema de busca de assinaturas delegadas
+94a5d86 2025-10-29 Atualizações diversas: correções, melhorias e novos arquivos
+d2baf12 2025-10-27 🔧 Corrigir erro ReferenceError: storageKey is not defined
+3c02d34 2025-10-27 🔧 Corrigir salvamento de assinatura - usar ID do usuário de destino
+c81d835 2025-10-27 🔧 Corrigir upload de assinatura - usar signatureUpload correto
+be6f8e0 2025-10-27 🔧 Fix: Melhorar sistema de busca de assinaturas - tentar múltiplos caminhos
+bf03d6b 2025-10-27 🔧 Fix: Mover importação de UPLOAD_DIR para antes do uso - corrigir erro de inicialização
+dabd4aa 2025-10-27 🔧 Fix: Remover referência inexistente validateSignatureFile que causava erro no backend
+a9e82b8 2025-10-24 🔧 Corrigir 404 ao buscar arquivo de assinatura
+7d5bc64 2025-10-24 🔧 Implementar sistema de visualização de PDFs via stream
+fcf874b 2025-10-24 Debug: Adicionar logs detalhados no endpoint de visualização de documentos
+506a204 2025-10-24 Fix: Remover React.StrictMode que causava re-render do AuthProvider
+9f2ac91 2025-10-24 Fix: Corrigir estrutura de rotas aninhadas que causava re-montagem do AuthProvider
+f50e722 2025-10-24 Debug: Adicionar logs para rastrear re-render do AuthProvider
+f509953 2025-10-24 Debug: Adicionar logs no processo de login
+1eccf7f 2025-10-24 Debug: Adicionar logs para investigar redirecionamento para login
+bcd1dc0 2025-10-24 Fix: Corrigir exibição de 'usuário não identificado' no audit log
+63422ca 2025-10-24 Fix: Corrigir incompatibilidade entre tabelas signatures e user_signatures - usar user_signatures para todos os endpoints

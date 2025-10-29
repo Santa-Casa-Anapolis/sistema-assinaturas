@@ -21,7 +21,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Verificar token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     
     // Buscar usuário no banco para verificar se ainda existe
     const userResult = await pool.query(
@@ -73,7 +73,7 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
       const userResult = await pool.query(
         'SELECT id, username, email, name, role, sector FROM users WHERE id = $1',
         [decoded.id]

@@ -117,6 +117,19 @@ EMAIL_USER=seu-email@gmail.com
 EMAIL_PASS=sua-senha-app-gmail
 ```
 
+### ⚠️ **IMPORTANTE: Configuração do JWT_SECRET**
+
+O `JWT_SECRET` é usado para criptografar e validar tokens de autenticação. **É crítico usar o mesmo valor em todas as instâncias do sistema** (desenvolvimento, produção, etc).
+
+- **Em produção**: Defina uma chave secreta forte e única no arquivo `.env`
+- **Em desenvolvimento local**: Se não definir a variável, o backend usará `'secret'` como fallback
+- **Ao trocar de ambiente**: Limpe o `localStorage` do navegador para evitar conflitos com tokens antigos
+
+**Recomendação de segurança**: Gere uma chave forte usando:
+```bash
+openssl rand -base64 32
+```
+
 ## 🌐 **ACESSO AO SISTEMA**
 
 Após o deploy, o sistema estará disponível em:
