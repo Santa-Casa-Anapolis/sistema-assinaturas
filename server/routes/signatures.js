@@ -8,6 +8,7 @@ const fs = require('fs');
 const { signatureUpload, getStorageKey, getFileUrl, UPLOAD_DIR } = require('../config/upload');
 const { pool } = require('../database');
 const authenticateToken = require('../middleware/auth');
+const signaturesRepo = require('../repositories/signatures.repo');
 
 const router = express.Router();
 
@@ -178,117 +179,63 @@ router.get('/me', authenticateToken, async (req, res) => {
  */
 router.get('/me/file', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    console.log('📁 GET my signature -> req.user:', req.user);
     
-    console.log('📁 Servindo arquivo de assinatura para usuário atual:', userId);
-    
-    const result = await pool.query(
-      'SELECT * FROM user_signatures WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
-      [userId]
-    );
+    if (!req.user) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
 
-    if (result.rows.length === 0) {
+    const userId = req.user.id;
+    console.log('📁 Buscando assinatura para user_id:', userId);
+
+    // Buscar assinatura usando repositório
+    const sig = await signaturesRepo.findByUserId(userId);
+    console.log('📁 GET my signature -> row:', sig);
+
+    if (!sig || !sig.signature_file) {
+      console.log('❌ Nenhuma assinatura encontrada no DB para user_id:', userId);
       return res.status(404).json({
         error: 'signature_not_found',
-        message: 'Nenhuma assinatura ativa encontrada para este usuário.'
+        message: 'Nenhuma assinatura encontrada para este usuário.'
       });
     }
 
-    const signature = result.rows[0];
-    
-    // Tentar diferentes caminhos para encontrar o arquivo
-    let filePath = null;
-    const triedPaths = [];
+    // Resolver caminho físico do arquivo
+    const filePath = path.join(UPLOAD_DIR, sig.signature_file);
+    console.log('📁 Caminho resolvido:', filePath);
 
-    // 1. Tentar storage_key primeiro (caminho novo)
-    if (signature.storage_key) {
-      filePath = path.join(UPLOAD_DIR, signature.storage_key);
-      triedPaths.push(filePath);
-      console.log('📁 Tentando storage_key:', filePath);
-      
-      if (fs.existsSync(filePath)) {
-        console.log('✅ Arquivo encontrado via storage_key');
-      } else {
-        filePath = null;
-      }
-    }
-
-    // 2. Se não encontrou, tentar caminho novo padrão
-    if (!filePath) {
-      const newPath = path.join(UPLOAD_DIR, 'signatures', String(userId), 'signature.png');
-      triedPaths.push(newPath);
-      console.log('📁 Tentando caminho novo padrão:', newPath);
-      
-      if (fs.existsSync(newPath)) {
-        filePath = newPath;
-        console.log('✅ Arquivo encontrado no caminho novo padrão');
-      }
-    }
-
-    // 3. Se ainda não encontrou, tentar signature_file (caminho antigo)
-    if (!filePath && signature.signature_file) {
-      const oldPath = path.join(UPLOAD_DIR, signature.signature_file);
-      triedPaths.push(oldPath);
-      console.log('📁 Tentando signature_file (caminho antigo):', oldPath);
-      
-      if (fs.existsSync(oldPath)) {
-        filePath = oldPath;
-        console.log('✅ Arquivo encontrado no caminho antigo');
-      }
-    }
-
-    // 4. Se ainda não encontrou, tentar com diferentes extensões
-    if (!filePath) {
-      const extensions = ['.png', '.jpg', '.jpeg', '.svg'];
-      for (const ext of extensions) {
-        const altPath = path.join(UPLOAD_DIR, 'signatures', String(userId), `signature${ext}`);
-        triedPaths.push(altPath);
-        console.log('📁 Tentando com extensão', ext, ':', altPath);
-        
-        if (fs.existsSync(altPath)) {
-          filePath = altPath;
-          console.log('✅ Arquivo encontrado com extensão', ext);
-          break;
-        }
-      }
-    }
-
-    // Se não encontrou em nenhum lugar
-    if (!filePath) {
-      console.log('❌ Arquivo não encontrado em nenhum caminho testado');
-      return res.status(404).json({
-        error: 'file_not_found',
-        message: 'Arquivo de assinatura não encontrado no sistema de arquivos.',
-        debug: {
-          tried_paths: triedPaths,
-          signature_data: {
-            signature_file: signature.signature_file,
-            storage_key: signature.storage_key,
-            user_id: userId
-          }
-        }
+    if (!fs.existsSync(filePath)) {
+      console.log('❌ Arquivo não existe no FS (container reiniciou/arquivo apagou):', filePath);
+      return res.status(410).json({
+        error: 'signature_gone',
+        message: 'Sua assinatura não está disponível. Reenvie uma nova assinatura.'
       });
     }
 
-    console.log('📂 Caminho final do arquivo:', filePath);
+    console.log('✅ Arquivo encontrado no FS, enviando...');
 
-    // Determinar Content-Type correto
-    const contentType = signature.mimetype || 'image/png';
-    
-    console.log('📤 Enviando arquivo de assinatura:', {
-      filename: signature.signature_file,
-      contentType,
-      size: signature.size,
-      filePath: filePath
-    });
+    // Headers
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `inline; filename="${sig.original_filename || 'signature.png'}"`);
+    res.setHeader('Cache-Control', 'no-store');
 
-    // Definir headers corretos
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${signature.original_filename}"`);
-    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache por 1 hora
+    // ETag opcional baseada em mtime + size
+    try {
+      const stats = await fs.promises.stat(filePath);
+      const etag = `"sig-${stats.size}-${Math.trunc(stats.mtimeMs)}"`;
+      res.setHeader('ETag', etag);
+      res.setHeader('Last-Modified', new Date(stats.mtimeMs).toUTCString());
+      
+      if (req.headers['if-none-match'] === etag) {
+        console.log('📁 If-None-Match match, retornando 304');
+        return res.status(304).end();
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao gerar ETag:', error.message);
+    }
 
     // Enviar arquivo
-    res.sendFile(path.resolve(filePath));
+    return res.sendFile(filePath);
 
   } catch (error) {
     console.error('❌ Erro ao servir arquivo de assinatura:', error);
