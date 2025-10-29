@@ -98,32 +98,58 @@ pipeline {
             steps {
                 echo '🐳 Fazendo build das imagens Docker...'
                 sh '''
+                    # Tentar encontrar docker no PATH ou em caminhos comuns
+                    DOCKER_CMD="docker"
+                    if ! command -v docker >/dev/null 2>&1; then
+                        echo "⚠️ Docker não encontrado no PATH. Tentando caminhos alternativos..."
+                        for path in /usr/bin/docker /usr/local/bin/docker /snap/bin/docker; do
+                            if [ -x "$path" ]; then
+                                echo "✅ Docker encontrado em: $path"
+                                DOCKER_CMD="$path"
+                                export PATH="$PATH:$(dirname $path)"
+                                break
+                            fi
+                        done
+                    fi
+                    
+                    # Verificar se docker foi encontrado
+                    if ! command -v $DOCKER_CMD >/dev/null 2>&1; then
+                        echo "❌ Docker não encontrado! Instalando Docker CLI..."
+                        # Instalar Docker CLI no container Jenkins
+                        apt-get update
+                        apt-get install -y docker.io
+                        DOCKER_CMD="docker"
+                    fi
+                    
+                    echo "🔧 Usando comando Docker: $DOCKER_CMD"
+                    $DOCKER_CMD --version
+                    
                     echo "🏗️ Build do Backend..."
-                    docker build -t santacasa/sistema-assinaturas-backend:latest ./server
+                    $DOCKER_CMD build -t santacasa/sistema-assinaturas-backend:latest ./server
                     
                     echo "🏗️ Build do Frontend..."
                     # Tentar build com imagem padrão primeiro
-                    if ! docker build -t santacasa/sistema-assinaturas-frontend:latest ./client; then
+                    if ! $DOCKER_CMD build -t santacasa/sistema-assinaturas-frontend:latest ./client; then
                         echo "⚠️ Build falhou com node:18-slim. Tentando com imagem alternativa..."
                         
                         # Tentar com imagem alternativa
                         if [ -f ./client/Dockerfile.alternative ]; then
                             echo "🔄 Usando Dockerfile alternativo..."
-                            docker build -f ./client/Dockerfile.alternative -t santacasa/sistema-assinaturas-frontend:latest ./client
+                            $DOCKER_CMD build -f ./client/Dockerfile.alternative -t santacasa/sistema-assinaturas-frontend:latest ./client
                         else
                             echo "❌ Dockerfile alternativo não encontrado. Tentando pull manual da imagem..."
                             
                             # Tentar fazer pull manual da imagem base
                             echo "📥 Fazendo pull manual da imagem node:18..."
-                            docker pull node:18 || echo "⚠️ Pull manual falhou"
+                            $DOCKER_CMD pull node:18 || echo "⚠️ Pull manual falhou"
                             
                             # Tentar build novamente
-                            docker build -t santacasa/sistema-assinaturas-frontend:latest ./client
+                            $DOCKER_CMD build -t santacasa/sistema-assinaturas-frontend:latest ./client
                         fi
                     fi
                     
                     echo "✅ Imagens Docker criadas com sucesso!"
-                    docker images | grep sistema-assinaturas
+                    $DOCKER_CMD images | grep sistema-assinaturas
                 '''
             }
         }
@@ -132,36 +158,50 @@ pipeline {
             steps {
                 echo '🐳 Fazendo deploy com Docker Swarm...'
                 sh '''
+                    # Encontrar comando Docker novamente (variáveis não persistem entre stages)
+                    DOCKER_CMD="docker"
+                    if ! command -v docker >/dev/null 2>&1; then
+                        for path in /usr/bin/docker /usr/local/bin/docker /snap/bin/docker; do
+                            if [ -x "$path" ]; then
+                                DOCKER_CMD="$path"
+                                export PATH="$PATH:$(dirname $path)"
+                                break
+                            fi
+                        done
+                    fi
+                    
+                    echo "🔧 Usando comando Docker: $DOCKER_CMD"
+                    
                     echo "🗑️ Removendo stack antigo..."
-                    docker stack rm sistema-assinaturas || echo "Stack não existe ainda"
+                    $DOCKER_CMD stack rm sistema-assinaturas || echo "Stack não existe ainda"
                     
                     echo "⏳ Aguardando serviços serem removidos (60 segundos)..."
                     sleep 60
                     
                     echo "🔍 Verificando se todos os serviços foram removidos..."
-                    SERVICES=$(docker service ls | grep sistema-assinaturas | wc -l)
+                    SERVICES=$($DOCKER_CMD service ls | grep sistema-assinaturas | wc -l)
                     if [ "$SERVICES" -gt 0 ]; then
                         echo "⚠️ Ainda existem $SERVICES serviços. Aguardando mais 30 segundos..."
                         sleep 30
                     fi
                     
                     echo "🧹 Limpando recursos órfãos..."
-                    docker container prune -f
-                    docker network prune -f
+                    $DOCKER_CMD container prune -f
+                    $DOCKER_CMD network prune -f
                     
                     echo "✅ Stack removido com sucesso"
-                    docker service ls | grep sistema-assinaturas || echo "✅ Nenhum serviço antigo encontrado"
+                    $DOCKER_CMD service ls | grep sistema-assinaturas || echo "✅ Nenhum serviço antigo encontrado"
                     
                     echo "🚀 Fazendo deploy do novo stack..."
                     # Definir variáveis de ambiente para produção
                     export BACKEND_PORT=4000
                     export FRONTEND_PORT=5000
                     export REACT_APP_API_URL=http://172.16.0.219:4000
-                    docker stack deploy -c docker-compose.yml sistema-assinaturas
+                    $DOCKER_CMD stack deploy -c docker-compose.yml sistema-assinaturas
                     
                     echo "📊 Verificando serviços criados..."
                     sleep 10
-                    docker service ls | grep sistema-assinaturas
+                    $DOCKER_CMD service ls | grep sistema-assinaturas
                     
                     echo "✅ Deploy concluído!"
                     echo "📱 Sistema: http://172.16.0.219:5000"
