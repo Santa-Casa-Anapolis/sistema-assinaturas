@@ -1421,32 +1421,6 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           </div>
         )}
 
-        {/* Status da Assinatura */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2" style={{color: 'var(--text-primary)'}}>
-            Assinatura Digital
-          </label>
-          {signatureImage ? (
-            <div className="flex items-center space-x-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <img 
-                src={signatureImage} 
-                alt="Assinatura" 
-                className="w-16 h-8 object-contain border border-gray-300 rounded bg-white"
-              />
-              <div>
-                <span className="text-sm text-green-600 font-medium">✓ Assinatura carregada automaticamente</span>
-                <p className="text-xs text-green-500">Assinatura cadastrada pelo administrador</p>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                ⚠️ Nenhuma assinatura cadastrada. Entre em contato com o administrador para cadastrar sua assinatura.
-              </p>
-            </div>
-          )}
-        </div>
-
         {/* Controles de Navegação e Zoom */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -1628,29 +1602,10 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
           </div>
         </div>
 
-        {/* Instruções */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-lg font-semibold mb-2 text-blue-800">
-            📝 Como posicionar a assinatura:
-          </h3>
-          <ul className="text-sm text-blue-700 space-y-1">
-            <li>• <strong>Clique no local desejado</strong> na página para marcar onde a assinatura deve aparecer</li>
-            <li>• <strong>Clique novamente</strong> no mesmo local para remover a assinatura</li>
-            <li>• <strong>Passe o mouse sobre a página</strong> para ver em tempo real onde a assinatura será posicionada</li>
-            <li>• <strong>Use o zoom</strong> para posicionar com mais precisão</li>
-            <li>• <strong>Navegue entre as páginas</strong> para assinar em múltiplas páginas se necessário</li>
-            <li>• <strong>A assinatura aparecerá apenas nas páginas marcadas</strong> (não se repetirá em todas)</li>
-          </ul>
-          
-          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
-            <h4 className="font-semibold text-green-800 mb-2">⌨️ Atalhos de Teclado:</h4>
-            <div className="grid grid-cols-2 gap-2 text-xs text-green-700">
-              <div><strong>+ / =</strong> - Aumentar zoom</div>
-              <div><strong>-</strong> - Diminuir zoom</div>
-              <div><strong>0</strong> - Resetar zoom (100%)</div>
-              <div><strong>← →</strong> - Navegar páginas</div>
-            </div>
-          </div>
+        {/* Instruções Compactas */}
+        <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 flex items-center space-x-4">
+          <span className="font-semibold">💡 Dica rápida:</span>
+          <span>Clique na página para posicionar • + - para zoom • ← → para navegar</span>
         </div>
 
         {/* Status das Páginas */}
