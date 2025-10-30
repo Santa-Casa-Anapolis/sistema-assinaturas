@@ -1067,7 +1067,8 @@ const DocumentSignaturePositioning = ({ documentId, onSignatureComplete }) => {
       // Enviar PDF assinado para o servidor
       const formData = new FormData();
       const blob = new Blob([pdfBytesModified], { type: 'application/pdf' });
-      formData.append('signedPdf', blob, 'documento_assinado.pdf');
+      formData.append('signedDocument', blob, 'documento_assinado.pdf');
+
       
       const uploadResponse = await fetch(`/api/documents/${documentId}/upload-signed`, {
         method: 'POST',

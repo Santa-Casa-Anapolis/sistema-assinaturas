@@ -2635,7 +2635,7 @@ async function moveDocumentToNetworkFolder(document) {
 }
 
 // Rota para upload de PDF assinado
-app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('signedPdf'), async (req, res) => {
+app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('signedDocument'), async (req, res) => {
   try {
     const documentId = req.params.id;
     const userId = req.user.id;

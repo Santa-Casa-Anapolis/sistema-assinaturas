@@ -94,7 +94,7 @@ const documentFileFilter = (req, file, cb) => {
     mimetype: file.mimetype,
     originalname: file.originalname
   });
-  
+
   if (file.fieldname === 'document') {
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
     if (allowedTypes.includes(file.mimetype)) {
@@ -104,8 +104,16 @@ const documentFileFilter = (req, file, cb) => {
       console.log('❌ Documento rejeitado - tipo não permitido:', file.mimetype);
       cb(new Error('Tipo de arquivo não permitido'), false);
     }
+  } else if (file.fieldname === 'signedDocument') {
+    const allowedTypes = ['application/pdf'];
+    if (allowedTypes.includes(file.mimetype)) {
+      console.log('✅ PDF assinado aceito');
+      cb(null, true);
+    } else {
+      console.log('❌ PDF assinado rejeitado - tipo não permitido:', file.mimetype);
+      cb(new Error('Tipo de arquivo não permitido para PDF assinado'), false);
+    }
   } else if (file.fieldname === 'signature') {
-    // Aceitar assinaturas também no filtro de documentos (compatibilidade)
     const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
     if (allowedTypes.includes(file.mimetype)) {
       console.log('✅ Assinatura aceita no filtro de documentos');
@@ -119,6 +127,7 @@ const documentFileFilter = (req, file, cb) => {
     cb(new Error('Campo de arquivo não reconhecido'), false);
   }
 };
+
 
 // Configurações do multer
 const signatureUpload = multer({
