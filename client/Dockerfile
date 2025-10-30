@@ -44,6 +44,19 @@ RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
     echo '        proxy_cache_bypass $http_upgrade;' >> /etc/nginx/conf.d/default.conf && \
     echo '    }' >> /etc/nginx/conf.d/default.conf && \
     echo '' >> /etc/nginx/conf.d/default.conf && \
+    echo '    # Cache de assets estáticos (CSS, JS, imagens)' >> /etc/nginx/conf.d/default.conf && \
+    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {' >> /etc/nginx/conf.d/default.conf && \
+    echo '        expires 1y;' >> /etc/nginx/conf.d/default.conf && \
+    echo '        add_header Cache-Control "public, immutable";' >> /etc/nginx/conf.d/default.conf && \
+    echo '    }' >> /etc/nginx/conf.d/default.conf && \
+    echo '' >> /etc/nginx/conf.d/default.conf && \
+    echo '    # Desabilitar cache no index.html' >> /etc/nginx/conf.d/default.conf && \
+    echo '    location = /index.html {' >> /etc/nginx/conf.d/default.conf && \
+    echo '        add_header Cache-Control "no-cache, no-store, must-revalidate";' >> /etc/nginx/conf.d/default.conf && \
+    echo '        add_header Pragma "no-cache";' >> /etc/nginx/conf.d/default.conf && \
+    echo '        add_header Expires "0";' >> /etc/nginx/conf.d/default.conf && \
+    echo '    }' >> /etc/nginx/conf.d/default.conf && \
+    echo '' >> /etc/nginx/conf.d/default.conf && \
     echo '    # Servir arquivos estáticos do React' >> /etc/nginx/conf.d/default.conf && \
     echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
     echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \

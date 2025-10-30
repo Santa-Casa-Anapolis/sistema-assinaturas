@@ -41,6 +41,9 @@ services:
       - /var/lib/sistema-assinaturas/uploads:/app/uploads
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
+      placement:
+        constraints:
+          - node.hostname == servdocker  # Garantir que sempre rode no mesmo nó
       restart_policy:
         condition: any
     depends_on:
