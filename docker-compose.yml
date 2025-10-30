@@ -37,6 +37,8 @@ services:
       PORT: 5000
       # Diretório de uploads
       UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
       restart_policy:
@@ -90,3 +92,5 @@ networks:
 volumes:
   postgres_data:
     driver: local  # Definir driver local para Swarm, pode ser modificado conforme a necessidade
+  uploads_data:
+    driver: local  # Volume persistente para uploads de documentos e assinaturas
