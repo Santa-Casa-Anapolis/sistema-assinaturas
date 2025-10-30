@@ -10,12 +10,8 @@ services:
       context: ./server
       dockerfile: Dockerfile
     image: santacasa/sistema-assinaturas-backend:latest
-    container_name: sistema-assinaturas-backend
-    ports:
-      - "${BACKEND_PORT:-4000}:5000"
     networks:
       - sistema-assinaturas-network
-    restart: always
     environment:
       # Configurações do Banco de Dados PostgreSQL
       DB_HOST: postgres
@@ -41,13 +37,16 @@ services:
       - /var/lib/sistema-assinaturas/uploads:/app/uploads
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
+      ports:
+        - target: 5000
+          published: "${BACKEND_PORT:-4000}"
+          protocol: tcp
+          mode: ingress
       placement:
         constraints:
           - node.hostname == servdocker  # Garantir que sempre rode no mesmo nó
       restart_policy:
         condition: any
-    depends_on:
-      - postgres
 
   frontend:
     build:
@@ -56,27 +55,26 @@ services:
       args:
         REACT_APP_API_URL: ${REACT_APP_API_URL:-http://172.16.0.219:4000}
     image: santacasa/sistema-assinaturas-frontend:latest
-    container_name: sistema-assinaturas-frontend
-    ports:
-      - "${FRONTEND_PORT:-5000}:5000"
     networks:
       - sistema-assinaturas-network
-    restart: always
     environment:
       - REACT_APP_API_URL=${REACT_APP_API_URL:-http://172.16.0.219:4000}
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
+      ports:
+        - target: 5000
+          published: "${FRONTEND_PORT:-5000}"
+          protocol: tcp
+          mode: ingress
+      restart_policy:
+        condition: any
 
   postgres:
     image: postgres:15
-    container_name: notasfiscais_db
-    restart: unless-stopped
     environment:
       POSTGRES_DB: notasfiscais_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres  # Certifique-se de que a senha aqui é a mesma no backend
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -84,6 +82,11 @@ services:
       - sistema-assinaturas-network
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
+      ports:
+        - target: 5432
+          published: "5432"
+          protocol: tcp
+          mode: ingress
       restart_policy:
         condition: any
 

@@ -1,72 +1,23 @@
-# Dockerfile para o cliente React
+﻿# Dockerfile para o cliente React
 # Estágio 1: Build
 FROM node:18-slim as build
 
-# Definir diretório de trabalho
 WORKDIR /app
 
-# Copiar arquivos de dependências
 COPY package*.json ./
-
-# Instalar dependências
 RUN npm install
-
-# Copiar código fonte
 COPY . .
 
-# Argumento de build para a URL da API
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Fazer build da aplicação React
 RUN npm run build
 
 # Estágio 2: Servir com Nginx
 FROM nginx:alpine
 
-# Copiar arquivos buildados para o Nginx
 COPY --from=build /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Criar configuração nginx customizada para porta 5000 com proxy para API
-RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
-    echo '    listen 5000;' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # Proxy para API do backend' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location /api/ {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_pass http://sistema-assinaturas_backend:5000;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_http_version 1.1;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_set_header Connection "upgrade";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_set_header Host $host;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_set_header X-Real-IP $remote_addr;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_set_header X-Forwarded-Proto $scheme;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        proxy_cache_bypass $http_upgrade;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # Cache de assets estáticos (CSS, JS, imagens)' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        expires 1y;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Cache-Control "public, immutable";' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # Desabilitar cache no index.html' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location = /index.html {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Cache-Control "no-cache, no-store, must-revalidate";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Pragma "no-cache";' >> /etc/nginx/conf.d/default.conf && \
-    echo '        add_header Expires "0";' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '' >> /etc/nginx/conf.d/default.conf && \
-    echo '    # Servir arquivos estáticos do React' >> /etc/nginx/conf.d/default.conf && \
-    echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
-    echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        index index.html index.htm;' >> /etc/nginx/conf.d/default.conf && \
-    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf && \
-    echo '    }' >> /etc/nginx/conf.d/default.conf && \
-    echo '}' >> /etc/nginx/conf.d/default.conf
-
-# Expor porta 5000
 EXPOSE 5000
-
-# Comando para iniciar o Nginx
 CMD ["nginx", "-g", "daemon off;"]
