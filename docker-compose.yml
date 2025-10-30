@@ -10,6 +10,8 @@ services:
       context: ./server
       dockerfile: Dockerfile
     image: santacasa/sistema-assinaturas-backend:latest
+    ports:
+      - "${BACKEND_PORT:-4000}:5000"
     networks:
       - sistema-assinaturas-network
     environment:
@@ -37,11 +39,6 @@ services:
       - /var/lib/sistema-assinaturas/uploads:/app/uploads
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
-      ports:
-        - target: 5000
-          published: "${BACKEND_PORT:-4000}"
-          protocol: tcp
-          mode: ingress
       placement:
         constraints:
           - node.hostname == servdocker  # Garantir que sempre rode no mesmo nó
@@ -55,22 +52,21 @@ services:
       args:
         REACT_APP_API_URL: ${REACT_APP_API_URL:-http://172.16.0.219:4000}
     image: santacasa/sistema-assinaturas-frontend:latest
+    ports:
+      - "${FRONTEND_PORT:-5000}:5000"
     networks:
       - sistema-assinaturas-network
     environment:
       - REACT_APP_API_URL=${REACT_APP_API_URL:-http://172.16.0.219:4000}
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
-      ports:
-        - target: 5000
-          published: "${FRONTEND_PORT:-5000}"
-          protocol: tcp
-          mode: ingress
       restart_policy:
         condition: any
 
   postgres:
     image: postgres:15
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: notasfiscais_db
       POSTGRES_USER: postgres
@@ -82,11 +78,6 @@ services:
       - sistema-assinaturas-network
     deploy:
       replicas: 1  # Definir quantidade de réplicas para o Swarm
-      ports:
-        - target: 5432
-          published: "5432"
-          protocol: tcp
-          mode: ingress
       restart_policy:
         condition: any
 
