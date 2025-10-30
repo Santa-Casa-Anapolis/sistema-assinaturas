@@ -680,7 +680,7 @@ app.post('/api/signatures/:id/update', authenticateToken, upload.single('signatu
     // Remover assinatura anterior se existir
     const existingSignature = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
     if (existingSignature.rows.length > 0) {
-      const oldFilePath = path.join(__dirname, 'uploads', existingSignature.rows[0].signature_file);
+      const oldFilePath = path.join(UPLOAD_DIR, existingSignature.rows[0].signature_file);
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
@@ -765,7 +765,7 @@ app.delete('/api/users/:id/signature', authenticateToken, async (req, res) => {
     const signature = signatureResult.rows[0];
     
     // Remover arquivo físico
-    const filePath = path.join(__dirname, 'uploads', signature.signature_file);
+    const filePath = path.join(UPLOAD_DIR, signature.signature_file);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
@@ -800,12 +800,12 @@ app.get('/api/users/:id/signature/file', authenticateToken, async (req, res) => 
 
     const signature = result.rows[0];
     let filename = signature.signature_file || signature.original_filename;
-    let filePath = path.join(__dirname, 'uploads', filename);
+    let filePath = path.join(UPLOAD_DIR, filename);
     
     // Se arquivo não existe, tentar buscar por padrão
     if (!fs.existsSync(filePath)) {
       console.log('🔍 Arquivo de assinatura não encontrado, buscando alternativo...');
-      const uploadsDir = path.join(__dirname, 'uploads');
+      const uploadsDir = UPLOAD_DIR;
       
       if (fs.existsSync(uploadsDir)) {
         const allFiles = fs.readdirSync(uploadsDir);
@@ -875,24 +875,30 @@ app.delete('/api/documents/:id', authenticateToken, async (req, res) => {
     }
     
     // Excluir arquivo físico se existir
-    if (document.file_path && fs.existsSync(document.file_path)) {
-      try {
-        fs.unlinkSync(document.file_path);
-        console.log(`✅ Arquivo físico excluído: ${document.file_path}`);
-      } catch (fileError) {
-        console.error('⚠️ Erro ao excluir arquivo físico:', fileError);
-        // Continua mesmo se não conseguir excluir o arquivo
+    if (document.file_path) {
+      const filePath = fs.existsSync(document.file_path) ? document.file_path : path.join(UPLOAD_DIR, document.file_path);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`✅ Arquivo físico excluído: ${filePath}`);
+        } catch (fileError) {
+          console.error('⚠️ Erro ao excluir arquivo físico:', fileError);
+          // Continua mesmo se não conseguir excluir o arquivo
+        }
       }
     }
     
     // Excluir arquivo assinado se existir
-    if (document.signed_file_path && fs.existsSync(document.signed_file_path)) {
-      try {
-        fs.unlinkSync(document.signed_file_path);
-        console.log(`✅ Arquivo assinado excluído: ${document.signed_file_path}`);
-      } catch (fileError) {
-        console.error('⚠️ Erro ao excluir arquivo assinado:', fileError);
-        // Continua mesmo se não conseguir excluir o arquivo
+    if (document.signed_file_path) {
+      const signedPath = fs.existsSync(document.signed_file_path) ? document.signed_file_path : path.join(UPLOAD_DIR, document.signed_file_path);
+      if (fs.existsSync(signedPath)) {
+        try {
+          fs.unlinkSync(signedPath);
+          console.log(`✅ Arquivo assinado excluído: ${signedPath}`);
+        } catch (fileError) {
+          console.error('⚠️ Erro ao excluir arquivo assinado:', fileError);
+          // Continua mesmo se não conseguir excluir o arquivo
+        }
       }
     }
     
@@ -1191,7 +1197,7 @@ app.get('/api/documents/:id/download', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Arquivo não encontrado' });
     }
 
-    const filePath = path.join(__dirname, 'uploads', file.filename);
+    const filePath = path.join(UPLOAD_DIR, file.filename);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Arquivo não encontrado no sistema de arquivos' });
@@ -1222,7 +1228,7 @@ app.get('/api/documents/:id/files/:fileId/download', authenticateToken, async (r
       return res.status(404).json({ error: 'Arquivo não encontrado' });
     }
 
-    const filePath = path.join(__dirname, 'uploads', file.filename);
+    const filePath = path.join(UPLOAD_DIR, file.filename);
     
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'Arquivo não encontrado no sistema de arquivos' });
@@ -1258,17 +1264,17 @@ app.get('/api/documents/:id/stream', authenticateToken, async (req, res) => {
     let filePath = null;
     
     // Primeiro, tentar arquivo assinado se existir
-    if (document.signed_filename && fs.existsSync(path.join(__dirname, 'uploads', document.signed_filename))) {
+    if (document.signed_filename && fs.existsSync(path.join(UPLOAD_DIR, document.signed_filename))) {
       fileName = document.signed_filename;
       console.log('📁 Usando arquivo assinado:', fileName);
     }
     // Se não há arquivo assinado, usar o file_path
-    else if (document.file_path && fs.existsSync(path.join(__dirname, 'uploads', document.file_path))) {
+    else if (document.file_path && fs.existsSync(path.join(UPLOAD_DIR, document.file_path))) {
       fileName = document.file_path;
       console.log('📁 Usando arquivo original:', fileName);
     }
     // Fallback para original_filename
-    else if (document.original_filename && fs.existsSync(path.join(__dirname, 'uploads', document.original_filename))) {
+    else if (document.original_filename && fs.existsSync(path.join(UPLOAD_DIR, document.original_filename))) {
       fileName = document.original_filename;
       console.log('📁 Usando original_filename:', fileName);
     }
@@ -1278,7 +1284,7 @@ app.get('/api/documents/:id/stream', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Arquivo não encontrado no sistema' });
     }
     
-    filePath = path.join(__dirname, 'uploads', fileName);
+    filePath = path.join(UPLOAD_DIR, fileName);
     console.log('📂 Caminho completo do arquivo:', filePath);
     
     if (!fs.existsSync(filePath)) {
@@ -1379,24 +1385,24 @@ app.get('/api/documents/:id/view', async (req, res) => {
     let filePath = null;
     
     // Primeiro, tentar arquivo assinado se existir
-    if (document.signed_filename && fs.existsSync(path.join(__dirname, 'uploads', document.signed_filename))) {
+    if (document.signed_filename && fs.existsSync(path.join(UPLOAD_DIR, document.signed_filename))) {
       fileName = document.signed_filename;
       console.log('📁 Usando arquivo assinado:', fileName);
     }
     // Se não há arquivo assinado, usar o file_path
-    else if (document.file_path && fs.existsSync(path.join(__dirname, 'uploads', document.file_path))) {
+    else if (document.file_path && fs.existsSync(path.join(UPLOAD_DIR, document.file_path))) {
       fileName = document.file_path;
       console.log('📁 Usando arquivo original:', fileName);
     }
     // Fallback para original_filename
-    else if (document.original_filename && fs.existsSync(path.join(__dirname, 'uploads', document.original_filename))) {
+    else if (document.original_filename && fs.existsSync(path.join(UPLOAD_DIR, document.original_filename))) {
       fileName = document.original_filename;
       console.log('📁 Usando original_filename:', fileName);
     }
     // Buscar arquivo por padrão se nenhum dos anteriores funcionar
     else {
       console.log('🔍 Buscando arquivo por padrão...');
-      const uploadsDir = path.join(__dirname, 'uploads');
+      const uploadsDir = UPLOAD_DIR;
       if (fs.existsSync(uploadsDir)) {
         const allFiles = fs.readdirSync(uploadsDir);
         console.log('📁 Todos os arquivos na pasta uploads:', allFiles);
@@ -1427,19 +1433,18 @@ app.get('/api/documents/:id/view', async (req, res) => {
       return res.status(404).json({ error: 'Arquivo não encontrado no sistema' });
     }
     
-    filePath = path.join(__dirname, 'uploads', fileName);
+    filePath = path.join(UPLOAD_DIR, fileName);
     console.log('📂 Caminho completo do arquivo:', filePath);
     
     // Listar alguns arquivos da pasta uploads para debug
-    const uploadsDir = path.join(__dirname, 'uploads');
-    const files = fs.readdirSync(uploadsDir);
+    const files = fs.readdirSync(UPLOAD_DIR);
     console.log('📁 Arquivos na pasta uploads (primeiros 5):', files.slice(0, 5));
     
     if (!fs.existsSync(filePath)) {
       console.log('❌ Arquivo não encontrado no sistema de arquivos');
       
       // Tentar encontrar arquivo por padrão (buscar por ID do documento)
-      const uploadsDir = path.join(__dirname, 'uploads');
+      const uploadsDir = UPLOAD_DIR;
       const allFiles = fs.readdirSync(uploadsDir);
       console.log('🔍 Buscando arquivo alternativo...');
       
@@ -1622,7 +1627,7 @@ async function moveCompletedDocument(documentId) {
     }
 
     // Caminhos dos arquivos
-    const sourcePath = path.join(__dirname, 'uploads', document.filename);
+    const sourcePath = path.join(UPLOAD_DIR, document.filename);
     let destPath;
 
     try {
@@ -2339,10 +2344,10 @@ app.post('/api/documents/confirm-signature', authenticateToken, async (req, res)
       // Criar nome único para o arquivo final
       const timestamp = Date.now();
       const finalFilename = `doc_${timestamp}_${metadata.originalFilename}`;
-      const finalPath = path.join(__dirname, 'uploads', finalFilename);
+      const finalPath = path.join(UPLOAD_DIR, finalFilename);
       
       // Mover arquivo para pasta inicial (pending)
-      const pendingPath = path.join(__dirname, 'uploads', 'pending', finalFilename);
+      const pendingPath = path.join(UPLOAD_DIR, 'pending', finalFilename);
       await documentValidation.moveToFinalLocation(doc.tempId, pendingPath);
       
       // Inserir no banco de dados
@@ -2665,17 +2670,16 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
     // Criar nome único para o arquivo assinado
     const timestamp = Date.now();
     const signedFilename = `signed_${timestamp}_${req.file.originalname}`;
-    const signedPath = path.join(__dirname, 'uploads', signedFilename);
+    const signedPath = path.join(UPLOAD_DIR, signedFilename);
 
     console.log(`📁 Salvando PDF assinado: ${signedFilename}`);
     console.log(`📁 Caminho original: ${req.file.path}`);
     console.log(`📁 Caminho destino: ${signedPath}`);
 
     // Verificar se o diretório de uploads existe
-    const uploadsDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadsDir)) {
+    if (!fs.existsSync(UPLOAD_DIR)) {
       console.log('📁 Criando diretório uploads...');
-      fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
     }
 
     // Mover arquivo para o local correto
@@ -2702,19 +2706,22 @@ app.post('/api/documents/:id/upload-signed', authenticateToken, upload.single('s
       console.log(`📊 Colunas de assinatura encontradas: ${hasSignedColumns}`);
     
     if (hasSignedColumns) {
+      // Salvar caminho relativo para consistência
+      const relativePath = signedFilename;
       await pool.query(`
         UPDATE documents 
         SET signed_file_path = $1, signed_filename = $2, signed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE id = $3
-      `, [signedPath, signedFilename, documentId]);
+      `, [relativePath, signedFilename, documentId]);
         console.log('✅ Documento atualizado com colunas de assinatura');
     } else {
       // Fallback: update with basic columns
+      const relativePath = signedFilename;
       await pool.query(`
         UPDATE documents 
         SET file_path = $1, updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
-      `, [signedPath, documentId]);
+      `, [relativePath, documentId]);
         console.log('✅ Documento atualizado com colunas básicas');
       }
     } catch (dbError) {
