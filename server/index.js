@@ -2092,7 +2092,7 @@ app.get('/api/documents/pending', authenticateToken, async (req, res) => {
       SELECT d.*, u.name as supplier_name, u.sector as document_sector
       FROM documents d
       LEFT JOIN users u ON d.created_by = u.id
-      WHERE d.status = 'pending'
+      WHERE d.current_stage = 'contabilidade' AND (d.status = 'contabilidade_pending' OR d.status = 'pending')
     `;
     
     let params = [];
@@ -2344,34 +2344,37 @@ app.post('/api/documents/confirm-signature', authenticateToken, async (req, res)
       // Criar nome único para o arquivo final
       const timestamp = Date.now();
       const finalFilename = `doc_${timestamp}_${metadata.originalFilename}`;
-      const finalPath = path.join(UPLOAD_DIR, finalFilename);
       
       // Mover arquivo para pasta inicial (pending)
       const pendingPath = path.join(UPLOAD_DIR, 'pending', finalFilename);
       await documentValidation.moveToFinalLocation(doc.tempId, pendingPath);
       
-      // Inserir no banco de dados
-    const result = await pool.query(`
+      // Inserir no banco de dados com current_stage='contabilidade' e status='contabilidade_pending'
+      const result = await pool.query(`
         INSERT INTO documents (title, description, file_path, original_filename, created_by, supervisor_id, sector, amount, status, current_stage, signature_mode, gov_signature)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'pending', $9, $10)
-      RETURNING id
-    `, [
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'contabilidade_pending', 'contabilidade', $9, $10)
+        RETURNING id
+      `, [
         metadata.title,
         metadata.description,
         finalFilename,
         metadata.originalFilename,
-      userId,
-      userId, // supervisor_id
+        userId,
+        userId, // supervisor_id
         metadata.sector,
         metadata.amount,
         metadata.signatureMode,
         metadata.govSignature
-    ]);
+      ]);
 
-    const documentId = result.rows[0].id;
+      const documentId = result.rows[0].id;
+      
+      // Usar documentFlow para mover o arquivo de pending para contabilidade
+      await documentFlow.moveDocumentToStage(documentId, 'pending', 'contabilidade', userId, 'Documento assinado pelo supervisor');
+      
       documentIds.push(documentId);
       
-      console.log(`✅ Documento ${documentId} salvo definitivamente`);
+      console.log(`✅ Documento ${documentId} salvo definitivamente e movido para contabilidade`);
     }
 
     // Registrar na auditoria
@@ -2465,7 +2468,7 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
         WHERE id = $1
       `, [documentId]);
     } else {
-      // Se aprovado, avança para o próximo estágio
+      // Se aprovado, usar documentFlow para avançar para o próximo estágio
       let nextStage = '';
       if (document.current_stage === 'contabilidade') {
         nextStage = 'financeiro';
@@ -2475,22 +2478,17 @@ app.post('/api/documents/:id/approve', authenticateToken, async (req, res) => {
         nextStage = 'payment';
       }
       
-      // Atualizar o documento com a próxima etapa
       if (nextStage) {
+        // Usar documentFlow para mover o documento
+        await documentFlow.moveDocumentToStage(documentId, document.current_stage, nextStage, userId, comments || 'Documento aprovado');
+        
+        // Se nextStage é 'payment', garantir que status e final_approval_date sejam preenchidos
         if (nextStage === 'payment') {
-          // Diretoria aprovou - documento vai para pagamento
           await pool.query(`
             UPDATE documents 
-            SET current_stage = $1, status = 'approved', final_approval_date = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
-          `, [nextStage, documentId]);
-        } else {
-          // Outras etapas
-          await pool.query(`
-            UPDATE documents 
-            SET current_stage = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
-          `, [nextStage, documentId]);
+            SET status = 'approved', final_approval_date = CURRENT_TIMESTAMP
+            WHERE id = $1 AND final_approval_date IS NULL
+          `, [documentId]);
         }
       }
     }
@@ -2530,10 +2528,10 @@ app.post('/api/documents/:id/payment', authenticateToken, upload.single('payment
       return res.status(400).json({ error: 'Documento não está aguardando pagamento' });
     }
 
-    // Atualizar documento com pagamento
+    // Atualizar documento com pagamento (comprovante)
     await pool.query(`
       UPDATE documents 
-      SET payment_proof_path = $1, payment_date = $2, payment_status = 'completed', current_stage = 'completed', status = 'completed', updated_at = CURRENT_TIMESTAMP
+      SET payment_proof_path = $1, payment_date = $2, payment_status = 'completed', updated_at = CURRENT_TIMESTAMP
       WHERE id = $3
     `, [req.file.path, paymentDate, documentId]);
 
@@ -2543,8 +2541,11 @@ app.post('/api/documents/:id/payment', authenticateToken, upload.single('payment
       VALUES ($1, $2, 'payment', 'completed', 'Pagamento processado com sucesso')
     `, [documentId, userId]);
 
-    // Mover arquivos para pasta de rede
-    await moveDocumentToNetworkFolder(document);
+    // Mover documento de payment para completed usando documentFlow
+    await documentFlow.moveDocumentToStage(documentId, 'payment', 'completed', userId, 'Pagamento processado');
+    
+    // Em seguida, enviar para pasta de rede e finalizar
+    await documentFlow.moveToFinalNetworkLocation(documentId);
 
     res.json({ message: 'Pagamento processado com sucesso' });
   } catch (error) {

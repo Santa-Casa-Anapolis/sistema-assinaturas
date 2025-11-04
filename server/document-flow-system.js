@@ -76,18 +76,26 @@ class DocumentFlowSystem {
       const document = docResult.rows[0];
       const currentFilePath = document.file_path;
 
+      // Determinar pasta de origem baseada no estágio atual
+      let sourceFolder;
+      if (currentStage === 'pending') {
+        sourceFolder = this.folders.pending;
+      } else {
+        sourceFolder = this.folders[currentStage] || this.folders.pending;
+      }
+
       // Verificar se arquivo existe na pasta atual
-      const currentFullPath = path.join(this.folders[currentStage], currentFilePath);
+      const currentFullPath = path.join(sourceFolder, currentFilePath);
       if (!fs.existsSync(currentFullPath)) {
         // Tentar na pasta uploads principal
         const mainPath = path.join(__dirname, 'uploads', currentFilePath);
         if (fs.existsSync(mainPath)) {
-          // Mover para pasta correta
-          const targetPath = path.join(this.folders[currentStage], currentFilePath);
+          // Mover para pasta correta primeiro
+          const targetPath = path.join(sourceFolder, currentFilePath);
           fs.copyFileSync(mainPath, targetPath);
           console.log(`📄 Arquivo movido para pasta ${currentStage}`);
         } else {
-          throw new Error(`Arquivo não encontrado: ${currentFilePath}`);
+          throw new Error(`Arquivo não encontrado: ${currentFilePath} em ${currentFullPath}`);
         }
       }
 
@@ -98,24 +106,38 @@ class DocumentFlowSystem {
       const newFileName = `${baseName}_${newStage}_${timestamp}${fileExtension}`;
 
       // Caminhos origem e destino
-      const sourcePath = path.join(this.folders[currentStage], currentFilePath);
+      const sourcePath = path.join(sourceFolder, currentFilePath);
       const targetPath = path.join(this.folders[newStage], newFileName);
 
       // Mover arquivo
       fs.copyFileSync(sourcePath, targetPath);
+
+      // Determinar status baseado no novo estágio
+      let newStatus;
+      if (newStage === 'contabilidade') {
+        newStatus = 'contabilidade_pending';
+      } else if (newStage === 'payment') {
+        newStatus = 'approved';
+      } else if (newStage === 'completed') {
+        newStatus = 'completed';
+      } else {
+        newStatus = `${newStage}_approved`;
+      }
 
       // Atualizar banco de dados
       await pool.query(`
         UPDATE documents 
         SET file_path = $1, current_stage = $2, status = $3, updated_at = CURRENT_TIMESTAMP
         WHERE id = $4
-      `, [newFileName, newStage, `${newStage}_approved`, documentId]);
+      `, [newFileName, newStage, newStatus, documentId]);
 
-      // Registrar aprovação
-      await pool.query(`
-        INSERT INTO document_approvals (document_id, user_id, stage, action, comments, created_at)
-        VALUES ($1, $2, $3, 'approved', $4, CURRENT_TIMESTAMP)
-      `, [documentId, userId, newStage, comments]);
+      // Registrar aprovação apenas se não for movimento inicial (pending -> contabilidade)
+      if (currentStage !== 'pending') {
+        await pool.query(`
+          INSERT INTO document_approvals (document_id, user_id, stage, action, comments, created_at)
+          VALUES ($1, $2, $3, 'approved', $4, CURRENT_TIMESTAMP)
+        `, [documentId, userId, newStage, comments]);
+      }
 
       // Remover arquivo da pasta anterior (após confirmar que foi copiado)
       if (fs.existsSync(sourcePath)) {
@@ -128,6 +150,7 @@ class DocumentFlowSystem {
         success: true,
         newFilePath: newFileName,
         newStage: newStage,
+        newStatus: newStatus,
         message: `Documento movido para etapa ${newStage}`
       };
 
@@ -157,11 +180,21 @@ class DocumentFlowSystem {
       const document = docResult.rows[0];
       const currentFilePath = document.file_path;
 
-      // Caminho atual do arquivo
-      const currentFullPath = path.join(this.folders.completed, currentFilePath);
-      
-      if (!fs.existsSync(currentFullPath)) {
-        throw new Error(`Arquivo não encontrado: ${currentFullPath}`);
+      // Se o documento está em payment, mover para completed primeiro
+      let currentFullPath = path.join(this.folders.payment, currentFilePath);
+      if (fs.existsSync(currentFullPath)) {
+        // Mover de payment para completed
+        const completedPath = path.join(this.folders.completed, currentFilePath);
+        fs.copyFileSync(currentFullPath, completedPath);
+        fs.unlinkSync(currentFullPath);
+        console.log(`📄 Arquivo movido de payment para completed`);
+        currentFullPath = completedPath;
+      } else {
+        // Tentar encontrar em completed
+        currentFullPath = path.join(this.folders.completed, currentFilePath);
+        if (!fs.existsSync(currentFullPath)) {
+          throw new Error(`Arquivo não encontrado: ${currentFilePath} em payment ou completed`);
+        }
       }
 
       // Determinar pasta de destino baseada no setor do usuário
@@ -198,14 +231,16 @@ class DocumentFlowSystem {
       await pool.query(`
         UPDATE documents 
         SET 
-          final_network_path = $1,
-          final_network_filename = $2,
-          final_network_sector = $3,
+          file_path = $1,
+          current_stage = 'completed',
+          final_network_path = $2,
+          final_network_filename = $3,
+          final_network_sector = $4,
           status = 'completed',
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4
-      `, [finalNetworkPath, finalFileName, sectorFolder, documentId]);
+        WHERE id = $5
+      `, [currentFilePath, finalNetworkPath, finalFileName, sectorFolder, documentId]);
 
       // Registrar conclusão
       await pool.query(`
