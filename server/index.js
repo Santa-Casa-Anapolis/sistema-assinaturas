@@ -283,21 +283,37 @@ app.post('/api/auth/login', async (req, res) => {
     // Primeiro, verificar o modo de autenticação do usuário no banco
     const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     
-    let userAuthMode = 'ad'; // Padrão para AD
+    let userAuthMode = null;
     
     if (userCheck.rows.length === 0) {
+      // Usuário não existe no banco - tentar autenticação AD (criação automática)
       console.log('🔍 Usuário não encontrado no banco, tentando autenticação AD...');
       console.log('🔧 Modo de autenticação: Active Directory (criação automática)');
+      userAuthMode = 'ad';
     } else {
+      // Usuário existe - usar o modo definido no banco
       userAuthMode = userCheck.rows[0].auth_mode || 'ad';
+      console.log(`🔍 Usuário encontrado no banco com auth_mode: ${userAuthMode}`);
     }
-    console.log(`🔍 Modo de autenticação do usuário: ${userAuthMode}`);
+    
+    console.log(`🔍 Modo de autenticação determinado: ${userAuthMode}`);
     
     if (userAuthMode === 'local') {
       // Autenticação local (usuários de teste)
       console.log(`🔐 Autenticação local para: ${username}`);
       
+      if (userCheck.rows.length === 0) {
+        console.log('❌ Usuário local não encontrado no banco');
+        return res.status(401).json({ error: 'Usuário não encontrado' });
+      }
+      
       user = userCheck.rows[0];
+      
+      // Verificar se usuário tem senha definida
+      if (!user.password) {
+        console.log('❌ Usuário local sem senha definida');
+        return res.status(401).json({ error: 'Usuário sem senha configurada. Entre em contato com o administrador.' });
+      }
       
       // Verificar senha local
       const isValidPassword = await bcrypt.compare(password, user.password);
