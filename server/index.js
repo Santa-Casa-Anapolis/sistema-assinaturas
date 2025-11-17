@@ -733,30 +733,46 @@ app.get('/api/users/:id/signature', authenticateToken, async (req, res) => {
   try {
     const userId = req.params.id;
     
+    console.log(`🔍 GET /api/users/${userId}/signature - Buscando assinatura...`);
+    
     // Verificar se o usuário tem permissão (admin principal ou o próprio usuário)
     const isAdmin = await isMainAdmin(req.user.id);
     if (!isAdmin && req.user.id != userId) {
+      console.log(`❌ Acesso negado: usuário ${req.user.id} tentando acessar assinatura de ${userId}`);
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
     const result = await pool.query('SELECT * FROM user_signatures WHERE user_id = $1', [userId]);
     
+    console.log(`📊 Resultado da query: ${result.rows.length} assinatura(s) encontrada(s) para user_id ${userId}`);
+    
     if (result.rows.length === 0) {
+      console.log(`❌ Assinatura não encontrada para user_id ${userId}`);
       return res.status(404).json({ error: 'Assinatura não encontrada' });
     }
 
     const signature = result.rows[0];
-    res.json({
+    console.log(`✅ Assinatura encontrada:`, {
+      id: signature.id,
+      user_id: signature.user_id,
+      signature_file: signature.signature_file,
+      original_filename: signature.original_filename
+    });
+    
+    const responseData = {
       id: signature.id,
       userId: signature.user_id,
       signatureFile: signature.signature_file || signature.original_filename,
       originalFilename: signature.original_filename,
       createdAt: signature.created_at,
       updatedAt: signature.updated_at
-    });
+    };
+    
+    console.log(`📤 Enviando resposta:`, responseData);
+    res.json(responseData);
 
   } catch (error) {
-    console.error('Erro ao buscar assinatura:', error);
+    console.error('❌ Erro ao buscar assinatura:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });

@@ -104,6 +104,10 @@ async function initDatabase() {
           user_id INTEGER NOT NULL,
           signature_file VARCHAR(500) NOT NULL,
           original_filename VARCHAR(255) NOT NULL,
+          storage_key VARCHAR(500),
+          file_url VARCHAR(500),
+          mimetype VARCHAR(100),
+          size INTEGER,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -111,6 +115,24 @@ async function initDatabase() {
       `);
     } catch (err) {
       console.log('Tabela user_signatures já existe ou erro:', err.message);
+    }
+
+    // Adicionar colunas opcionais se não existirem (para compatibilidade com versões antigas)
+    const optionalColumns = [
+      { name: 'storage_key', type: 'VARCHAR(500)' },
+      { name: 'file_url', type: 'VARCHAR(500)' },
+      { name: 'mimetype', type: 'VARCHAR(100)' },
+      { name: 'size', type: 'INTEGER' }
+    ];
+
+    for (const col of optionalColumns) {
+      try {
+        await pool.query(`
+          ALTER TABLE user_signatures ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}
+        `);
+      } catch (err) {
+        // Coluna já existe, ignorar erro
+      }
     }
 
     // Criar tabela para rastrear assinaturas em documentos
@@ -451,6 +473,73 @@ async function initDatabase() {
       console.log('✅ Usuários, grupos e setores criados com sucesso!');
     } else {
       console.log('✅ Banco de dados já inicializado com dados.');
+    }
+
+    // Garantir constraint UNIQUE em user_signatures.user_id se não existir
+    try {
+      await pool.query(`
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints 
+            WHERE table_name = 'user_signatures' 
+            AND constraint_name = 'user_signatures_user_id_key'
+          ) THEN
+            ALTER TABLE user_signatures ADD CONSTRAINT user_signatures_user_id_key UNIQUE (user_id);
+          END IF;
+        END $$;
+      `);
+    } catch (err) {
+      // Constraint já existe ou erro, ignorar
+      console.log('Constraint user_signatures_user_id_key já existe ou erro:', err.message);
+    }
+
+    // Criar/atualizar assinaturas para usuários de teste
+    console.log('🖊️ Verificando e criando assinaturas para usuários de teste...');
+    try {
+      const testUsers = [
+        { username: 'supervisor.teste', name: 'Supervisor Teste' },
+        { username: 'contabilidade.teste', name: 'Contabilidade Teste' },
+        { username: 'financeiro.teste', name: 'Financeiro Teste' },
+        { username: 'diretoria.teste', name: 'Diretoria Teste' }
+      ];
+
+      for (const testUser of testUsers) {
+        try {
+          await pool.query(`
+            INSERT INTO user_signatures (user_id, signature_file, original_filename, created_at, updated_at)
+            SELECT 
+              id,
+              'signatures/' || id || '/signature.png',
+              $1 || '_assinatura.png',
+              CURRENT_TIMESTAMP,
+              CURRENT_TIMESTAMP
+            FROM users
+            WHERE username = $2
+            ON CONFLICT (user_id)
+            DO UPDATE SET
+              signature_file = EXCLUDED.signature_file,
+              original_filename = EXCLUDED.original_filename,
+              updated_at = CURRENT_TIMESTAMP;
+          `, [testUser.name, testUser.username]);
+          console.log(`✅ Assinatura criada/atualizada para: ${testUser.username}`);
+        } catch (err) {
+          console.log(`⚠️ Erro ao criar assinatura para ${testUser.username}:`, err.message);
+        }
+      }
+      console.log('✅ Assinaturas de teste verificadas/criadas com sucesso!');
+
+      // Criar arquivos físicos de assinatura
+      try {
+        const { createTestSignatureFiles } = require('./scripts/create-test-signature-files');
+        await createTestSignatureFiles(pool);
+      } catch (err) {
+        console.log('⚠️ Erro ao criar arquivos de assinatura (continuando...):', err.message);
+        // Não interromper se houver erro ao criar arquivos
+      }
+    } catch (err) {
+      console.log('⚠️ Erro ao criar assinaturas de teste:', err.message);
+      // Não interromper a inicialização se houver erro nas assinaturas
     }
 
     return pool;
